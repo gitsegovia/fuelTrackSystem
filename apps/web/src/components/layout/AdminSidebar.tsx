@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge } from 'lucide-react'
+import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -11,8 +11,9 @@ import { Separator } from '@/components/ui/separator'
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/companies', label: 'Empresas', icon: Building2 },
-  { href: '/admin/gas-stations', label: 'Estaciones', icon: Fuel, disabled: true },
-  { href: '/admin/users', label: 'Usuarios', icon: Users, disabled: true },
+  { href: '/admin/gas-stations', label: 'Estaciones', icon: Fuel },
+  { href: '/admin/fuel-types', label: 'Combustibles', icon: Droplets },
+  { href: '/admin/users', label: 'Usuarios', icon: Users },
 ]
 
 export function AdminSidebar() {
@@ -33,19 +34,17 @@ export function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3 py-4">
-        {navItems.map(({ href, label, icon: Icon, disabled }) => {
+        {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href)
           return (
             <Link
               key={href}
-              href={disabled ? '#' : href}
-              aria-disabled={disabled}
+              href={href}
               className={cn(
                 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 active
                   ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                   : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                disabled && 'pointer-events-none opacity-40'
               )}
             >
               <Icon className="size-4" />
