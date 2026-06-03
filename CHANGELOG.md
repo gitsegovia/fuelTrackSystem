@@ -22,6 +22,57 @@ Versioning basado en [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ---
 
+## [0.1.1] - 2026-06-03
+
+Correcciones de infraestructura: Docker funcional y bug de login resuelto.
+
+### Corregido
+
+#### API
+- **Login resolver**: retornaba objeto plano `{ id, username, role }` en vez del modelo Sequelize,
+  lo que causaba que `User.company` fallara al llamar `parent.getCompany()` — el frontend
+  recibía un error GraphQL y mostraba "credenciales incorrectas" aunque el usuario fuera válido.
+
+#### Frontend
+- **`NEXT_PUBLIC_GRAPHQL_URI`**: faltaba el sufijo `/graphql` en `.env.local` y en `docker-compose.yml`.
+  Apollo Client enviaba peticiones a la raíz `/` en vez de `/graphql`.
+- En modo dev, Next.js lee env vars en **runtime** (no las bake en build), así que la variable
+  del compose pisaba la de `.env.local`. Ambos archivos ahora apuntan a `http://localhost:4000/graphql`.
+
+#### Docker
+- **Imagen base del web**: `node:20-alpine` → `node:22-alpine`. pnpm 11.5.1 requiere Node ≥ 22
+  (usa el módulo built-in `node:sqlite` introducido en Node 22).
+- **`pnpm install --ignore-scripts`**: pnpm 11 bloquea scripts de build de dependencias externas
+  (`sharp`, `msw`, `unrs-resolver`) con `ERR_PNPM_IGNORED_BUILDS` cuando no hay `pnpm-workspace.yaml`
+  en el contexto. `--ignore-scripts` bypasea el check; sharp no es requerido en dev (Next.js fallbackea).
+- **`.dockerignore` del web**: no existía → Docker enviaba ~1 GB de contexto (`node_modules` + `.next`).
+  Añadido `.dockerignore`, el contexto bajó a ~5 KB.
+- **`.env` raíz**: `docker-compose.yml` usa `${DB_PASS}` para la contraseña de PostgreSQL pero no
+  había `.env` en la raíz del monorepo → el contenedor de DB arrancaba con contraseña `postgres`
+  mientras la API se conectaba con `mysecretpassword`. Creado `.env` raíz con los valores correctos.
+
+#### Lockfile
+- `apps/web/pnpm-lock.yaml`: el specifier de `zod` era `^4.4.3` pero el código usa v3 (bajado por
+  shadcn). Corregido a `^3` para que pnpm 11 no rechace el lockfile como desactualizado.
+
+### Dev local sin Docker
+
+Para levantar sin Docker, ajustar `apps/api/.env`:
+```
+DB_HOST=localhost
+DB_PASS=<contraseña_local_postgres>
+LICENSE_SERVER_URL=http://localhost:4100
+FINGERPRINT_PATH=C:\ProgramData\fueltrack\fingerprint
+```
+Y crear el archivo de fingerprint:
+```powershell
+New-Item -ItemType Directory -Force "C:\ProgramData\fueltrack"
+Set-Content "C:\ProgramData\fueltrack\fingerprint" "ead4940f77dacd63b34342249f66ed228c7f4692d84ea455548bc9692de88281" -NoNewline
+```
+Luego arrancar en orden: `CCILicenseServer` (puerto 4100) → API → Web.
+
+---
+
 ## [0.1.0] - 2026-06-02
 
 Primera versión funcional del monorepo. Panel admin con gestión de maestros completada.
