@@ -20,18 +20,17 @@ const userResolver: IResolvers<Context> = {
         throw new Error("Authentication required.");
       }
 
-      const user = await context.models.User.findByPk(context.user.id);
+      const user = await context.models.User.findByPk(context.user.id, {
+        include: [
+          { model: context.models.Company, as: "company" },
+          { model: context.models.GasStation, as: "assignedGasStation" },
+          { model: context.models.Employee, as: "employeeProfile" },
+        ],
+      });
       if (!user) {
-        throw new Error("User not found."); // O un error más específico si el usuario del token no existe
+        throw new Error("User not found.");
       }
-      return {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        userType: user.userType,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      };
+      return user;
     },
     users: async (_parent, _args, context: Context) => {
       // Incluir relaciones para evitar N+1 si se piden a menudo
