@@ -316,29 +316,84 @@ apps/web/src/
 
 ## 8. Entorno de desarrollo
 
+### Generación de secretos
+
+Antes de configurar los `.env`, generar los valores sensibles con uno de estos comandos:
+
+**JWT_SECRET y DB_PASS** — usar cualquiera de los tres según lo disponible:
+
+```powershell
+# PowerShell (Windows, siempre disponible)
+[Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(48))
+
+# Node.js (disponible en cualquier máquina del proyecto)
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+
+# OpenSSL (si está instalado)
+openssl rand -hex 48
+```
+
+Cualquiera genera una cadena aleatoria de alta entropía. Usar una distinta para `JWT_SECRET` y para `DB_PASS`.
+
+**Fingerprint (solo dev local, sin Docker)**
+
+El archivo de fingerprint contiene el hash que el CCILicenseServer espera para la clave `DEV-LICENSE-KEY-12345`. Es un valor fijo de desarrollo, no se genera aleatoriamente:
+
+```powershell
+# PowerShell — crear directorio y archivo
+New-Item -ItemType Directory -Force "C:\ProgramData\fueltrack" | Out-Null
+Set-Content -Path "C:\ProgramData\fueltrack\fingerprint" `
+  -Value "ead4940f77dacd63b34342249f66ed228c7f4692d84ea455548bc9692de88281" `
+  -NoNewline
+```
+
+En Docker este archivo lo genera automáticamente `docker-entrypoint.sh` a partir de los archivos `apps/api/dev-machine-id.md` y `apps/api/dev-mac-address.md`.
+
+**LICENSE_KEY** — no se genera, la provee CCI al entregar la licencia al cliente. En dev usar `DEV-LICENSE-KEY-12345` con el CCILicenseServer local.
+
+---
+
 ### Variables de entorno
 
 **apps/web/.env.local**
 ```
-NEXT_PUBLIC_GRAPHQL_URI=http://localhost:4000
-NEXT_PUBLIC_JWT_SECRET=j3J72SK9BoDa
+NEXT_PUBLIC_GRAPHQL_URI=http://localhost:4000/graphql
+NEXT_PUBLIC_JWT_SECRET=<mismo valor que JWT_SECRET de la API>
 ```
+
+> ⚠ En modo dev Next.js lee las env vars en runtime (no las bake en build). El valor de
+> `docker-compose.yml` pisa `.env.local` cuando corre en Docker — ambos archivos deben coincidir.
 
 **apps/api/.env** (ver apps/api/.env.example para referencia)
 ```
 NODE_ENV=development
-PORT=3000               ← API corre en 3000 internamente
+PORT=3000               ← API corre en 3000 internamente (Docker expone 4000→3000)
 DB_DATABASE=fueltrack
 DB_USER=postgres
-DB_PASS=...
-DB_HOST=db              ← nombre del servicio en docker-compose
+DB_PASS=<generado arriba>
+DB_HOST=db              ← en Docker; cambiar a 'localhost' para dev local
 DB_PORT=5432
-DB_HOST_PORT=5433       ← puerto externo del DB en override
-JWT_SECRET=...
-LICENSE_KEY=...
-LICENSE_SERVER_URL=...
-FINGERPRINT_PATH=/etc/fueltrack/fingerprint
+DB_HOST_PORT=5433       ← puerto externo del DB en docker-compose.override
+JWT_SECRET=<generado arriba>
+LICENSE_KEY=DEV-LICENSE-KEY-12345
+LICENSE_SERVER_URL=http://host.docker.internal:4100   ← en Docker
+                        ← cambiar a http://localhost:4100 para dev local
+FINGERPRINT_PATH=/etc/fueltrack/fingerprint           ← en Docker
+                        ← cambiar a C:\ProgramData\fueltrack\fingerprint para dev local
 ```
+
+**`.env` raíz del monorepo** (para interpolación de docker-compose)
+```
+DB_USER=postgres
+DB_PASS=<mismo que apps/api/.env>
+DB_DATABASE=fueltrack
+DB_HOST_PORT=5433
+API_PORT=4000
+```
+
+> ⚠ `docker-compose.yml` usa `${DB_PASS}` para la contraseña del contenedor de PostgreSQL.
+> Si este archivo no existe, el contenedor de DB arranca con contraseña `postgres` mientras
+> la API intenta conectar con el valor de `apps/api/.env` → falla la conexión.
 
 ### Puertos
 | Servicio | Puerto dev local | Puerto docker externo |
