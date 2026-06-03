@@ -14,7 +14,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_GRAPHQL_URI: http://api:4000
+      # En dev Next.js lee env vars en runtime; apunta al puerto externo que expone docker (4000→api:3000)
+      NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
     depends_on:
       api:
         condition: service_started

@@ -3,6 +3,11 @@ lockfileVersion: '9.0'
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
+  onlyBuiltDependencies:
+    - '@apollo/protobufjs'
+    - msw
+    - sharp
+    - unrs-resolver
 
 importers:
 
@@ -75,7 +80,7 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       zod:
-        specifier: ^4.4.3
+        specifier: ^3
         version: 3.25.76
     devDependencies:
       '@tailwindcss/postcss':

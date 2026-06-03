@@ -1,18 +1,18 @@
 # ---- Base Stage ----
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 WORKDIR /app
 RUN corepack enable pnpm
 
 # ---- Builder Stage ----
 FROM base AS builder
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # ---- Production Stage ----
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -33,7 +33,7 @@ CMD ["node", "server.js"]
 FROM base AS development
 ENV NODE_ENV=development
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY . .
 EXPOSE 3000
 CMD ["pnpm", "dev"]
