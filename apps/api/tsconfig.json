@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+      "target": "es2020",
+      "module": "esnext",
+      "outDir": "./dist",
+      "rootDir": "./src",
+      "strict": true,
+      "esModuleInterop": true,
+      "skipLibCheck": true,
+      "forceConsistentCasingInFileNames": true,
+      "resolveJsonModule": true,
+      "baseUrl": ".",
+      "moduleResolution": "node",
+      "paths": {
+        // Opcional: si quieres usar aliases como "@/"
+        // "@/*": ["src/*"]
+      }
+  },
+  "include": [
+    "src/**/*.ts","sequelize/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.espec.ts",
+    "dist"
+  ]
+}

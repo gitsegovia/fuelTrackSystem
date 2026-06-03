@@ -1,0 +1,60 @@
+type DispatchReception {
+  id: UUID!
+  invoiceId: UUID!
+  tankId: UUID!
+  receivedLiters: Decimal!
+  receptionDate: DateTime!
+  initialTankReadingCm: Decimal!
+  finalTankReadingCm: Decimal!
+  initialTankVolumeLiters: Decimal!
+  finalTankVolumeLiters: Decimal!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  invoice: Invoice!
+  tank: Tank!
+  tankAssignments: [TankAssignment!]
+}
+
+input CreateDispatchReceptionInput {
+  invoiceId: UUID!
+  tankId: UUID!
+  receivedLiters: Decimal!
+  receptionDate: DateTime!
+  initialTankReadingCm: Decimal!
+  finalTankReadingCm: Decimal!
+  initialTankVolumeLiters: Decimal!
+  finalTankVolumeLiters: Decimal!
+}
+
+input UpdateDispatchReceptionInput {
+  invoiceId: UUID
+  tankId: UUID
+  receivedLiters: Decimal
+  receptionDate: DateTime
+  initialTankReadingCm: Decimal
+  finalTankReadingCm: Decimal
+  initialTankVolumeLiters: Decimal
+  finalTankVolumeLiters: Decimal
+}
+
+extend type Query {
+  dispatchReceptions: [DispatchReception!]!
+  dispatchReception(id: UUID!): DispatchReception
+  dispatchReceptionsByTank(tankId: UUID!): [DispatchReception!]!
+  dispatchReceptionByInvoiceAndTank(
+    invoiceId: UUID!
+    tankId: UUID!
+  ): DispatchReception
+}
+
+extend type Mutation {
+  createDispatchReception(
+    input: CreateDispatchReceptionInput!
+  ): DispatchReception!
+  updateDispatchReception(
+    id: UUID!
+    input: UpdateDispatchReceptionInput!
+  ): DispatchReception
+  deleteDispatchReception(id: UUID!): Boolean!
+}

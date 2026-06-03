@@ -1,0 +1,63 @@
+enum EmployeeRole {
+  CASHIER
+  DISPATCHER
+  ADMIN
+  MANAGER
+  SUPERVISOR
+  ACCOUNTANT
+}
+
+type EmployeeShift {
+  id: UUID!
+  employeeId: UUID!
+  gasStationId: UUID!
+  shiftStartTime: DateTime!
+  shiftEndTime: DateTime
+  employeeRole: EmployeeRole!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  employee: Employee!
+  gasStation: GasStation!
+  dispenserReadings: [DispenserReading!]!
+  salesTicketsProcessed: [SalesTicket!]
+  salesTicketsDispatched: [SalesTicket!]
+}
+
+input CreateEmployeeShiftInput {
+  employeeId: UUID!
+  gasStationId: UUID!
+  shiftStartTime: DateTime!
+  employeeRole: EmployeeRole!
+}
+
+input UpdateEmployeeShiftInput {
+  shiftStartTime: DateTime
+  shiftEndTime: DateTime
+  employeeRole: EmployeeRole
+}
+
+extend type Query {
+  employeeShifts: [EmployeeShift!]!
+  employeeShift(id: UUID!): EmployeeShift
+  employeeShiftsByEmployee(
+    employeeId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [EmployeeShift!]!
+  employeeShiftsByGasStation(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [EmployeeShift!]!
+  activeEmployeeShift(employeeId: UUID!): EmployeeShift # Para encontrar el turno actual de un empleado
+}
+
+extend type Mutation {
+  createEmployeeShift(input: CreateEmployeeShiftInput!): EmployeeShift!
+  updateEmployeeShift(
+    id: UUID!
+    input: UpdateEmployeeShiftInput!
+  ): EmployeeShift
+  deleteEmployeeShift(id: UUID!): Boolean!
+  endEmployeeShift(id: UUID!, shiftEndTime: DateTime!): EmployeeShift # Finalizar un turno específico
+}

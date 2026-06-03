@@ -1,0 +1,87 @@
+# src/graphql/schemas/salesTicket.graphql
+
+enum SalesTicketStatus {
+  PENDING_PAYMENT_DISPATCH
+  PAID_PENDING_DISPATCH
+  COMPLETED
+  CANCELED
+}
+
+type SalesTicket {
+  id: UUID!
+  gasStationId: UUID!
+  ticketNumber: Int!
+  cashierShiftId: UUID!
+  dispatcherEmployeeId: UUID
+  dispenserNozzleId: UUID
+  fuelTypeId: UUID!
+  requestedLiters: Decimal!
+  actualLitersDispatched: Decimal
+  assignedSaleTypeConfigId: UUID!
+  ticketIssueTime: DateTime!
+  totalAmountExpected: Decimal!
+  status: SalesTicketStatus!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  gasStation: GasStation!
+  cashierShift: EmployeeShift!
+  dispatcherEmployee: Employee
+  dispenserNozzle: DispenserNozzle
+  fuelType: FuelType!
+  assignedSaleTypeConfig: SaleTypeConfig!
+  payments: [Payment!]! # Anticipando la tabla de pagos
+}
+
+input CreateSalesTicketInput {
+  gasStationId: UUID!
+  cashierShiftId: UUID!
+  fuelTypeId: UUID!
+  requestedLiters: Decimal!
+  assignedSaleTypeConfigId: UUID!
+  ticketIssueTime: DateTime!
+  totalAmountExpected: Decimal!
+  # Los siguientes campos pueden ser nulos al crear y se llenan después
+  dispatcherEmployeeId: UUID
+  dispenserNozzleId: UUID
+  actualLitersDispatched: Decimal
+  status: SalesTicketStatus # Default: PENDING_PAYMENT_DISPATCH
+}
+
+input UpdateSalesTicketInput {
+  dispatcherEmployeeId: UUID
+  dispenserNozzleId: UUID
+  fuelTypeId: UUID
+  requestedLiters: Decimal
+  actualLitersDispatched: Decimal
+  assignedSaleTypeConfigId: UUID
+  ticketIssueTime: DateTime
+  totalAmountExpected: Decimal
+  status: SalesTicketStatus
+}
+
+extend type Query {
+  salesTickets: [SalesTicket!]!
+  salesTicket(id: UUID!): SalesTicket
+  salesTicketsByGasStation(gasStationId: UUID!, date: DateTime): [SalesTicket!]! # Filtrar por estación y opcionalmente por fecha
+  salesTicketsByCashierShift(cashierShiftId: UUID!): [SalesTicket!]!
+  salesTicketsByDispatcher(dispatcherEmployeeId: UUID!): [SalesTicket!]!
+  salesTicketsByNozzle(dispenserNozzleId: UUID!): [SalesTicket!]!
+  salesTicketsByFuelType(fuelTypeId: UUID!): [SalesTicket!]!
+  salesTicketsByStatus(status: SalesTicketStatus!): [SalesTicket!]!
+}
+
+extend type Mutation {
+  createSalesTicket(input: CreateSalesTicketInput!): SalesTicket!
+  updateSalesTicket(id: UUID!, input: UpdateSalesTicketInput!): SalesTicket
+  deleteSalesTicket(id: UUID!): Boolean!
+  # Mutaciones específicas para el flujo del ticket
+  processSalesTicketDispatch(
+    id: UUID!
+    dispatcherEmployeeId: UUID!
+    dispenserNozzleId: UUID!
+    actualLitersDispatched: Decimal!
+  ): SalesTicket!
+  completeSalesTicketPayment(id: UUID!): SalesTicket! # Marcar como COMPLETED
+  cancelSalesTicket(id: UUID!): SalesTicket! # Marcar como CANCELLED
+}

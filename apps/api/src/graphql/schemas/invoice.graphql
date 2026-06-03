@@ -1,0 +1,67 @@
+enum FuelType {
+  GASOLINE_91
+  GASOLINE_95
+  DIESEL
+  KEROSENE
+}
+
+type Invoice {
+  id: UUID!
+  invoiceNumber: String!
+  controlNumber: String!
+  sealNumber: String!
+  liters: Decimal! # Usamos el escalar Decimal para precisión
+  dispatchDate: DateTime!
+  dischargeDate: DateTime!
+  truckIdentifier: String!
+  fuelType: FuelType!
+  totalAmount: Decimal!
+  costPerLiter: Decimal!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  receivingGasStation: GasStation! # Estación que recibe la factura
+  currency: Currency! # Moneda de la factura
+  dispatchReceptions: [DispatchReception!] # Recepciones de despacho asociadas a esta factura
+}
+
+input CreateInvoiceInput {
+  invoiceNumber: String!
+  controlNumber: String!
+  sealNumber: String!
+  liters: Decimal!
+  dispatchDate: DateTime!
+  dischargeDate: DateTime!
+  truckIdentifier: String!
+  fuelType: FuelType!
+  totalAmount: Decimal!
+  costPerLiter: Decimal!
+  gasStationId: UUID!
+  currencyId: UUID!
+}
+
+input UpdateInvoiceInput {
+  invoiceNumber: String
+  controlNumber: String
+  sealNumber: String
+  liters: Decimal
+  dispatchDate: DateTime
+  dischargeDate: DateTime
+  truckIdentifier: String
+  fuelType: FuelType
+  totalAmount: Decimal
+  costPerLiter: Decimal
+  gasStationId: UUID
+  currencyId: UUID
+}
+
+extend type Query {
+  invoices: [Invoice!]!
+  invoice(id: UUID!): Invoice
+}
+
+extend type Mutation {
+  createInvoice(input: CreateInvoiceInput!): Invoice!
+  updateInvoice(id: UUID!, input: UpdateInvoiceInput!): Invoice
+  deleteInvoice(id: UUID!): Boolean!
+}

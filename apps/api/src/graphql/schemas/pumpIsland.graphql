@@ -1,0 +1,36 @@
+type PumpIsland {
+  id: UUID!
+  gasStationId: UUID!
+  name: String!
+  description: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  gasStation: GasStation!
+  dispensers: [Dispenser!] # Si Dispenser es definida
+}
+
+input CreatePumpIslandInput {
+  gasStationId: UUID!
+  name: String!
+  description: String
+}
+
+input UpdatePumpIslandInput {
+  gasStationId: UUID
+  name: String
+  description: String
+}
+
+extend type Query {
+  pumpIslands: [PumpIsland!]!
+  pumpIsland(id: UUID!): PumpIsland
+  pumpIslandsByGasStation(gasStationId: UUID!): [PumpIsland!]!
+  pumpIslandByGasStationAndName(gasStationId: UUID!, name: String!): PumpIsland
+}
+
+extend type Mutation {
+  createPumpIsland(input: CreatePumpIslandInput!): PumpIsland!
+  updatePumpIsland(id: UUID!, input: UpdatePumpIslandInput!): PumpIsland
+  deletePumpIsland(id: UUID!): Boolean!
+}

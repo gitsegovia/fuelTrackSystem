@@ -1,0 +1,51 @@
+type Dispenser {
+  id: UUID!
+  gasStationId: UUID!
+  pumpIslandId: UUID!
+  tankId: UUID!
+  fuelTypeId: UUID!
+  name: String!
+  isOperational: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  gasStation: GasStation!
+  pumpIsland: PumpIsland!
+  tank: Tank!
+  fuelType: FuelType!
+  salesTickets: [SalesTicket!]
+}
+
+input CreateDispenserInput {
+  gasStationId: UUID!
+  pumpIslandId: UUID!
+  tankId: UUID!
+  fuelTypeId: UUID!
+  name: String!
+  isOperational: Boolean
+}
+
+input UpdateDispenserInput {
+  gasStationId: UUID
+  pumpIslandId: UUID
+  tankId: UUID
+  fuelTypeId: UUID
+  name: String
+  isOperational: Boolean
+}
+
+extend type Query {
+  dispensers: [Dispenser!]!
+  dispenser(id: UUID!): Dispenser
+  dispensersByGasStation(gasStationId: UUID!): [Dispenser!]!
+  dispensersByPumpIsland(pumpIslandId: UUID!): [Dispenser!]!
+  dispensersByTank(tankId: UUID!): [Dispenser!]!
+  dispensersByFuelType(fuelTypeId: UUID!): [Dispenser!]!
+  dispenserByGasStationAndName(gasStationId: UUID!, name: String!): Dispenser
+}
+
+extend type Mutation {
+  createDispenser(input: CreateDispenserInput!): Dispenser!
+  updateDispenser(id: UUID!, input: UpdateDispenserInput!): Dispenser
+  deleteDispenser(id: UUID!): Boolean!
+}

@@ -1,0 +1,41 @@
+type GasStation {
+  id: UUID!
+  name: String!
+  code: String!
+  address: String
+  company: Company! # Relación: Una estación pertenece a una compañía
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  users: [User!]!
+  employeeShifts: [EmployeeShift!]!
+  receivedInvoices: [Invoice!]!
+  # Puedes añadir más relaciones aquí si quieres exponerlas en GraphQL
+  # tanks: [Tank!]!
+  # pumpIslands: [PumpIsland!]!
+  # salesTickets: [SalesTicket!]!
+}
+
+input CreateGasStationInput {
+  name: String!
+  code: String!
+  address: String
+  companyId: UUID! # FK para la relación
+}
+
+input UpdateGasStationInput {
+  name: String
+  code: String
+  address: String
+  companyId: UUID
+}
+
+extend type Query {
+  gasStations: [GasStation!]!
+  gasStation(id: UUID!): GasStation
+}
+
+extend type Mutation {
+  createGasStation(input: CreateGasStationInput!): GasStation!
+  updateGasStation(id: UUID!, input: UpdateGasStationInput!): GasStation
+  deleteGasStation(id: UUID!): Boolean!
+}

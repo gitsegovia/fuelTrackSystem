@@ -1,0 +1,60 @@
+enum SaleTypeName {
+  REGULAR
+  PREMIUM
+  SUBSIDIZED
+}
+
+type SaleTypeConfig {
+  id: UUID!
+  gasStationId: UUID!
+  fuelTypeId: UUID!
+  saleTypeName: SaleTypeName!
+  salePricePerLiter: Decimal!
+  percentage: Decimal!
+  currencyId: UUID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  gasStation: GasStation!
+  fuelType: FuelType!
+  currency: Currency!
+  associatedSalesTickets: [SalesTicket!] # Si SalesTicket está definido
+}
+
+input CreateSaleTypeConfigInput {
+  gasStationId: UUID!
+  fuelTypeId: UUID!
+  saleTypeName: SaleTypeName!
+  salePricePerLiter: Decimal!
+  percentage: Decimal!
+  currencyId: UUID!
+}
+
+input UpdateSaleTypeConfigInput {
+  gasStationId: UUID
+  fuelTypeId: UUID
+  saleTypeName: SaleTypeName
+  salePricePerLiter: Decimal
+  percentage: Decimal
+  currencyId: UUID
+}
+
+extend type Query {
+  saleTypeConfigs: [SaleTypeConfig!]!
+  saleTypeConfig(id: UUID!): SaleTypeConfig
+  # Podrías querer consultas por combinación de campos
+  saleTypeConfigByStationFuelTypeAndName(
+    gasStationId: UUID!
+    fuelTypeId: UUID!
+    saleTypeName: SaleTypeName!
+  ): SaleTypeConfig
+}
+
+extend type Mutation {
+  createSaleTypeConfig(input: CreateSaleTypeConfigInput!): SaleTypeConfig!
+  updateSaleTypeConfig(
+    id: UUID!
+    input: UpdateSaleTypeConfigInput!
+  ): SaleTypeConfig
+  deleteSaleTypeConfig(id: UUID!): Boolean!
+}

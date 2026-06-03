@@ -1,0 +1,40 @@
+type Employee {
+  id: UUID!
+  firstName: String!
+  lastName: String!
+  position: String!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  user: User! # Un empleado tiene un usuario asociado
+  gasStation: GasStation! # Un empleado pertenece a una estación de servicio
+  shifts: [EmployeeShift!] # Turnos que ha tenido el empleado
+  dispatchedSalesTickets: [SalesTicket!] # Tickets de venta que ha despachado
+  tankMeasurementsPerformed: [TankMeasurement!] # Mediciones de tanque que ha realizado
+}
+
+input CreateEmployeeInput {
+  userId: UUID!
+  gasStationId: UUID!
+  firstName: String!
+  lastName: String!
+  position: String!
+}
+
+input UpdateEmployeeInput {
+  userId: UUID
+  gasStationId: UUID
+  firstName: String
+  lastName: String
+  position: String
+}
+
+extend type Query {
+  employees: [Employee!]!
+  employee(id: UUID!): Employee
+}
+
+extend type Mutation {
+  createEmployee(input: CreateEmployeeInput!): Employee!
+  updateEmployee(id: UUID!, input: UpdateEmployeeInput!): Employee
+  deleteEmployee(id: UUID!): Boolean!
+}

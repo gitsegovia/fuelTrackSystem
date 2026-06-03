@@ -1,0 +1,56 @@
+type Tank {
+  id: UUID!
+  gasStationId: UUID!
+  fuelTypeId: UUID!
+  tankModelId: UUID!
+  name: String!
+  currentHeightCm: Decimal # Optional
+  currentVolumeLiters: Decimal # Optional
+  maxCapacityLiters: Decimal!
+  minOperatingVolumeLiters: Decimal!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relationships
+  gasStation: GasStation!
+  fuelType: FuelType!
+  tankModel: TankModel!
+  tankAssignments: [TankAssignment!] # If TankAssignment is defined
+  connectedDispensers: [Dispenser!] # If Dispenser is defined
+  dispatchReceptions: [DispatchReception!] # If DispatchReception is defined
+  measurements: [TankMeasurement!] # If TankMeasurement is defined
+}
+
+input CreateTankInput {
+  gasStationId: UUID!
+  fuelTypeId: UUID!
+  tankModelId: UUID!
+  name: String!
+  currentHeightCm: Decimal
+  currentVolumeLiters: Decimal
+  maxCapacityLiters: Decimal!
+  minOperatingVolumeLiters: Decimal!
+}
+
+input UpdateTankInput {
+  gasStationId: UUID
+  fuelTypeId: UUID
+  tankModelId: UUID
+  name: String
+  currentHeightCm: Decimal
+  currentVolumeLiters: Decimal
+  maxCapacityLiters: Decimal
+  minOperatingVolumeLiters: Decimal
+}
+
+extend type Query {
+  tanks: [Tank!]!
+  tank(id: UUID!): Tank
+  tanksByGasStation(gasStationId: UUID!): [Tank!]!
+  tankByGasStationAndName(gasStationId: UUID!, name: String!): Tank
+}
+
+extend type Mutation {
+  createTank(input: CreateTankInput!): Tank!
+  updateTank(id: UUID!, input: UpdateTankInput!): Tank
+  deleteTank(id: UUID!): Boolean!
+}

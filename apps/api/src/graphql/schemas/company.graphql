@@ -1,0 +1,35 @@
+type Company {
+  id: UUID!
+  name: String!
+  address: String
+  phone: String
+  logo: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  gasStations: [GasStation!]!
+}
+
+input CreateCompanyInput {
+  name: String!
+  address: String
+  phone: String
+  logo: String
+}
+
+input UpdateCompanyInput {
+  name: String
+  address: String
+  phone: String
+  logo: String
+}
+
+extend type Query {
+  companies: [Company!]!
+  company(id: UUID!): Company
+}
+
+extend type Mutation {
+  createCompany(input: CreateCompanyInput!): Company!
+  updateCompany(id: UUID!, input: UpdateCompanyInput!): Company
+  deleteCompany(id: UUID!): Boolean!
+}

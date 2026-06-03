@@ -1,0 +1,49 @@
+type DispenserNozzle {
+  id: UUID!
+  dispenserId: UUID!
+  name: String!
+  initialMeterReading: Decimal!
+  currentMeterReading: Decimal!
+  isOperational: Boolean!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  dispenser: Dispenser!
+  dispenserReadings: [DispenserReading!]! # Relación con DispenserReading
+  salesTickets: [SalesTicket!]! # Relación con SalesTicket
+}
+
+input CreateDispenserNozzleInput {
+  dispenserId: UUID!
+  name: String!
+  initialMeterReading: Decimal!
+  currentMeterReading: Decimal!
+  isOperational: Boolean
+}
+
+input UpdateDispenserNozzleInput {
+  dispenserId: UUID
+  name: String
+  initialMeterReading: Decimal
+  currentMeterReading: Decimal
+  isOperational: Boolean
+}
+
+extend type Query {
+  dispenserNozzles: [DispenserNozzle!]!
+  dispenserNozzle(id: UUID!): DispenserNozzle
+  dispenserNozzlesByDispenser(dispenserId: UUID!): [DispenserNozzle!]!
+  dispenserNozzleByDispenserAndName(
+    dispenserId: UUID!
+    name: String!
+  ): DispenserNozzle
+}
+
+extend type Mutation {
+  createDispenserNozzle(input: CreateDispenserNozzleInput!): DispenserNozzle!
+  updateDispenserNozzle(
+    id: UUID!
+    input: UpdateDispenserNozzleInput!
+  ): DispenserNozzle
+  deleteDispenserNozzle(id: UUID!): Boolean!
+}

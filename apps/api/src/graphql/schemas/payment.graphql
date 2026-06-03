@@ -1,0 +1,53 @@
+enum PaymentMethod {
+  CASH
+  DEBIT_CARD
+  CREDIT_CARD
+  MOBILE_PAYMENT # Pago móvil
+  BANK_TRANSFER
+}
+
+type Payment {
+  id: UUID!
+  salesTicketId: UUID!
+  paymentMethod: PaymentMethod!
+  amount: Decimal!
+  paymentTime: DateTime!
+  transactionReference: String
+  currencyId: UUID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  salesTicket: SalesTicket!
+  currency: Currency!
+}
+
+input CreatePaymentInput {
+  salesTicketId: UUID!
+  paymentMethod: PaymentMethod!
+  amount: Decimal!
+  paymentTime: DateTime!
+  transactionReference: String
+  currencyId: UUID!
+}
+
+input UpdatePaymentInput {
+  paymentMethod: PaymentMethod
+  amount: Decimal
+  paymentTime: DateTime
+  transactionReference: String
+  currencyId: UUID
+}
+
+extend type Query {
+  payments: [Payment!]!
+  payment(id: UUID!): Payment
+  paymentsBySalesTicket(salesTicketId: UUID!): [Payment!]!
+  paymentsByMethod(paymentMethod: PaymentMethod!): [Payment!]!
+  paymentsByCurrency(currencyId: UUID!): [Payment!]!
+}
+
+extend type Mutation {
+  createPayment(input: CreatePaymentInput!): Payment!
+  updatePayment(id: UUID!, input: UpdatePaymentInput!): Payment
+  deletePayment(id: UUID!): Boolean!
+}

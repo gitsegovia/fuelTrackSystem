@@ -1,0 +1,23 @@
+const path = require('path');
+
+module.exports = {
+  // Ruta al directorio de configuración de la base de datos
+  // Esto apunta a sequelize/config/config.js (o .json)
+  'config': path.resolve(__dirname, 'sequelize', 'config', 'config.js'),
+
+  // Ruta al directorio donde Sequelize CLI buscará tus migraciones
+  'migrations-path': path.resolve(__dirname, 'sequelize', 'migrations'),
+
+  // Ruta al directorio donde Sequelize CLI buscará tus seeders
+  'seeders-path': path.resolve(__dirname, 'sequelize', 'seeders'),
+
+  //Ruta al directorio donde Sequelize CLI buscará tus models
+  // Apuntamos directamente a src/models
+  'models-path': path.resolve(__dirname, 'src', 'models'),
+
+  // Opcional: Define una forma de requerir modelos si necesitas usarlos en seeds/migrations
+  // Esto puede ser útil si tus modelos son ES Modules.
+  // Si tienes problemas de importación en las migraciones, esta parte podría necesitar ajuste.
+  // Pero generalmente, el `require` directo funciona bien para JS.
+  // 'model-auto-import': true // Esto puede importar automáticamente modelos de tu models-path
+};

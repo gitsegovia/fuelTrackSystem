@@ -1,0 +1,66 @@
+enum UserRole {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum UserType {
+  Administrator
+  Supervisor
+  Cashier
+  FuelAttendant
+  Administrative
+}
+
+type User {
+  id: UUID!
+  username: String!
+  role: UserRole!
+  userType: UserType!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  company: Company!
+  assignedGasStation: GasStation
+  employeeProfile: Employee
+}
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+input CreateUserInput {
+  username: String!
+  password: String! # Campo para la contraseña, se hasheará en el resolver
+  role: UserRole!
+  userType: UserType!
+  companyId: UUID!
+  gasStationId: UUID # Puede ser nulo
+}
+
+input UpdateUserInput {
+  username: String
+  password: String
+  role: UserRole
+  userType: UserType
+  companyId: UUID
+  gasStationId: UUID
+}
+
+input LoginInput {
+  username: String!
+  password: String!
+}
+
+type Query {
+  me: User
+  users: [User!]!
+  user(id: UUID!): User
+}
+
+type Mutation {
+  createUser(input: CreateUserInput!): User!
+  updateUser(id: UUID!, input: UpdateUserInput!): User
+  deleteUser(id: UUID!): Boolean!
+  login(input: LoginInput!): AuthPayload!
+}

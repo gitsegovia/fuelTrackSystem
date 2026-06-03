@@ -1,0 +1,32 @@
+type FuelType {
+  id: UUID!
+  name: String!
+  costPerLiter: Decimal!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # saleTypeConfig: [SaleTypeConfig!]!
+  # tanksStoringThisFuel: [Tank!]!
+  # dispensersHandlingThisFuel: [Dispenser!]!
+  # salesTicketsForFuel: [SaleTicket!]!
+}
+
+input CreateFuelTypeInput {
+  name: String!
+  costPerLiter: Decimal!
+}
+
+input UpdateFuelTypeInput {
+  name: String
+  costPerLiter: Decimal
+}
+
+extend type Query {
+  fuelTypes: [FuelType!]!
+  fuelType(id: UUID!): FuelType
+}
+
+extend type Mutation {
+  createFuelType(input: CreateFuelTypeInput!): FuelType!
+  updateFuelType(id: UUID!, input: UpdateFuelTypeInput!): FuelType
+  deleteFuelType(id: UUID!): Boolean!
+}

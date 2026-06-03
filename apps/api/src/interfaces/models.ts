@@ -1,0 +1,46 @@
+import { ModelStatic } from "sequelize";
+import { Company } from "../models/company";
+import { GasStation } from "../models/gasStation";
+import { User } from "../models/user";
+import { Employee } from "src/models/employee";
+import { Invoice } from "src/models/invoice";
+import { FuelType } from "src/models/fuelType";
+import { SaleTypeConfig } from "src/models/saleTypeConfig";
+import { Currency } from "src/models/currency";
+import { TankModel } from "src/models/tankModel";
+import { TankCalibrationEntry } from "src/models/tankCalibrationEntry";
+import { Tank } from "src/models/tank";
+import { DispatchReception } from "src/models/dispatchReception";
+import { TankAssignment } from "src/models/tankAssignment";
+import { PumpIsland } from "src/models/pumpIsland";
+import { Dispenser } from "src/models/dispenser";
+import { DispenserNozzle } from "src/models/dispenserNozzle";
+import { EmployeeShift } from "src/models/employeeShift";
+import { DispenserReading } from "src/models/dispenserReading";
+import { SalesTicket } from "src/models/salesTicket";
+import { Payment } from "src/models/payment";
+import { TankMeasurement } from "src/models/tankMeasurement";
+
+export interface AppModels {
+  Company: ModelStatic<Company>;
+  User: ModelStatic<User>;
+  Employee: ModelStatic<Employee>;
+  GasStation: ModelStatic<GasStation>;
+  Invoice: ModelStatic<Invoice>;
+  FuelType: ModelStatic<FuelType>;
+  SaleTypeConfig: ModelStatic<SaleTypeConfig>;
+  Currency: ModelStatic<Currency>;
+  TankModel: ModelStatic<TankModel>;
+  TankCalibrationEntry: ModelStatic<TankCalibrationEntry>;
+  Tank: ModelStatic<Tank>;
+  DispatchReception: ModelStatic<DispatchReception>;
+  TankAssignment: ModelStatic<TankAssignment>;
+  PumpIsland: ModelStatic<PumpIsland>;
+  Dispenser: ModelStatic<Dispenser>;
+  DispenserNozzle: ModelStatic<DispenserNozzle>;
+  EmployeeShift: ModelStatic<EmployeeShift>;
+  DispenserReading: ModelStatic<DispenserReading>;
+  SalesTicket: ModelStatic<SalesTicket>;
+  Payment: ModelStatic<Payment>;
+  TankMeasurement: ModelStatic<TankMeasurement>;
+}

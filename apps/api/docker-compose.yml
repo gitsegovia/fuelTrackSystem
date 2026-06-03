@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Este es el archivo base, configurado para PRODUCCIÓN.
+# El archivo docker-compose.override.yml lo adaptará para desarrollo.
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production # Apunta a la etapa 'production' del Dockerfile
+    container_name: fuel-track-api
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "${PORT}:${PORT}"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fueltrack-net
+    volumes:
+      # Monta los identificadores únicos del host para generar el fingerprint.
+      # 1. El ID de la máquina del host.
+      - /etc/machine-id:/run/secrets/machine-id:ro
+      # 2. La dirección MAC de la interfaz de red principal (ej. eth0).
+      - /sys/class/net/eth0/address:/run/secrets/mac-address:ro
+  db:
+    image: postgres:15-alpine
+    container_name: fuel-track-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_DATABASE}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - fueltrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+
+networks:
+  fueltrack-net:
+    driver: bridge

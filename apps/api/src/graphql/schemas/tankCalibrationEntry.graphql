@@ -1,0 +1,42 @@
+type TankCalibrationEntry {
+  id: UUID!
+  tankModelId: UUID!
+  heightCm: Decimal!
+  volumeLiters: Decimal!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relación
+  tankModel: TankModel!
+}
+
+input CreateTankCalibrationEntryInput {
+  tankModelId: UUID!
+  heightCm: Decimal!
+  volumeLiters: Decimal!
+}
+
+input UpdateTankCalibrationEntryInput {
+  tankModelId: UUID
+  heightCm: Decimal
+  volumeLiters: Decimal
+}
+
+extend type Query {
+  tankCalibrationEntries: [TankCalibrationEntry!]!
+  tankCalibrationEntry(id: UUID!): TankCalibrationEntry
+  tankCalibrationEntryByModelAndHeight(
+    tankModelId: UUID!
+    heightCm: Decimal!
+  ): TankCalibrationEntry
+}
+
+extend type Mutation {
+  createTankCalibrationEntry(
+    input: CreateTankCalibrationEntryInput!
+  ): TankCalibrationEntry!
+  updateTankCalibrationEntry(
+    id: UUID!
+    input: UpdateTankCalibrationEntryInput!
+  ): TankCalibrationEntry
+  deleteTankCalibrationEntry(id: UUID!): Boolean!
+}

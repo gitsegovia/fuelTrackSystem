@@ -1,0 +1,73 @@
+name: Deploy to Production
+
+# Se ejecuta en cada push a la rama 'main'
+on:
+  push:
+    branches: ["main"]
+  # Permite ejecutar este workflow manualmente desde la pestaña Actions
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write # Permiso para escribir en GitHub Container Registry
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # Genera dos tags: 'latest' y uno con el hash del commit (ej: 'sha-a1b2c3d')
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: production # Asegura que se construya la etapa de producción
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            # Navega al directorio de tu aplicación en el servidor
+            cd /home/ubuntu/fuel-track-api
+
+            # Actualiza la variable IMAGE_TAG en el archivo .env
+            # Usa el tag del commit (ej: a1b2c3d) para asegurar que se use la imagen correcta
+            export NEW_TAG=$(echo ${{ steps.meta.outputs.version }} | cut -d- -f2)
+            sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=$NEW_TAG/g" .env
+
+            # Login a GitHub Container Registry en el servidor
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+            # Detiene los contenedores actuales y los levanta con la nueva imagen
+            docker-compose pull
+            docker-compose up -d
+
+            # Limpia imágenes de Docker antiguas y no utilizadas
+            docker image prune -af

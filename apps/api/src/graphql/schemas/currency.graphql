@@ -1,0 +1,35 @@
+type Currency {
+  id: UUID!
+  name: String!
+  symbol: String!
+  exchangeRate: Decimal! # Usamos el escalar Decimal para precisión
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  saleTypeConfigs: [SaleTypeConfig!]
+  invoices: [Invoice!]
+  dispatchReceptions: [DispatchReception!]
+  payments: [Payment!]
+}
+
+input CreateCurrencyInput {
+  name: String!
+  symbol: String!
+  exchangeRate: Decimal!
+}
+
+input UpdateCurrencyInput {
+  name: String
+  symbol: String
+  exchangeRate: Decimal
+}
+
+extend type Query {
+  currencies: [Currency!]!
+  currency(id: UUID!): Currency
+}
+
+extend type Mutation {
+  createCurrency(input: CreateCurrencyInput!): Currency!
+  updateCurrency(id: UUID!, input: UpdateCurrencyInput!): Currency
+  deleteCurrency(id: UUID!): Boolean!
+}

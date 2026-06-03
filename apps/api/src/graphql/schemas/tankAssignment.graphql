@@ -1,0 +1,46 @@
+type TankAssignment {
+  id: UUID!
+  dispatchReceptionId: UUID!
+  assignedLiters: Decimal!
+  unitPrice: Decimal!
+  assignedDate: DateTime!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  dispatchReception: DispatchReception!
+}
+
+input CreateTankAssignmentInput {
+  dispatchReceptionId: UUID!
+  assignedLiters: Decimal!
+  unitPrice: Decimal!
+  assignedDate: DateTime!
+}
+
+input UpdateTankAssignmentInput {
+  dispatchReceptionId: UUID
+  assignedLiters: Decimal
+  unitPrice: Decimal
+  assignedDate: DateTime
+}
+
+extend type Query {
+  tankAssignments: [TankAssignment!]!
+  tankAssignment(id: UUID!): TankAssignment
+  tankAssignmentsByDispatchReception(
+    dispatchReceptionId: UUID!
+  ): [TankAssignment!]!
+  tankAssignmentByDispatchReceptionAndDate(
+    dispatchReceptionId: UUID!
+    assignedDate: DateTime!
+  ): TankAssignment
+}
+
+extend type Mutation {
+  createTankAssignment(input: CreateTankAssignmentInput!): TankAssignment!
+  updateTankAssignment(
+    id: UUID!
+    input: UpdateTankAssignmentInput!
+  ): TankAssignment
+  deleteTankAssignment(id: UUID!): Boolean!
+}

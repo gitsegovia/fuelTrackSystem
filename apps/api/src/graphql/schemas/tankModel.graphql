@@ -1,0 +1,49 @@
+type TankModel {
+  id: UUID!
+  name: String!
+  nominalCapacity: Decimal!
+  shape: String!
+  lengthCm: Decimal # Opcional
+  diameterCm: Decimal # Opcional
+  widthCm: Decimal # Opcional
+  heightCm: Decimal # Opcional
+  description: String # Opcional
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones inversas
+  calibrationEntries: [TankCalibrationEntry!] # Si TankCalibrationEntry está definido
+  tanks: [Tank!] # Si Tank está definido
+}
+
+input CreateTankModelInput {
+  name: String!
+  nominalCapacity: Decimal!
+  shape: String!
+  lengthCm: Decimal
+  diameterCm: Decimal
+  widthCm: Decimal
+  heightCm: Decimal
+  description: String
+}
+
+input UpdateTankModelInput {
+  name: String
+  nominalCapacity: Decimal
+  shape: String
+  lengthCm: Decimal
+  diameterCm: Decimal
+  widthCm: Decimal
+  heightCm: Decimal
+  description: String
+}
+
+extend type Query {
+  tankModels: [TankModel!]!
+  tankModel(id: UUID!): TankModel
+}
+
+extend type Mutation {
+  createTankModel(input: CreateTankModelInput!): TankModel!
+  updateTankModel(id: UUID!, input: UpdateTankModelInput!): TankModel
+  deleteTankModel(id: UUID!): Boolean!
+}

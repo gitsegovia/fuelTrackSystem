@@ -1,0 +1,17 @@
+# Un escalar que representa un Universal Unique Identifier (UUID)
+scalar UUID
+
+# Un escalar que representa un valor de fecha (sin hora)
+scalar Date
+
+# Un escalar que representa un valor de fecha y hora
+scalar DateTime
+
+# Un escalar que representa un valor decimal de alta precisión
+scalar Decimal
+
+# Un escalar que representa un objeto JSON genérico (para campos flexibles)
+scalar JSON
+
+# Un escalar que representa un objeto JSON genérico (para campos flexibles)
+scalar JSONObject

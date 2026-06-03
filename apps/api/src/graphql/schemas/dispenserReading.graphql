@@ -1,0 +1,53 @@
+enum ReadingType {
+  INITIAL
+  FINAL
+}
+
+type DispenserReading {
+  id: UUID!
+  dispenserNozzleId: UUID!
+  employeeShiftId: UUID!
+  readingTime: DateTime!
+  meterReading: Decimal!
+  readingType: ReadingType!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  dispenserNozzle: DispenserNozzle!
+  employeeShift: EmployeeShift!
+}
+
+input CreateDispenserReadingInput {
+  dispenserNozzleId: UUID!
+  employeeShiftId: UUID!
+  readingTime: DateTime!
+  meterReading: Decimal!
+  readingType: ReadingType!
+}
+
+input UpdateDispenserReadingInput {
+  readingTime: DateTime
+  meterReading: Decimal
+  readingType: ReadingType
+}
+
+extend type Query {
+  dispenserReadings: [DispenserReading!]!
+  dispenserReading(id: UUID!): DispenserReading
+  dispenserReadingsByNozzle(dispenserNozzleId: UUID!): [DispenserReading!]!
+  dispenserReadingsByShift(employeeShiftId: UUID!): [DispenserReading!]!
+  dispenserReadingByNozzleShiftAndType(
+    dispenserNozzleId: UUID!
+    employeeShiftId: UUID!
+    readingType: ReadingType!
+  ): DispenserReading
+}
+
+extend type Mutation {
+  createDispenserReading(input: CreateDispenserReadingInput!): DispenserReading!
+  updateDispenserReading(
+    id: UUID!
+    input: UpdateDispenserReadingInput!
+  ): DispenserReading
+  deleteDispenserReading(id: UUID!): Boolean!
+}

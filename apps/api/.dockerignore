@@ -1,0 +1,9 @@
+# Evita que se copien archivos y carpetas innecesarios al contexto de build de Docker.
+
+node_modules
+npm-debug.log
+.env
+Dockerfile
+docker-compose.yml
+.dockerignore
+.git

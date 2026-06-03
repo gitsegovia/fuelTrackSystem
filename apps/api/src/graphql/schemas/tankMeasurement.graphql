@@ -1,0 +1,69 @@
+enum MeasurementReason {
+  SHIFT_CLOSURE
+  DISPATCH_RECEPTION
+  DAILY_CLOSING
+  AFTER_RECEPTION
+  INVENTORY_ADJUSTMENT
+  OTHER
+}
+
+type TankMeasurement {
+  id: UUID!
+  tankId: UUID!
+  employeeId: UUID!
+  measurementTime: DateTime!
+  manualLevelReadingCm: Decimal!
+  volumeInLiters: Decimal!
+  measurementReason: MeasurementReason!
+  dispensedVolumeSinceLastMeasurement: Decimal
+  receivedVolumeSinceLastMeasurement: Decimal
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relaciones
+  tank: Tank!
+  employee: Employee!
+}
+
+input CreateTankMeasurementInput {
+  tankId: UUID!
+  employeeId: UUID!
+  measurementTime: DateTime!
+  manualLevelReadingCm: Decimal!
+  volumeInLiters: Decimal! # Este campo podría ser calculado por el backend
+  measurementReason: MeasurementReason!
+  notes: String
+}
+
+input UpdateTankMeasurementInput {
+  measurementTime: DateTime
+  manualLevelReadingCm: Decimal
+  volumeInLiters: Decimal # Este campo podría ser recalculado por el backend
+  measurementReason: MeasurementReason
+  notes: String
+}
+
+extend type Query {
+  tankMeasurements: [TankMeasurement!]!
+  tankMeasurement(id: UUID!): TankMeasurement
+  tankMeasurementsByTank(
+    tankId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [TankMeasurement!]!
+  tankMeasurementsByEmployee(
+    employeeId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [TankMeasurement!]!
+  latestTankMeasurement(tankId: UUID!): TankMeasurement # Para obtener la última medición de un tanque
+}
+
+extend type Mutation {
+  createTankMeasurement(input: CreateTankMeasurementInput!): TankMeasurement!
+  updateTankMeasurement(
+    id: UUID!
+    input: UpdateTankMeasurementInput!
+  ): TankMeasurement
+  deleteTankMeasurement(id: UUID!): Boolean!
+}
