@@ -4,73 +4,67 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Wrench } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { QUERIES, MUTATIONS } from '@/services/graphql/gql/gasStation'
+import { QUERIES, MUTATIONS } from '@/services/graphql/gql/tankModel'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-interface GasStation {
+interface TankModel {
   id: string
   name: string
-  code: string
-  address: string | null
-  company: { id: string; name: string }
+  nominalCapacity: string
+  shape: string
+  description: string | null
   createdAt: string
 }
 
-export default function GasStationsPage() {
+export default function TankModelsPage() {
   const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  const { data, loading, refetch } = useQuery<{ gasStations: GasStation[] }>(QUERIES.gasStations)
-  const [deleteGasStation, { loading: deleting }] = useMutation(MUTATIONS.deleteGasStation)
+  const { data, loading, refetch } = useQuery<{ tankModels: TankModel[] }>(QUERIES.tankModels)
+  const [deleteTankModel, { loading: deleting }] = useMutation(MUTATIONS.deleteTankModel)
 
   const handleDelete = async () => {
     if (!deleteId) return
     try {
-      await deleteGasStation({ variables: { id: deleteId } })
-      toast.success('Estación eliminada correctamente.')
+      await deleteTankModel({ variables: { id: deleteId } })
+      toast.success('Modelo eliminado correctamente.')
       refetch()
     } catch {
-      toast.error('No se pudo eliminar la estación.')
+      toast.error('No se pudo eliminar el modelo.')
     } finally {
       setDeleteId(null)
     }
   }
 
-  const columns: ColumnDef<GasStation>[] = [
+  const columns: ColumnDef<TankModel>[] = [
     {
       accessorKey: 'name',
       header: 'Nombre',
       cell: ({ row }) => <span className="font-medium">{row.original.name}</span>,
     },
     {
-      accessorKey: 'code',
-      header: 'Código',
+      accessorKey: 'shape',
+      header: 'Forma',
     },
     {
-      accessorKey: 'address',
-      header: 'Dirección',
-      cell: ({ row }) => row.original.address || <span className="text-muted-foreground">—</span>,
-    },
-    {
-      id: 'company',
-      header: 'Empresa',
+      accessorKey: 'nominalCapacity',
+      header: 'Capacidad nominal (L)',
       cell: ({ row }) => (
-        <span className="text-muted-foreground">{row.original.company.name}</span>
+        <span>{parseFloat(row.original.nominalCapacity).toLocaleString()} L</span>
       ),
+    },
+    {
+      accessorKey: 'description',
+      header: 'Descripción',
+      cell: ({ row }) => row.original.description || <span className="text-muted-foreground">—</span>,
     },
     {
       id: 'actions',
@@ -80,15 +74,7 @@ export default function GasStationsPage() {
           <Button
             variant="ghost"
             size="icon-sm"
-            title="Equipamiento"
-            onClick={() => router.push(`/admin/gas-stations/${row.original.id}/equipment`)}
-          >
-            <Wrench className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => router.push(`/admin/gas-stations/${row.original.id}/edit`)}
+            onClick={() => router.push(`/admin/tank-models/${row.original.id}/edit`)}
           >
             <Pencil className="size-4" />
           </Button>
@@ -108,24 +94,24 @@ export default function GasStationsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Estaciones"
-        description="Gestiona las estaciones de servicio"
+        title="Modelos de Tanque"
+        description="Catálogo de modelos de tanques disponibles"
         action={
-          <Button onClick={() => router.push('/admin/gas-stations/new')} size="sm">
+          <Button onClick={() => router.push('/admin/tank-models/new')} size="sm">
             <Plus className="size-4" />
-            Nueva estación
+            Nuevo modelo
           </Button>
         }
       />
 
-      <DataTable columns={columns} data={data?.gasStations ?? []} loading={loading} />
+      <DataTable columns={columns} data={data?.tankModels ?? []} loading={loading} />
 
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar estación?</AlertDialogTitle>
+            <AlertDialogTitle>¿Eliminar modelo de tanque?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminarán todos los datos asociados.
+              Esta acción no se puede deshacer. No se puede eliminar si hay tanques que lo usan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

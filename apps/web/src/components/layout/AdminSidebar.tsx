@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets } from 'lucide-react'
+import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/admin/companies', label: 'Empresas', icon: Building2 },
   { href: '/admin/gas-stations', label: 'Estaciones', icon: Fuel },
   { href: '/admin/fuel-types', label: 'Combustibles', icon: Droplets },
+  { href: '/admin/tank-models', label: 'Modelos de Tanque', icon: Database },
   { href: '/admin/users', label: 'Usuarios', icon: Users },
 ]
 
