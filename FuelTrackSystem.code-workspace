@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "FuelTrackApi"
+		},
+		{
+			"path": "FuelTrack"
+		},
+		{
+			"path": "CCILicenseServer"
+		}
+	],
+	"settings": {}
+}

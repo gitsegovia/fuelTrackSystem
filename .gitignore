@@ -41,3 +41,10 @@ docker-compose.override.yml
 
 # Misc
 .cache/
+
+# Kept outside the monorepo
+CCILicenseServer/
+FuelTrack/
+
+# Claude Code session data
+.claude/

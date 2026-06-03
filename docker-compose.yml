@@ -1,0 +1,69 @@
+version: '3.8'
+
+# Base config — production.
+# docker-compose.override.yml adapts this for development.
+
+services:
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      target: production
+    container_name: fueltrack-web
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_GRAPHQL_URI: http://api:4000
+    depends_on:
+      api:
+        condition: service_started
+    networks:
+      - fueltrack-net
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: production
+    container_name: fueltrack-api
+    restart: always
+    env_file:
+      - ./apps/api/.env
+    ports:
+      - "${API_PORT:-4000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - fueltrack-net
+    volumes:
+      - /etc/machine-id:/run/secrets/machine-id:ro
+      - /sys/class/net/eth0/address:/run/secrets/mac-address:ro
+
+  db:
+    image: postgres:15-alpine
+    container_name: fueltrack-db
+    restart: always
+    env_file:
+      - ./apps/api/.env
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_DATABASE:-fueltrack}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - fueltrack-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_DATABASE:-fueltrack}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
+
+networks:
+  fueltrack-net:
+    driver: bridge
