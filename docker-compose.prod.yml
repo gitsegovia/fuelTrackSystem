@@ -1,0 +1,36 @@
+# Entorno PRODUCCIÓN — builds optimizados, sin volumes de código, fingerprint real.
+#
+# Uso:
+#   docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build
+#
+# Requiere:
+#   - .env.prod            (root, gitignored) — ver .env.prod.example
+#   - apps/api/.env.docker (gitignored)       — ver apps/api/.env.docker.example
+#   - CCILicenseServer en producción (URL configurada en apps/api/.env.docker)
+#   - /etc/machine-id y /sys/class/net/<iface>/address presentes en el host Linux
+
+services:
+  web:
+    build:
+      target: production
+    restart: always
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      NEXT_PUBLIC_GRAPHQL_URI: http://localhost:${API_PORT:-4000}/graphql
+
+  api:
+    build:
+      target: production
+    restart: always
+    ports:
+      - "${API_PORT:-4000}:3000"
+    environment:
+      NODE_ENV: production
+    volumes:
+      # Fingerprint real del host Linux (requerido en producción)
+      - /etc/machine-id:/run/secrets/machine-id:ro
+      - /sys/class/net/${NET_IFACE:-eth0}/address:/run/secrets/mac-address:ro
+
+  db:
+    restart: always

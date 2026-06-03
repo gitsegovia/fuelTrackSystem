@@ -1,24 +1,17 @@
-version: '3.8'
-
-# Base config — production.
-# docker-compose.override.yml adapts this for development.
+# Topología base — sin valores de entorno ni puertos específicos.
+# Siempre se usa combinado con un archivo de entorno:
+#
+#   Demo:       docker compose --env-file .env.demo -f docker-compose.yml -f docker-compose.demo.yml up --build
+#   Producción: docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build
+#
+# Para dev local sin Docker, ver apps/api/.env y apps/api/.env.local (CLAUDE.md §8).
 
 services:
   web:
     build:
       context: ./apps/web
       dockerfile: Dockerfile
-      target: production
     container_name: fueltrack-web
-    restart: always
-    ports:
-      - "3000:3000"
-    environment:
-      # En dev Next.js lee env vars en runtime; apunta al puerto externo que expone docker (4000→api:3000)
-      NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
-    depends_on:
-      api:
-        condition: service_started
     networks:
       - fueltrack-net
 
@@ -26,28 +19,20 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-      target: production
     container_name: fueltrack-api
-    restart: always
     env_file:
-      - ./apps/api/.env
-    ports:
-      - "${API_PORT:-4000}:3000"
+      - ./apps/api/.env.docker
     depends_on:
       db:
         condition: service_healthy
     networks:
       - fueltrack-net
-    volumes:
-      - /etc/machine-id:/run/secrets/machine-id:ro
-      - /sys/class/net/eth0/address:/run/secrets/mac-address:ro
 
   db:
     image: postgres:15-alpine
     container_name: fueltrack-db
-    restart: always
     env_file:
-      - ./apps/api/.env
+      - ./apps/api/.env.docker
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASS:-postgres}

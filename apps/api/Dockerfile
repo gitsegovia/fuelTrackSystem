@@ -5,7 +5,7 @@ WORKDIR /usr/src/app
 
 # Instala las herramientas de cliente de PostgreSQL, que incluyen pg_isready.
 # 'apk add --no-cache' es el comando para Alpine Linux.
-RUN apk add --no-cache postgresql-client
+RUN apk update && apk add --no-cache postgresql-client
 
 # Copia el entrypoint y dale permisos de ejecución.
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/

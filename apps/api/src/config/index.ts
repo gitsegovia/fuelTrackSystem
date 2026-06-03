@@ -1,5 +1,12 @@
 import dotenv from "dotenv";
+import { existsSync } from "fs";
+
+// Carga .env base, luego .env.local lo sobreescribe si existe (solo dev local).
+// Docker nunca genera .env.local — apunta a .env directamente via env_file.
 dotenv.config();
+if (existsSync(".env.local")) {
+  dotenv.config({ path: ".env.local", override: true });
+}
 
 interface ConfigDb {
   database: string;

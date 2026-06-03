@@ -8,10 +8,13 @@ dist/
 build/
 out/
 
-# Environment files
+# Environment files (gitignored — copiar de los .example correspondientes)
 .env
 .env.local
 .env.*.local
+.env.demo
+.env.prod
+apps/api/.env.docker
 
 # Logs
 *.log
@@ -33,7 +36,7 @@ Thumbs.db
 # Turbo
 .turbo/
 
-# Docker
+# Docker (el override sigue gitignored si alguien lo usa para personalización local)
 docker-compose.override.yml
 
 # TypeScript
@@ -41,6 +44,10 @@ docker-compose.override.yml
 
 # Misc
 .cache/
+
+# Playwright verification artifacts (local only)
+apps/web/verify-screenshots/
+apps/web/verify-equipment.mjs
 
 # Kept outside the monorepo
 CCILicenseServer/

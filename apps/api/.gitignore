@@ -1,4 +1,4 @@
-# Logs
+﻿# Logs
 logs
 *.log
 npm-debug.log*
@@ -69,6 +69,7 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.docker.example
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
@@ -139,10 +140,10 @@ vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
 # ----------------------------------------------------------------
-# Archivos de desarrollo local específicos del proyecto
+# Archivos de desarrollo local especÃ­ficos del proyecto
 # ----------------------------------------------------------------
 
-# Sobrescribe la configuración de Docker Compose para desarrollo
+# Sobrescribe la configuraciÃ³n de Docker Compose para desarrollo
 docker-compose.override.yml
 
 # Archivos para simular el fingerprint en desarrollo

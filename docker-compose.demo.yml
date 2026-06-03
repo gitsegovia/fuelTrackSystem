@@ -1,0 +1,46 @@
+# Entorno DEMO — builds de desarrollo con hot-reload, secretos de dev.
+#
+# Uso:
+#   docker compose --env-file .env.demo -f docker-compose.yml -f docker-compose.demo.yml up --build
+#
+# Requiere:
+#   - .env.demo          (root, gitignored) — ver .env.demo.example
+#   - apps/api/.env.docker (gitignored)     — ver apps/api/.env.docker.example
+#   - CCILicenseServer corriendo en host:4100
+
+services:
+  web:
+    build:
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
+
+  api:
+    build:
+      target: development
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-4000}:3000"
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./apps/api:/usr/src/app
+      - /usr/src/app/node_modules
+      # Fingerprint de dev generado desde estos archivos por docker-entrypoint.sh
+      - ./apps/api/dev-machine-id.md:/run/secrets/machine-id:ro
+      - ./apps/api/dev-mac-address.md:/run/secrets/mac-address:ro
+
+  db:
+    restart: unless-stopped
+    ports:
+      - "${DB_HOST_PORT:-5433}:5432"
