@@ -81,6 +81,14 @@ const dispatchReceptionResolver: IResolvers<Context> = {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
           const reception = await context.models.DispatchReception.create(input, { transaction: t });
+          // Propagar lecturas finales al tanque
+          await context.models.Tank.update(
+            {
+              currentVolumeLiters: input.finalTankVolumeLiters,
+              currentHeightCm: input.finalTankReadingCm,
+            },
+            { where: { id: input.tankId }, transaction: t }
+          );
           if (newTotal >= invoiceLiters) {
             await invoice.update({ status: "CLOSED" }, { transaction: t });
           }
