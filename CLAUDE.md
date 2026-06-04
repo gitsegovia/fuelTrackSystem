@@ -184,19 +184,20 @@ Company (empresa)
 - id, name (único), costPerLiter (Decimal — el GraphQL lo retorna como string), createdAt
 
 **PumpIsland**
-- id, name, gasStationId, createdAt
+- id, name, description?, gasStationId, createdAt
 
 **Dispenser**
-- id, name/code, pumpIslandId, createdAt
+- id, name, gasStationId, pumpIslandId, tankId, fuelTypeId, isOperational (Boolean), createdAt
+- ⚠ `fuelTypeId` es **derivado del tanque** — no se acepta en CreateInput/UpdateInput. El resolver lo lee de `tank.fuelTypeId` automáticamente. Cambiarlo implica editar el tanque.
 
 **DispenserNozzle**
-- id, name, dispenserId, fuelTypeId (opcional), createdAt
+- id, name, dispenserId, initialMeterReading (Decimal), currentMeterReading (Decimal), isOperational (Boolean), createdAt
 
 **TankModel**
-- id, name, capacity (Decimal), createdAt
+- id, name, nominalCapacity (Decimal), shape (String), lengthCm?, diameterCm?, widthCm?, heightCm?, description?, createdAt
 
 **Tank**
-- id, name, gasStationId, tankModelId, createdAt
+- id, name, gasStationId, fuelTypeId, tankModelId, maxCapacityLiters (Decimal), minOperatingVolumeLiters (Decimal), currentHeightCm? (Decimal), currentVolumeLiters? (Decimal), createdAt
 
 **TankAssignment**
 - id, tankId, dispenserNozzleId, fuelTypeId, createdAt
@@ -208,7 +209,8 @@ Company (empresa)
 - id, tankId, level, volume, createdAt
 
 **Employee**
-- id, userId (1:1), dni?, firstName, lastName, phone?, createdAt
+- id, userId (1:1), gasStationId, firstName, lastName, position (String), createdAt
+- No tiene dni ni phone en el schema actual
 
 **EmployeeShift**
 - id, gasStationId, employeeId, startTime, endTime?, status, createdAt
@@ -223,50 +225,61 @@ Company (empresa)
 - id, salesTicketId, method, amount (Decimal), createdAt
 
 **Invoice** (despacho a estación)
-- id, gasStationId, fuelTypeId, liters (Decimal), supplier?, receivedAt, createdAt
+- id, invoiceNumber, controlNumber, sealNumber, liters (Decimal), dispatchDate, dischargeDate, truckIdentifier, fuelKind (enum FuelKind: GASOLINE_91/GASOLINE_95/DIESEL/KEROSENE), totalAmount (Decimal), costPerLiter (Decimal), gasStationId, currencyId, createdAt
+- ⚠ `fuelKind` es un enum local (no FK a FuelType) — representa el tipo de combustible en la factura del proveedor
 
 **DispatchReception**
 - id, invoiceId, tankId, liters (Decimal), createdAt
 
 **Currency**
-- id, name, code (ej: USD, VES), symbol, createdAt
+- id, name, symbol, exchangeRate (Decimal), createdAt
+- No tiene campo `code` en el schema actual
 
 **SaleTypeConfig**
-- id, name, description?, createdAt
+- id, gasStationId, fuelTypeId, saleTypeName (enum: REGULAR | PREMIUM | SUBSIDIZED), salePricePerLiter (Decimal), percentage (Decimal), currencyId, createdAt
+- Combinación única: gasStationId + fuelTypeId + saleTypeName
 
 ---
 
 ## 6. Estado actual del frontend
 
 ### Módulos admin completados (CRUD completo)
-| Módulo | Ruta | GQL service |
-|---|---|---|
-| Login admin | `/admin-login` | `gql/login` |
-| Dashboard | `/admin/dashboard` | queries de todos los módulos |
-| Empresas | `/admin/companies` | `gql/company` |
-| Estaciones | `/admin/gas-stations` | `gql/gasStation` |
-| Tipos de combustible | `/admin/fuel-types` | `gql/fuelType` |
-| Usuarios | `/admin/users` | `gql/user` |
+| Módulo | Ruta | GQL service | Fase |
+|---|---|---|---|
+| Login admin | `/admin-login` | `gql/login` | 1-5 |
+| Dashboard | `/admin/dashboard` | queries de todos los módulos | 1-5 |
+| Empresas | `/admin/companies` | `gql/company` | 1-5 |
+| Estaciones | `/admin/gas-stations` | `gql/gasStation` | 1-5 |
+| Tipos de combustible | `/admin/fuel-types` | `gql/fuelType` | 1-5 |
+| Usuarios | `/admin/users` | `gql/user` | 1-5 |
+| Modelos de tanque | `/admin/tank-models` | `gql/tankModel` | 6 |
+| Equipamiento de estación | `/admin/gas-stations/[id]/equipment` | `gql/pumpIsland` + `gql/dispenser` + `gql/dispenserNozzle` + `gql/tank` | 6 |
+| Empleados | `/admin/employees` | `gql/employee` | 7 |
+| Monedas | `/admin/currencies` | `gql/currency` | 7 |
+| Tipos de venta | `/admin/sale-type-configs` | `gql/saleTypeConfig` | 7 |
 
 ### Módulos pendientes (no hay páginas aún)
-- Equipamiento de estación: PumpIsland → Dispenser → DispenserNozzle (anidados)
-- Gestión de tanques: TankModel, Tank, TankAssignment, TankMeasurement
-- Empleados: Employee (perfil ligado a User)
-- Operaciones: EmployeeShift, DispenserReading, SalesTicket, Payment
-- Despachos: Invoice, DispatchReception
-- Configuración: Currency, SaleTypeConfig
-- **Panel Estación** (`/station`) — UI de operación, offline-first (Fase 5 futura)
+- Operaciones: EmployeeShift, DispenserReading, SalesTicket, Payment — **Fase 8**
+- Despachos: Invoice, DispatchReception — **Fase 8**
+- **Panel Estación** (`/station`) — UI de operación, offline-first — **Fase 8**
 
 ### GQL services en apps/web
 ```
 services/graphql/gql/
-├── login/         ✅ MUTATIONS.login, QUERIES.me
-├── company/       ✅ QUERIES.companies/company, MUTATIONS.create/update/delete
-├── gasStation/    ✅ QUERIES.gasStations/gasStation, MUTATIONS.create/update/delete
-├── fuelType/      ✅ QUERIES.fuelTypes/fuelType, MUTATIONS.create/update/delete
-└── user/          ✅ QUERIES.users/user, MUTATIONS.create/update/delete
+├── login/            ✅ MUTATIONS.login, QUERIES.me
+├── company/          ✅ QUERIES.companies/company, MUTATIONS.create/update/delete
+├── gasStation/       ✅ QUERIES.gasStations/gasStation, MUTATIONS.create/update/delete
+├── fuelType/         ✅ QUERIES.fuelTypes/fuelType, MUTATIONS.create/update/delete
+├── user/             ✅ QUERIES.users/user, MUTATIONS.create/update/delete
+├── tankModel/        ✅ QUERIES.tankModels/tankModel, MUTATIONS.create/update/delete
+├── pumpIsland/       ✅ QUERIES.pumpIslands/pumpIsland/pumpIslandsByGasStation, MUTATIONS.create/update/delete
+├── dispenser/        ✅ QUERIES.dispenser/dispensersByGasStation/dispensersByPumpIsland, MUTATIONS.create/update/delete
+├── dispenserNozzle/  ✅ QUERIES.dispenserNozzle/dispenserNozzlesByDispenser, MUTATIONS.create/update/delete
+├── tank/             ✅ QUERIES.tank/tanksByGasStation, MUTATIONS.create/update/delete
+├── employee/         ✅ QUERIES.employees/employee, MUTATIONS.create/update/delete
+├── currency/         ✅ QUERIES.currencies/currency, MUTATIONS.create/update/delete
+└── saleTypeConfig/   ✅ QUERIES.saleTypeConfigs/saleTypeConfig, MUTATIONS.create/update/delete
 ```
-Los 17 módulos restantes del API no tienen servicio GQL en el frontend todavía.
 
 ---
 
@@ -277,6 +290,7 @@ apps/web/src/
 ├── app/
 │   ├── layout.tsx               ← root layout (AppProviders, Geist fonts, lang="es")
 │   ├── page.tsx                 ← redirect a /admin-login
+│   ├── icon.tsx                 ← favicon generado: cuadrado amber + icono Gauge
 │   ├── globals.css              ← Tailwind v4 + tema zinc/amber
 │   ├── (auth)/
 │   │   ├── admin-login/page.tsx ← formulario login admin
@@ -285,9 +299,18 @@ apps/web/src/
 │   │   ├── layout.tsx           ← guard de auth (useEffect + redirect)
 │   │   ├── dashboard/page.tsx   ← stats en vivo
 │   │   ├── companies/           ← CRUD completo
-│   │   ├── gas-stations/        ← CRUD completo
+│   │   ├── gas-stations/        ← CRUD completo + botón Equipamiento (Wrench)
+│   │   │   └── [id]/equipment/  ← página de equipamiento con acordeón
+│   │   │       ├── pump-islands/new/ y [islandId]/edit/
+│   │   │       ├── dispensers/new/ y [dispenserId]/edit/
+│   │   │       ├── nozzles/new/ y [nozzleId]/edit/
+│   │   │       └── tanks/new/ y [tankId]/edit/
 │   │   ├── fuel-types/          ← CRUD completo
-│   │   └── users/               ← CRUD completo
+│   │   ├── tank-models/         ← CRUD completo
+│   │   ├── users/               ← CRUD completo
+│   │   ├── employees/           ← CRUD completo
+│   │   ├── currencies/          ← CRUD completo
+│   │   └── sale-type-configs/   ← CRUD completo
 │   └── station/
 │       ├── layout.tsx           ← placeholder
 │       └── page.tsx             ← placeholder
@@ -406,22 +429,21 @@ API_PORT=4000
 
 ### Comandos
 ```bash
-# Desde la raíz
-pnpm dev          # turbo: levanta web + api
-pnpm build        # turbo: build web + api
-pnpm lint         # turbo: lint todos los apps
+# Desarrollo local (3 terminales separadas)
+cd apps/api && pnpm dev      # API en localhost:4000
+cd apps/web && pnpm dev      # Web en localhost:3000
+# CCILicenseServer debe estar corriendo en localhost:4100
 
-# Solo el web
-pnpm --filter web dev
+# Docker — entorno demo (builds de desarrollo, hot-reload)
+docker compose --env-file .env.demo -f docker-compose.yml -f docker-compose.demo.yml up --build
 
-# Solo la api
-pnpm --filter api dev
+# Docker — entorno producción
+docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build
 
-# Docker completo (producción)
-docker-compose up --build
-
-# Docker con overrides de dev
-docker-compose up   # auto-toma docker-compose.override.yml
+# Copiar templates de env antes del primer uso:
+# .env.demo.example → .env.demo
+# .env.prod.example → .env.prod
+# apps/api/.env.docker.example → apps/api/.env.docker
 ```
 
 ### Migraciones de DB (Sequelize)
@@ -509,20 +531,23 @@ export const MUTATIONS = {
 
 ---
 
-## 11. Roadmap — próximas fases
+## 11. Roadmap — fases
 
-### Fase 6 — Equipamiento de estación (admin)
-Flujo jerárquico: Estación → Islas → Dispensadores → Pistolas → Asignación de tanques
-- Páginas anidadas bajo `/admin/gas-stations/[id]/equipment`
-- GQL: pumpIsland, dispenser, dispenserNozzle, tankModel, tank, tankAssignment
+### ✅ Fase 6 — Equipamiento de estación (admin) — COMPLETADA
+- `/admin/tank-models` — CRUD modelos de tanque
+- `/admin/gas-stations/[id]/equipment` — acordeón jerárquico: Islas → Dispensadores → Boquillas + tabla de Tanques
+- `?expandIsland=<id>` en la URL para auto-expandir y resaltar la isla activa al regresar de un formulario
+- `fuelType` del dispensador es derivado del tanque (no se configura independientemente)
 
-### Fase 7 — Operaciones admin
-- Empleados: `/admin/employees` (perfil ligado a User)
-- Configuración: `/admin/currencies`, `/admin/sale-type-configs`
+### ✅ Fase 7 — Configuración admin — COMPLETADA
+- `/admin/employees` — CRUD perfiles de empleado (userId + gasStationId + firstName/lastName/position)
+- `/admin/currencies` — CRUD monedas (name, symbol, exchangeRate)
+- `/admin/sale-type-configs` — CRUD configuración de precios por estación+combustible+tipo (REGULAR/PREMIUM/SUBSIDIZED)
 
 ### Fase 8 — Panel Estación (offline-first)
 - Layout `/station` con autenticación de estación
-- Flujo de turno: iniciar → despachos → cerrar
+- Flujo de turno: iniciar → despachos (SalesTicket + DispenserReading) → cerrar
+- Despachos de combustible: Invoice + DispatchReception
 - Service Worker + IndexedDB para modo offline
 - Sync al reconectar (queue de mutations pendientes)
 - Objetivo: funciona sin internet, sincroniza cuando vuelve la conexión
