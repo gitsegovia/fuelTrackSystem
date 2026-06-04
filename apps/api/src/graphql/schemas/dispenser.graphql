@@ -13,6 +13,7 @@ type Dispenser {
   pumpIsland: PumpIsland!
   tank: Tank!
   fuelType: FuelType!
+  nozzles: [DispenserNozzle!]
   salesTickets: [SalesTicket!]
 }
 

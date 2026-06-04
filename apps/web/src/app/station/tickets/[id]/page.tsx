@@ -12,7 +12,7 @@ import { QUERIES, MUTATIONS } from '@/services/graphql/gql/salesTicket'
 import { MUTATIONS as PaymentMutations, QUERIES as PaymentQueries } from '@/services/graphql/gql/payment'
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
-import { QUERIES as NozzleQueries } from '@/services/graphql/gql/dispenserNozzle'
+import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -77,10 +77,10 @@ export default function TicketDetailPage() {
   const { data: paymentsData } = useQuery(PaymentQueries.paymentsBySalesTicket, { variables: { salesTicketId: id }, skip: !id })
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const { data: currenciesData } = useQuery<{ currencies: any[] }>(CurrencyQueries.currencies)
-  const { data: nozzlesData } = useQuery<{ dispenserNozzlesByDispenser: any[] }>(
-    NozzleQueries.dispenserNozzlesByDispenser,
-    { variables: { dispenserId: '' }, skip: true }
-  )
+  const { data: dispensersData } = useQuery(DispenserQueries.dispensersByGasStation, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
 
   const [processDispatch, { loading: dispatching }] = useMutation(MUTATIONS.processSalesTicketDispatch, {
     refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }],
@@ -113,6 +113,18 @@ export default function TicketDetailPage() {
   const ticket = data?.salesTicket
   const payments: any[] = paymentsData?.paymentsBySalesTicket ?? []
   const stationEmployees = empData?.employees?.filter((e) => e.gasStation?.id === gasStationId) ?? []
+
+  // Boquillas: dispensadores de la estación filtrados por el combustible del ticket
+  const allDispensers: any[] = dispensersData?.dispensersByGasStation ?? []
+  const relevantDispensers = ticket
+    ? allDispensers.filter((d) => d.fuelTypeId === ticket.fuelTypeId && d.isOperational)
+    : allDispensers
+  const nozzles = relevantDispensers.flatMap((d: any) =>
+    (d.nozzles ?? []).filter((n: any) => n.isOperational).map((n: any) => ({
+      ...n,
+      label: `${d.name} — ${n.name}`,
+    }))
+  )
 
   const onDispatch = async (formData: DispatchForm) => {
     try {
@@ -260,8 +272,13 @@ export default function TicketDetailPage() {
                         <Label>Boquilla *</Label>
                         <select {...dispatchForm.register('dispenserNozzleId')} className={selectClass}>
                           <option value="">Seleccionar...</option>
+                          {nozzles.map((n) => (
+                            <option key={n.id} value={n.id}>{n.label}</option>
+                          ))}
                         </select>
-                        <p className="text-xs text-muted-foreground">Selección de boquilla próximamente filtrada por combustible.</p>
+                        {nozzles.length === 0 && (
+                          <p className="text-xs text-amber-600">No hay boquillas operativas para este combustible.</p>
+                        )}
                       </div>
                       <div className="space-y-1.5">
                         <Label>Litros reales despachados *</Label>

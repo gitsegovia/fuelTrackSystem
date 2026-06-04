@@ -226,6 +226,9 @@ const dispenserResolver: IResolvers<Context> = {
     fuelType: async (parent: DispenserModel, _args, _context: Context) => {
       return parent.getFuelType();
     },
+    nozzles: async (parent: DispenserModel, _args, _context: Context) => {
+      return parent.getNozzles();
+    },
     salesTickets: async (parent: DispenserModel, _args, _context: Context) => {
       return parent.getSalesTickets();
     },

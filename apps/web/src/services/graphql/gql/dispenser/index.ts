@@ -11,6 +11,7 @@ const DISPENSER_FRAGMENT = gql`
     fuelTypeId
     fuelType { id name }
     tank { id name }
+    nozzles { id name isOperational }
     createdAt
   }
 `
