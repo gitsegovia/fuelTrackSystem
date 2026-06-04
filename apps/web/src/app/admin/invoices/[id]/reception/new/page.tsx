@@ -1,7 +1,7 @@
 'use client'
 
 import { useParams, useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery } from '@apollo/client/react'
@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { TimeSelect } from '@/components/shared/TimeSelect'
 import { cn } from '@/lib/utils'
 
 const selectClass = cn(
@@ -34,6 +35,7 @@ const schema = z.object({
   tankId: z.string().min(1, 'Selecciona un tanque'),
   receivedLiters: decimal('Litros recibidos'),
   receptionDate: z.string().min(1, 'Requerido'),
+  receptionTime: z.string().min(1, 'Requerido'),
   initialTankReadingCm: decimal('Lectura inicial'),
   finalTankReadingCm: decimal('Lectura final'),
   initialTankVolumeLiters: decimal('Volumen inicial'),
@@ -56,26 +58,36 @@ export default function NewDispatchReceptionPage() {
       skip: !invoiceData?.invoice?.receivingGasStation?.id,
     }
   )
-  const [create, { loading }] = useMutation(MUTATIONS.createDispatchReception)
+  const [create, { loading }] = useMutation(MUTATIONS.createDispatchReception, {
+    refetchQueries: [
+      { query: InvoiceQueries.invoice, variables: { id: invoiceId } },
+      { query: InvoiceQueries.invoices },
+    ],
+  })
 
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
+  const now = new Date()
+  const { register, handleSubmit, watch, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { receptionDate: new Date().toISOString().slice(0, 16) },
+    defaultValues: {
+      receptionDate: now.toISOString().slice(0, 10),
+      receptionTime: `${String(now.getHours()).padStart(2, '0')}:${String(Math.floor(now.getMinutes() / 5) * 5).padStart(2, '0')}`,
+    },
   })
 
   const onSubmit = async (data: FormData) => {
     try {
+      const { receptionTime, ...rest } = data
       await create({
         variables: {
           input: {
             invoiceId,
-            tankId: data.tankId,
-            receivedLiters: parseFloat(data.receivedLiters),
-            receptionDate: new Date(data.receptionDate).toISOString(),
-            initialTankReadingCm: parseFloat(data.initialTankReadingCm),
-            finalTankReadingCm: parseFloat(data.finalTankReadingCm),
-            initialTankVolumeLiters: parseFloat(data.initialTankVolumeLiters),
-            finalTankVolumeLiters: parseFloat(data.finalTankVolumeLiters),
+            tankId: rest.tankId,
+            receivedLiters: parseFloat(rest.receivedLiters),
+            receptionDate: new Date(`${rest.receptionDate}T${receptionTime}`).toISOString(),
+            initialTankReadingCm: parseFloat(rest.initialTankReadingCm),
+            finalTankReadingCm: parseFloat(rest.finalTankReadingCm),
+            initialTankVolumeLiters: parseFloat(rest.initialTankVolumeLiters),
+            finalTankVolumeLiters: parseFloat(rest.finalTankVolumeLiters),
           },
         },
       })
@@ -163,8 +175,19 @@ export default function NewDispatchReceptionPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Fecha y hora de recepción *</Label>
-              <Input type="datetime-local" {...register('receptionDate')} aria-invalid={!!errors.receptionDate} />
-              {errors.receptionDate && <p className="text-xs text-destructive">{errors.receptionDate.message}</p>}
+              <div className="flex items-center gap-2">
+                <Input type="date" {...register('receptionDate')} aria-invalid={!!errors.receptionDate} className="flex-1" />
+                <Controller
+                  name="receptionTime"
+                  control={control}
+                  render={({ field }) => (
+                    <TimeSelect value={field.value} onChange={field.onChange} aria-invalid={!!errors.receptionTime} />
+                  )}
+                />
+              </div>
+              {(errors.receptionDate || errors.receptionTime) && (
+                <p className="text-xs text-destructive">Fecha y hora requeridas</p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Litros recibidos *</Label>
