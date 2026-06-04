@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@apollo/client/react'
 import { Plus } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -22,6 +22,7 @@ type Shift = {
 }
 
 export default function ShiftsPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -56,9 +57,7 @@ export default function ShiftsPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/station/shifts/${row.original.id}`}>Ver</Link>
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/station/shifts/${row.original.id}`)}>Ver</Button>
         </div>
       ),
     },
@@ -71,10 +70,8 @@ export default function ShiftsPage() {
         description="Historial de turnos de la estación"
         action={
           !employee ? undefined : (
-            <Button size="sm" asChild>
-              <Link href="/station/shifts/new">
-                <Plus className="size-4" /> Iniciar turno
-              </Link>
+            <Button size="sm" onClick={() => router.push('/station/shifts/new')}>
+              <Plus className="size-4" /> Iniciar turno
             </Button>
           )
         }

@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@apollo/client/react'
 import { useAuth } from '@/hooks/useAuth'
 import { QUERIES } from '@/services/graphql/gql/salesTicket'
@@ -30,6 +30,7 @@ type Ticket = {
 }
 
 export default function TicketsPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -67,9 +68,7 @@ export default function TicketsPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/station/tickets/${row.original.id}`}>Ver</Link>
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/station/tickets/${row.original.id}`)}>Ver</Button>
         </div>
       ),
     },

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery } from '@apollo/client/react'
 import { Clock, Receipt, Plus, CheckCircle2, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -21,6 +22,7 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default function StationDashboardPage() {
+  const router = useRouter()
   const { user } = useAuth()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -64,13 +66,11 @@ export default function StationDashboardPage() {
               Rol: <span className="font-medium">{activeShift.employeeRole}</span>
             </p>
             <div className="flex gap-2 pt-1">
-              <Button size="sm" asChild>
-                <Link href={`/station/shifts/${activeShift.id}`}>Ver turno</Link>
+              <Button size="sm" onClick={() => router.push(`/station/shifts/${activeShift.id}`)}>
+                Ver turno
               </Button>
-              <Button size="sm" variant="outline" asChild>
-                <Link href={`/station/tickets/new?shiftId=${activeShift.id}`}>
-                  <Plus className="size-4" /> Nuevo ticket
-                </Link>
+              <Button size="sm" variant="outline" onClick={() => router.push(`/station/tickets/new?shiftId=${activeShift.id}`)}>
+                <Plus className="size-4" /> Nuevo ticket
               </Button>
             </div>
           </CardContent>
@@ -83,10 +83,8 @@ export default function StationDashboardPage() {
               <p className="font-medium text-sm">Sin turno activo</p>
               <p className="text-xs text-muted-foreground mt-0.5">Inicia un turno para comenzar a operar</p>
             </div>
-            <Button size="sm" asChild>
-              <Link href="/station/shifts/new">
-                <Clock className="size-4" /> Iniciar turno
-              </Link>
+            <Button size="sm" onClick={() => router.push('/station/shifts/new')}>
+              <Clock className="size-4" /> Iniciar turno
             </Button>
           </CardContent>
         </Card>

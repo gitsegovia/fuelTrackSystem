@@ -117,10 +117,8 @@ export default function ShiftDetailPage() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Tickets de venta ({tickets.length})</h3>
           {isActive && (
-            <Button size="sm" asChild>
-              <Link href={`/station/tickets/new?shiftId=${id}`}>
-                <Plus className="size-4" /> Nuevo ticket
-              </Link>
+            <Button size="sm" onClick={() => router.push(`/station/tickets/new?shiftId=${id}`)}>
+              <Plus className="size-4" /> Nuevo ticket
             </Button>
           )}
         </div>

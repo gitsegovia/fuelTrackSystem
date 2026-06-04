@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, PackagePlus } from 'lucide-react'
@@ -32,6 +32,7 @@ type Invoice = {
 }
 
 export default function InvoicesPage() {
+  const router = useRouter()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const { data, loading } = useQuery<{ invoices: Invoice[] }>(QUERIES.invoices)
   const [deleteInvoice] = useMutation(MUTATIONS.deleteInvoice, {
@@ -40,18 +41,9 @@ export default function InvoicesPage() {
 
   const columns: ColumnDef<Invoice>[] = [
     { accessorKey: 'invoiceNumber', header: 'N° Factura' },
-    {
-      header: 'Estación',
-      cell: ({ row }) => row.original.receivingGasStation.name,
-    },
-    {
-      header: 'Combustible',
-      cell: ({ row }) => FUEL_KIND_LABELS[row.original.fuelKind] ?? row.original.fuelKind,
-    },
-    {
-      header: 'Litros',
-      cell: ({ row }) => parseFloat(row.original.liters).toLocaleString(),
-    },
+    { header: 'Estación', cell: ({ row }) => row.original.receivingGasStation.name },
+    { header: 'Combustible', cell: ({ row }) => FUEL_KIND_LABELS[row.original.fuelKind] ?? row.original.fuelKind },
+    { header: 'Litros', cell: ({ row }) => parseFloat(row.original.liters).toLocaleString() },
     {
       header: 'Total',
       cell: ({ row }) =>
@@ -65,15 +57,11 @@ export default function InvoicesPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex gap-2 justify-end">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={`/admin/invoices/${row.original.id}/reception/new`}>
-              <PackagePlus className="size-4" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={() => router.push(`/admin/invoices/${row.original.id}/reception/new`)}>
+            <PackagePlus className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon" asChild>
-            <Link href={`/admin/invoices/${row.original.id}/edit`}>
-              <Pencil className="size-4" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={() => router.push(`/admin/invoices/${row.original.id}/edit`)}>
+            <Pencil className="size-4" />
           </Button>
           <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
             <Trash2 className="size-4 text-destructive" />
@@ -101,10 +89,8 @@ export default function InvoicesPage() {
         title="Facturas de despacho"
         description="Registros de combustible recibido de proveedores"
         action={
-          <Button size="sm" asChild>
-            <Link href="/admin/invoices/new">
-              <Plus className="size-4" /> Nueva factura
-            </Link>
+          <Button size="sm" onClick={() => router.push('/admin/invoices/new')}>
+            <Plus className="size-4" /> Nueva factura
           </Button>
         }
       />
