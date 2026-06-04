@@ -26,16 +26,13 @@ export enum SaleTypeName {
   SUBSIDIZED = "SUBSIDIZED",
 }
 
-// Definimos un ENUM para los roles de empleado en el turno
 export enum EmployeeRole {
-  ADMINISTRATOR = "Administrator", // Bombero (quien despacha combustible)
-  CASHIER = "Cashier", // Cajero (quien procesa los pagos)
-  FUEL_ATTENDANT = "FuelAttendant", // Opcional, si hay turnos de administración
-  // Puedes añadir más roles según sea necesario
-  DISPATCHER = "Dispatcher",
-  MANAGER = "Manager",
-  SUPERVISOR = "Supervisor",
-  ACCOUNTANT = "Accountant", //Contador/a
+  CASHIER = "CASHIER",
+  DISPATCHER = "DISPATCHER",
+  ADMIN = "ADMIN",
+  MANAGER = "MANAGER",
+  SUPERVISOR = "SUPERVISOR",
+  ACCOUNTANT = "ACCOUNTANT",
 }
 
 export enum ReadingType {

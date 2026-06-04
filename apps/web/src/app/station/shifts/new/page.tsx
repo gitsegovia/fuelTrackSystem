@@ -1,9 +1,6 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { useMutation, useQuery } from '@apollo/client/react'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
@@ -12,20 +9,15 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { cn } from '@/lib/utils'
 
-const selectClass = cn(
-  'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm',
-  'transition-colors outline-none focus:border-ring focus:ring-3 focus:ring-ring/50',
-  'disabled:cursor-not-allowed disabled:opacity-50'
-)
-
-const schema = z.object({
-  employeeRole: z.enum(['CASHIER', 'DISPATCHER', 'SUPERVISOR', 'MANAGER', 'ACCOUNTANT', 'ADMIN']),
-})
-type FormData = z.infer<typeof schema>
+const USERTYPE_TO_ROLE: Record<string, string> = {
+  FuelAttendant: 'DISPATCHER',
+  Cashier: 'CASHIER',
+  Supervisor: 'SUPERVISOR',
+  Administrator: 'ADMIN',
+  Administrative: 'ACCOUNTANT',
+}
 
 const ROLE_LABELS: Record<string, string> = {
   CASHIER: 'Cajero',
@@ -44,6 +36,8 @@ export default function NewShiftPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e) => e.user.id === user?.id)
 
+  const employeeRole = USERTYPE_TO_ROLE[user?.userType ?? ''] ?? 'CASHIER'
+
   const [create, { loading }] = useMutation(MUTATIONS.createEmployeeShift, {
     refetchQueries: [
       { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
@@ -51,12 +45,7 @@ export default function NewShiftPage() {
     ],
   })
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { employeeRole: 'CASHIER' },
-  })
-
-  const onSubmit = async (data: FormData) => {
+  const handleStart = async () => {
     if (!employee) {
       toast.error('No se encontró tu perfil de empleado.')
       return
@@ -68,7 +57,7 @@ export default function NewShiftPage() {
             employeeId: employee.id,
             gasStationId,
             shiftStartTime: new Date().toISOString(),
-            employeeRole: data.employeeRole,
+            employeeRole,
           },
         },
       })
@@ -98,30 +87,29 @@ export default function NewShiftPage() {
       )}
 
       <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div className="space-y-1.5">
-              <Label>Rol en este turno *</Label>
-              <select {...register('employeeRole')} className={selectClass}>
-                {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </select>
-              {errors.employeeRole && <p className="text-xs text-destructive">{errors.employeeRole.message}</p>}
+        <CardContent className="pt-6 space-y-5">
+          <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Empleado</span>
+              <span className="font-medium">{employee ? `${employee.firstName} ${employee.lastName}` : '—'}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Rol en turno</span>
+              <span className="font-medium">{ROLE_LABELS[employeeRole] ?? employeeRole}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Hora de inicio</span>
+              <span className="font-medium">{new Date().toLocaleTimeString()}</span>
+            </div>
+          </div>
 
-            <div className="rounded-lg bg-muted/30 border px-3 py-2 text-sm text-muted-foreground">
-              Hora de inicio: <span className="font-medium text-foreground">{new Date().toLocaleTimeString()}</span>
-            </div>
-
-            <div className="flex gap-3">
-              <Button type="submit" disabled={loading || !employee}>
-                {loading && <Loader2 className="size-4 animate-spin" />}
-                {loading ? 'Iniciando...' : 'Iniciar turno'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
-            </div>
-          </form>
+          <div className="flex gap-3">
+            <Button onClick={handleStart} disabled={loading || !employee}>
+              {loading && <Loader2 className="size-4 animate-spin" />}
+              {loading ? 'Iniciando...' : 'Iniciar turno'}
+            </Button>
+            <Button variant="outline" onClick={() => router.back()}>Cancelar</Button>
+          </div>
         </CardContent>
       </Card>
     </div>
