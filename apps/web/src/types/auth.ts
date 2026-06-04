@@ -16,6 +16,10 @@ export interface AuthUser {
     id: string
     name: string
   }
+  assignedGasStation: {
+    id: string
+    name: string
+  } | null
 }
 
 export interface LoginParams {

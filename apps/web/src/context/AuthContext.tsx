@@ -58,7 +58,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data?.login?.token) {
         localStorage.setItem('accessToken', data.login.token)
         setUser(data.login.user)
-        router.replace('/admin/dashboard')
+        if (data.login.user.assignedGasStation) {
+          router.replace('/station/dashboard')
+        } else {
+          router.replace('/admin/dashboard')
+        }
       }
     } catch (err) {
       if (errorCallback) errorCallback(err)
@@ -66,10 +70,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    const hadStation = !!user?.assignedGasStation
     setUser(null)
     localStorage.removeItem('accessToken')
     apolloClient.clearStore()
-    router.push('/admin-login')
+    router.push(hadStation ? '/login' : '/admin-login')
   }
 
   return (
