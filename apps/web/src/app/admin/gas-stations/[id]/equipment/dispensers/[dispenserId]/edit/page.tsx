@@ -10,7 +10,6 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/dispenser'
 import { QUERIES as TANK_QUERIES } from '@/services/graphql/gql/tank'
 import { QUERIES as ISLAND_QUERIES } from '@/services/graphql/gql/pumpIsland'
-import { QUERIES as FT_QUERIES } from '@/services/graphql/gql/fuelType'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,7 +22,6 @@ const schema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   pumpIslandId: z.string().min(1, 'Selecciona una isla'),
   tankId: z.string().min(1, 'Selecciona un tanque'),
-  fuelTypeId: z.string().min(1, 'Selecciona un combustible'),
   isOperational: z.string(),
 })
 type FormData = z.infer<typeof schema>
@@ -34,31 +32,53 @@ const selectClass = cn(
   'disabled:cursor-not-allowed disabled:opacity-50'
 )
 
+interface Tank { id: string; name: string; fuelType: { name: string } }
+
 export default function EditDispenserPage() {
   const { id: stationId, dispenserId } = useParams<{ id: string; dispenserId: string }>()
   const router = useRouter()
   const back = `/admin/gas-stations/${stationId}/equipment`
 
-  const { data, loading: fetching } = useQuery<{ dispenser: any }>(QUERIES.dispenser, { variables: { id: dispenserId }, skip: !dispenserId })
-  const { data: islandsData } = useQuery<{ pumpIslandsByGasStation: { id: string; name: string }[] }>(ISLAND_QUERIES.pumpIslandsByGasStation, { variables: { gasStationId: stationId } })
-  const { data: tanksData } = useQuery<{ tanksByGasStation: { id: string; name: string; fuelType: { name: string } }[] }>(TANK_QUERIES.tanksByGasStation, { variables: { gasStationId: stationId } })
-  const { data: ftData } = useQuery<{ fuelTypes: { id: string; name: string }[] }>(FT_QUERIES.fuelTypes)
+  const { data, loading: fetching } = useQuery<{ dispenser: any }>(
+    QUERIES.dispenser, { variables: { id: dispenserId }, skip: !dispenserId }
+  )
+  const { data: islandsData } = useQuery<{ pumpIslandsByGasStation: { id: string; name: string }[] }>(
+    ISLAND_QUERIES.pumpIslandsByGasStation, { variables: { gasStationId: stationId } }
+  )
+  const { data: tanksData } = useQuery<{ tanksByGasStation: Tank[] }>(
+    TANK_QUERIES.tanksByGasStation, { variables: { gasStationId: stationId } }
+  )
   const [update, { loading }] = useMutation(MUTATIONS.updateDispenser, {
     refetchQueries: [{ query: QUERIES.dispensersByGasStation, variables: { gasStationId: stationId } }],
   })
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+  })
 
   useEffect(() => {
     if (data?.dispenser) {
       const d = data.dispenser
-      reset({ name: d.name, pumpIslandId: d.pumpIslandId, tankId: d.tankId, fuelTypeId: d.fuelTypeId, isOperational: String(d.isOperational) })
+      reset({ name: d.name, pumpIslandId: d.pumpIslandId, tankId: d.tankId, isOperational: String(d.isOperational) })
     }
   }, [data, reset])
 
+  const selectedTankId = watch('tankId')
+  const selectedTank = tanksData?.tanksByGasStation.find((t) => t.id === selectedTankId)
+
   const onSubmit = async (data: FormData) => {
     try {
-      await update({ variables: { id: dispenserId, input: { name: data.name, pumpIslandId: data.pumpIslandId, tankId: data.tankId, fuelTypeId: data.fuelTypeId, isOperational: data.isOperational === 'true' } } })
+      await update({
+        variables: {
+          id: dispenserId,
+          input: {
+            name: data.name,
+            pumpIslandId: data.pumpIslandId,
+            tankId: data.tankId,
+            isOperational: data.isOperational === 'true',
+          },
+        },
+      })
       toast.success('Dispensador actualizado.')
       router.push(back)
     } catch (err: any) { toast.error(err.message ?? 'Error al actualizar.') }
@@ -78,27 +98,36 @@ export default function EditDispenserPage() {
               <Input {...register('name')} aria-invalid={!!errors.name} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
+
             <div className="space-y-1.5">
               <Label>Isla *</Label>
               <select {...register('pumpIslandId')} className={selectClass}>
                 <option value="">Seleccionar isla...</option>
-                {islandsData?.pumpIslandsByGasStation.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                {islandsData?.pumpIslandsByGasStation.map((i) => (
+                  <option key={i.id} value={i.id}>{i.name}</option>
+                ))}
               </select>
             </div>
+
             <div className="space-y-1.5">
               <Label>Tanque *</Label>
               <select {...register('tankId')} className={selectClass}>
                 <option value="">Seleccionar tanque...</option>
-                {tanksData?.tanksByGasStation.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.fuelType.name})</option>)}
+                {tanksData?.tanksByGasStation.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} — {t.fuelType.name}</option>
+                ))}
               </select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Combustible *</Label>
-              <select {...register('fuelTypeId')} className={selectClass}>
-                <option value="">Seleccionar combustible...</option>
-                {ftData?.fuelTypes.map((ft) => <option key={ft.id} value={ft.id}>{ft.name}</option>)}
-              </select>
-            </div>
+
+            {selectedTank && (
+              <div className="space-y-1.5">
+                <Label>Combustible (derivado del tanque)</Label>
+                <div className={cn(selectClass, 'flex items-center bg-muted/30 text-muted-foreground cursor-default')}>
+                  {selectedTank.fuelType.name}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <Label>Estado</Label>
               <select {...register('isOperational')} className={selectClass}>
@@ -106,6 +135,7 @@ export default function EditDispenserPage() {
                 <option value="false">Inactivo</option>
               </select>
             </div>
+
             <div className="flex gap-3 pt-2">
               <Button type="submit" size="sm" disabled={loading}>{loading ? 'Guardando...' : 'Guardar cambios'}</Button>
               <Button type="button" variant="ghost" size="sm" onClick={() => router.push(back)}>Cancelar</Button>

@@ -20,7 +20,6 @@ input CreateDispenserInput {
   gasStationId: UUID!
   pumpIslandId: UUID!
   tankId: UUID!
-  fuelTypeId: UUID!
   name: String!
   isOperational: Boolean
 }
@@ -29,7 +28,6 @@ input UpdateDispenserInput {
   gasStationId: UUID
   pumpIslandId: UUID
   tankId: UUID
-  fuelTypeId: UUID
   name: String
   isOperational: Boolean
 }

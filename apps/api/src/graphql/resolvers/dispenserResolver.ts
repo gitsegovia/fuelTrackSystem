@@ -117,9 +117,14 @@ const dispenserResolver: IResolvers<Context> = {
     createDispenser: async (_parent, { input }, context: Context) => {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
-          const dispenser = await context.models.Dispenser.create(input, {
+          const tank = await context.models.Tank.findByPk(input.tankId, {
             transaction: t,
           });
+          if (!tank) throw new Error("Tank not found.");
+          const dispenser = await context.models.Dispenser.create(
+            { ...input, fuelTypeId: tank.fuelTypeId },
+            { transaction: t }
+          );
           return dispenser;
         });
         return result;
@@ -150,7 +155,15 @@ const dispenserResolver: IResolvers<Context> = {
           if (!dispenser) {
             throw new Error("Dispenser not found.");
           }
-          await dispenser.update(input, { transaction: t });
+          let updateData = { ...input };
+          if (input.tankId) {
+            const tank = await context.models.Tank.findByPk(input.tankId, {
+              transaction: t,
+            });
+            if (!tank) throw new Error("Tank not found.");
+            updateData = { ...updateData, fuelTypeId: tank.fuelTypeId };
+          }
+          await dispenser.update(updateData, { transaction: t });
           return dispenser;
         });
         return result;
