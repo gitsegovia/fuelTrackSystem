@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useMutation, useQuery } from '@apollo/client/react'
@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TimeSelect } from '@/components/shared/TimeSelect'
 import { cn } from '@/lib/utils'
 
 const selectClass = cn(
@@ -55,7 +56,7 @@ export default function NewInvoicePage() {
     refetchQueries: [{ query: QUERIES.invoices }],
   })
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, control, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { fuelKind: 'DIESEL' },
   })
@@ -137,9 +138,16 @@ export default function NewInvoicePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fecha de despacho *</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" {...register('dispatchDate')} aria-invalid={!!errors.dispatchDate} />
-                  <Input type="time" {...register('dispatchTime')} aria-invalid={!!errors.dispatchTime} />
+                <div className="flex items-center gap-2">
+                  <Input type="date" {...register('dispatchDate')} aria-invalid={!!errors.dispatchDate} className="flex-1" />
+                  <Controller
+                    name="dispatchTime"
+                    control={control}
+                    defaultValue="00:00"
+                    render={({ field }) => (
+                      <TimeSelect value={field.value} onChange={field.onChange} aria-invalid={!!errors.dispatchTime} />
+                    )}
+                  />
                 </div>
                 {(errors.dispatchDate || errors.dispatchTime) && (
                   <p className="text-xs text-destructive">Fecha y hora requeridas</p>
@@ -147,9 +155,16 @@ export default function NewInvoicePage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Fecha de descarga *</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" {...register('dischargeDate')} aria-invalid={!!errors.dischargeDate} />
-                  <Input type="time" {...register('dischargeTime')} aria-invalid={!!errors.dischargeTime} />
+                <div className="flex items-center gap-2">
+                  <Input type="date" {...register('dischargeDate')} aria-invalid={!!errors.dischargeDate} className="flex-1" />
+                  <Controller
+                    name="dischargeTime"
+                    control={control}
+                    defaultValue="00:00"
+                    render={({ field }) => (
+                      <TimeSelect value={field.value} onChange={field.onChange} aria-invalid={!!errors.dischargeTime} />
+                    )}
+                  />
                 </div>
                 {(errors.dischargeDate || errors.dischargeTime) && (
                   <p className="text-xs text-destructive">Fecha y hora requeridas</p>
