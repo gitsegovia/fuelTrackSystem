@@ -13,10 +13,10 @@ export enum UserType {
 }
 
 export enum FuelType {
-  GASOLINE_91 = "Gasoline91", // Gasolina 91 Octanos
-  GASOLINE_95 = "Gasoline95", // Gasolina 95 Octanos
-  DIESEL = "Diesel", // Diésel
-  KEROSENE = "Kerosene", // Kerosene (si aplica)
+  GASOLINE_91 = "GASOLINE_91",
+  GASOLINE_95 = "GASOLINE_95",
+  DIESEL = "DIESEL",
+  KEROSENE = "KEROSENE",
 }
 
 // ENUM para los diferentes tipos de venta si son fijos

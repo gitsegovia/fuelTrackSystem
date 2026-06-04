@@ -42,7 +42,9 @@ const schema = z.object({
   totalAmount: decimal('Monto total'),
   costPerLiter: decimal('Costo por litro'),
   dispatchDate: z.string().min(1, 'Requerido'),
+  dispatchTime: z.string().min(1, 'Requerido'),
   dischargeDate: z.string().min(1, 'Requerido'),
+  dischargeTime: z.string().min(1, 'Requerido'),
   gasStationId: z.string().min(1, 'Requerido'),
   currencyId: z.string().min(1, 'Requerido'),
 })
@@ -73,8 +75,10 @@ export default function EditInvoicePage() {
         liters: String(inv.liters),
         totalAmount: String(inv.totalAmount),
         costPerLiter: String(inv.costPerLiter),
-        dispatchDate: format(new Date(inv.dispatchDate), "yyyy-MM-dd'T'HH:mm"),
-        dischargeDate: format(new Date(inv.dischargeDate), "yyyy-MM-dd'T'HH:mm"),
+        dispatchDate: format(new Date(inv.dispatchDate), 'yyyy-MM-dd'),
+        dispatchTime: format(new Date(inv.dispatchDate), 'HH:mm'),
+        dischargeDate: format(new Date(inv.dischargeDate), 'yyyy-MM-dd'),
+        dischargeTime: format(new Date(inv.dischargeDate), 'HH:mm'),
         gasStationId: inv.receivingGasStation.id,
         currencyId: inv.currency.id,
       })
@@ -91,8 +95,8 @@ export default function EditInvoicePage() {
             liters: parseFloat(data.liters),
             totalAmount: parseFloat(data.totalAmount),
             costPerLiter: parseFloat(data.costPerLiter),
-            dispatchDate: new Date(data.dispatchDate).toISOString(),
-            dischargeDate: new Date(data.dischargeDate).toISOString(),
+            dispatchDate: new Date(`${data.dispatchDate}T${data.dispatchTime}`).toISOString(),
+            dischargeDate: new Date(`${data.dischargeDate}T${data.dischargeTime}`).toISOString(),
           },
         },
       })
@@ -150,12 +154,18 @@ export default function EditInvoicePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Fecha despacho *</Label>
-                <Input type="datetime-local" {...register('dispatchDate')} />
+                <Label>Fecha de despacho *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" {...register('dispatchDate')} />
+                  <Input type="time" {...register('dispatchTime')} />
+                </div>
               </div>
               <div className="space-y-1.5">
-                <Label>Fecha descarga *</Label>
-                <Input type="datetime-local" {...register('dischargeDate')} />
+                <Label>Fecha de descarga *</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" {...register('dischargeDate')} />
+                  <Input type="time" {...register('dischargeTime')} />
+                </div>
               </div>
             </div>
           </CardContent>

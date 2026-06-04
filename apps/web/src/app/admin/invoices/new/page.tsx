@@ -39,7 +39,9 @@ const schema = z.object({
   totalAmount: decimal('Monto total'),
   costPerLiter: decimal('Costo por litro'),
   dispatchDate: z.string().min(1, 'Requerido'),
+  dispatchTime: z.string().min(1, 'Requerido'),
   dischargeDate: z.string().min(1, 'Requerido'),
+  dischargeTime: z.string().min(1, 'Requerido'),
   gasStationId: z.string().min(1, 'Selecciona una estación'),
   currencyId: z.string().min(1, 'Selecciona una moneda'),
 })
@@ -67,8 +69,8 @@ export default function NewInvoicePage() {
             liters: parseFloat(data.liters),
             totalAmount: parseFloat(data.totalAmount),
             costPerLiter: parseFloat(data.costPerLiter),
-            dispatchDate: new Date(data.dispatchDate).toISOString(),
-            dischargeDate: new Date(data.dischargeDate).toISOString(),
+            dispatchDate: new Date(`${data.dispatchDate}T${data.dispatchTime}`).toISOString(),
+            dischargeDate: new Date(`${data.dischargeDate}T${data.dischargeTime}`).toISOString(),
           },
         },
       })
@@ -135,13 +137,23 @@ export default function NewInvoicePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fecha de despacho *</Label>
-                <Input type="datetime-local" {...register('dispatchDate')} aria-invalid={!!errors.dispatchDate} />
-                {errors.dispatchDate && <p className="text-xs text-destructive">{errors.dispatchDate.message}</p>}
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" {...register('dispatchDate')} aria-invalid={!!errors.dispatchDate} />
+                  <Input type="time" {...register('dispatchTime')} aria-invalid={!!errors.dispatchTime} />
+                </div>
+                {(errors.dispatchDate || errors.dispatchTime) && (
+                  <p className="text-xs text-destructive">Fecha y hora requeridas</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Fecha de descarga *</Label>
-                <Input type="datetime-local" {...register('dischargeDate')} aria-invalid={!!errors.dischargeDate} />
-                {errors.dischargeDate && <p className="text-xs text-destructive">{errors.dischargeDate.message}</p>}
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="date" {...register('dischargeDate')} aria-invalid={!!errors.dischargeDate} />
+                  <Input type="time" {...register('dischargeTime')} aria-invalid={!!errors.dischargeTime} />
+                </div>
+                {(errors.dischargeDate || errors.dischargeTime) && (
+                  <p className="text-xs text-destructive">Fecha y hora requeridas</p>
+                )}
               </div>
             </div>
           </CardContent>
