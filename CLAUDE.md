@@ -108,15 +108,19 @@ import { ApolloClient, InMemoryCache, ApolloProvider, gql } from '@apollo/client
 import { useQuery } from '@apollo/client'
 ```
 
-### shadcn/ui v4 base-nova — NO asChild
+### shadcn/ui v4 base-nova — NO asChild en ningún componente
 ```typescript
 // ✅ Correcto — className directo en Trigger
 <DropdownMenuTrigger className="...">
   <Avatar>...</Avatar>
 </DropdownMenuTrigger>
 
-// ❌ Incorrecto — asChild no existe en @base-ui/react
+// ✅ Correcto — Button que navega usa onClick + useRouter, NUNCA asChild + Link
+<Button onClick={() => router.push('/ruta')}>Ir</Button>
+
+// ❌ Incorrecto — asChild no existe en @base-ui/react (ni en Button ni en ningún primitivo)
 <DropdownMenuTrigger asChild>
+<Button asChild><Link href="/ruta">Ir</Link></Button>
 ```
 
 ### Zod v3 — numeric inputs en formularios
