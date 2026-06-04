@@ -1,4 +1,4 @@
-enum FuelType {
+enum FuelKind {
   GASOLINE_91
   GASOLINE_95
   DIESEL
@@ -10,19 +10,19 @@ type Invoice {
   invoiceNumber: String!
   controlNumber: String!
   sealNumber: String!
-  liters: Decimal! # Usamos el escalar Decimal para precisión
+  liters: Decimal!
   dispatchDate: DateTime!
   dischargeDate: DateTime!
   truckIdentifier: String!
-  fuelType: FuelType!
+  fuelKind: FuelKind!
   totalAmount: Decimal!
   costPerLiter: Decimal!
   createdAt: DateTime!
   updatedAt: DateTime!
   # Relaciones
-  receivingGasStation: GasStation! # Estación que recibe la factura
-  currency: Currency! # Moneda de la factura
-  dispatchReceptions: [DispatchReception!] # Recepciones de despacho asociadas a esta factura
+  receivingGasStation: GasStation!
+  currency: Currency!
+  dispatchReceptions: [DispatchReception!]
 }
 
 input CreateInvoiceInput {
@@ -33,7 +33,7 @@ input CreateInvoiceInput {
   dispatchDate: DateTime!
   dischargeDate: DateTime!
   truckIdentifier: String!
-  fuelType: FuelType!
+  fuelKind: FuelKind!
   totalAmount: Decimal!
   costPerLiter: Decimal!
   gasStationId: UUID!
@@ -48,7 +48,7 @@ input UpdateInvoiceInput {
   dispatchDate: DateTime
   dischargeDate: DateTime
   truckIdentifier: String
-  fuelType: FuelType
+  fuelKind: FuelKind
   totalAmount: Decimal
   costPerLiter: Decimal
   gasStationId: UUID

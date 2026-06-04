@@ -31,9 +31,11 @@ const invoiceResolver: IResolvers<Context> = {
     createInvoice: async (_parent, { input }, context: Context) => {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
-          const invoice = await context.models.Invoice.create(input, {
-            transaction: t,
-          });
+          const { fuelKind, ...rest } = input;
+          const invoice = await context.models.Invoice.create(
+            { ...rest, fuelType: fuelKind },
+            { transaction: t }
+          );
           return invoice;
         });
         return result;
@@ -59,7 +61,9 @@ const invoiceResolver: IResolvers<Context> = {
           if (!invoice) {
             throw new Error("Invoice not found.");
           }
-          await invoice.update(input, { transaction: t });
+          const { fuelKind, ...rest } = input;
+          const updateData = fuelKind !== undefined ? { ...rest, fuelType: fuelKind } : rest;
+          await invoice.update(updateData, { transaction: t });
           return invoice;
         });
         return result;
@@ -103,8 +107,9 @@ const invoiceResolver: IResolvers<Context> = {
       }
     },
   },
-  // --- Resolvers de Campo para relaciones ---
+  // --- Resolvers de Campo ---
   Invoice: {
+    fuelKind: (parent: InvoiceModel) => parent.fuelType,
     receivingGasStation: async (
       parent: InvoiceModel,
       _args,
