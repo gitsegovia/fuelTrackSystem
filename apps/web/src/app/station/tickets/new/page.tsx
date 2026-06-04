@@ -88,8 +88,15 @@ export default function NewTicketPage() {
           },
         },
       })
-      toast.success(`Ticket #${result.data.createSalesTicket.ticketNumber} creado.`)
-      router.push(`/station/tickets/${result.data.createSalesTicket.id}`)
+      const ticket = result.data.createSalesTicket
+      toast.success(`Ticket #${ticket.ticketNumber} creado.`)
+      // Cashier y Dispatcher van al detalle para actuar de inmediato
+      const canActOnTicket = ['Cashier', 'FuelAttendant'].includes(user?.userType ?? '')
+      if (canActOnTicket) {
+        router.push(`/station/tickets/${ticket.id}`)
+      } else {
+        router.push(`/station/shifts/${shiftId}`)
+      }
     } catch (err: any) {
       toast.error(`No se pudo crear el ticket: ${err.message ?? ''}`)
     }
