@@ -136,10 +136,17 @@ const salesTicketResolver: IResolvers<Context> = {
     createSalesTicket: async (_parent, { input }, context: Context) => {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
-          // El `ticketNumber` se generará automáticamente en el `beforeCreate` hook del modelo.
-          const salesTicket = await context.models.SalesTicket.create(input, {
+          const last = await context.models.SalesTicket.findOne({
+            where: { gasStationId: input.gasStationId },
+            order: [["ticketNumber", "DESC"]],
             transaction: t,
+            lock: t.LOCK.UPDATE,
           });
+          const ticketNumber = (last?.ticketNumber ?? 0) + 1;
+          const salesTicket = await context.models.SalesTicket.create(
+            { ...input, ticketNumber },
+            { transaction: t }
+          );
           return salesTicket;
         });
         return result;
