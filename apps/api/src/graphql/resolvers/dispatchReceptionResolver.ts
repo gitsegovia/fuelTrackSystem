@@ -78,12 +78,6 @@ const dispatchReceptionResolver: IResolvers<Context> = {
       const newTotal = alreadyReceived + parseFloat(input.receivedLiters);
       const invoiceLiters = parseFloat(invoice.liters as any);
 
-      if (newTotal > invoiceLiters) {
-        throw new Error(
-          `Litros excedidos. Factura: ${invoiceLiters} L, ya recibidos: ${alreadyReceived} L, intentas registrar: ${input.receivedLiters} L.`
-        );
-      }
-
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
           const reception = await context.models.DispatchReception.create(input, { transaction: t });

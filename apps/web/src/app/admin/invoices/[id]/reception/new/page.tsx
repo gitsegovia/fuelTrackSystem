@@ -58,7 +58,7 @@ export default function NewDispatchReceptionPage() {
   )
   const [create, { loading }] = useMutation(MUTATIONS.createDispatchReception)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { receptionDate: new Date().toISOString().slice(0, 16) },
   })
@@ -97,6 +97,10 @@ export default function NewDispatchReceptionPage() {
   const isClosed = invoice?.status === 'CLOSED'
   const isComplete = remainingLiters <= 0
   const blocked = isClosed || isComplete
+
+  const enteredLiters = parseFloat(watch('receivedLiters') || '0')
+  const variance = isNaN(enteredLiters) ? 0 : enteredLiters - remainingLiters
+  const showVarianceWarning = !isNaN(enteredLiters) && enteredLiters > 0 && variance > 0
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -166,6 +170,11 @@ export default function NewDispatchReceptionPage() {
               <Label>Litros recibidos *</Label>
               <Input type="number" step="0.01" placeholder="0.00" {...register('receivedLiters')} aria-invalid={!!errors.receivedLiters} />
               {errors.receivedLiters && <p className="text-xs text-destructive">{errors.receivedLiters.message}</p>}
+              {showVarianceWarning && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  ⚠ Excede los litros pendientes en {variance.toLocaleString(undefined, { maximumFractionDigits: 2 })} L — se registrará como excedente de despacho.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
