@@ -32,7 +32,7 @@ interface Dispenser { id: string; name: string; isOperational: boolean; pumpIsla
 interface Nozzle { id: string; name: string; isOperational: boolean; initialMeterReading: string; currentMeterReading: string }
 interface Tank { id: string; name: string; maxCapacityLiters: string; currentVolumeLiters: string | null; fuelType: { name: string }; tankModel: { name: string; nominalCapacity: string } }
 
-type DeleteTarget = { type: 'island' | 'dispenser' | 'nozzle' | 'tank'; id: string; name: string }
+type DeleteTarget = { type: 'island' | 'dispenser' | 'nozzle' | 'tank'; id: string; name: string; dispenserId?: string }
 
 // ─── Nozzle list (lazy-loaded per dispenser) ──────────────────────────────────
 
@@ -70,7 +70,7 @@ function NozzleList({ dispenserId, stationId, islandId, onEdit, onDelete }: {
               <Pencil className="size-3.5" />
             </Button>
             <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
-              onClick={() => onDelete({ type: 'nozzle', id: nozzle.id, name: nozzle.name })}>
+              onClick={() => onDelete({ type: 'nozzle', id: nozzle.id, name: nozzle.name, dispenserId })}>
               <Trash2 className="size-3.5" />
             </Button>
           </div>
@@ -148,7 +148,14 @@ export default function EquipmentPage() {
     try {
       if (type === 'island') { await deleteIsland({ variables: { id } }); refetchIslands(); refetchDispensers() }
       if (type === 'dispenser') { await deleteDispenser({ variables: { id } }); refetchDispensers() }
-      if (type === 'nozzle') await deleteNozzle({ variables: { id } })
+      if (type === 'nozzle') {
+        await deleteNozzle({
+          variables: { id },
+          refetchQueries: deleteTarget.dispenserId
+            ? [{ query: NOZZLE_QUERIES.dispenserNozzlesByDispenser, variables: { dispenserId: deleteTarget.dispenserId } }]
+            : [],
+        })
+      }
       if (type === 'tank') { await deleteTank({ variables: { id } }); refetchTanks() }
       toast.success('Eliminado correctamente.')
     } catch {
