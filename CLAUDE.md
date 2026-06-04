@@ -108,6 +108,25 @@ import { ApolloClient, InMemoryCache, ApolloProvider, gql } from '@apollo/client
 import { useQuery } from '@apollo/client'
 ```
 
+### Enums en Sequelize — valores SIEMPRE deben coincidir con GraphQL
+```typescript
+// ✅ Correcto — el valor del enum TypeScript = nombre del enum GraphQL
+export enum SaleTypeName {
+  REGULAR = "REGULAR",
+  PREMIUM = "PREMIUM",
+}
+
+// ❌ Incorrecto — valor descriptivo que no coincide con el enum GraphQL
+export enum SalesTicketStatus {
+  PENDING_PAYMENT_DISPATCH = "Pending Payment and Dispatch",
+}
+```
+Al crear un nuevo enum en `utils/types.ts` para usar con Sequelize+GraphQL,
+el valor string DEBE ser idéntico al nombre del enum en el schema `.graphql`.
+Si no coinciden, la DB guarda el valor descriptivo pero GraphQL no puede
+deserializarlo al leer → error en runtime. Todos los enums del proyecto
+ya fueron corregidos con este patrón.
+
 ### shadcn/ui v4 base-nova — NO asChild en ningún componente
 ```typescript
 // ✅ Correcto — className directo en Trigger
