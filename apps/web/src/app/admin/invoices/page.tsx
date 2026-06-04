@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, PackagePlus, Lock } from 'lucide-react'
+import { Plus, Pencil, Trash2, PackagePlus, Lock, Eye } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/invoice'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
@@ -85,6 +85,9 @@ export default function InvoicesPage() {
       id: 'actions',
       cell: ({ row }) => (
         <div className="flex gap-1 justify-end">
+          <Button variant="ghost" size="icon" title="Ver detalle" onClick={() => router.push(`/admin/invoices/${row.original.id}`)}>
+            <Eye className="size-4" />
+          </Button>
           {row.original.status === 'PENDING' && (
             <>
               <Button variant="ghost" size="icon" title="Registrar descarga" onClick={() => router.push(`/admin/invoices/${row.original.id}/reception/new`)}>

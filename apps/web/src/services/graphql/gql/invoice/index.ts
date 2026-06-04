@@ -17,7 +17,12 @@ const INVOICE_FRAGMENT = gql`
     createdAt
     receivingGasStation { id name }
     currency { id name symbol }
-    dispatchReceptions { id receivedLiters tank { id name } }
+    dispatchReceptions {
+      id receivedLiters receptionDate
+      initialTankReadingCm finalTankReadingCm
+      initialTankVolumeLiters finalTankVolumeLiters
+      tank { id name }
+    }
   }
 `
 

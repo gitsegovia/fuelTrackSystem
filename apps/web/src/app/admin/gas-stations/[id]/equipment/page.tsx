@@ -6,7 +6,7 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
 import {
   ChevronRight, ChevronDown, Plus, Pencil, Trash2,
-  Layers, Droplets, Gauge, CircleDot, ArrowLeft,
+  Layers, Droplets, Gauge, CircleDot, ArrowLeft, History,
 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { QUERIES as GS_QUERIES } from '@/services/graphql/gql/gasStation'
@@ -198,6 +198,10 @@ export default function EquipmentPage() {
       header: '',
       cell: ({ row }) => (
         <div className="flex items-center gap-1 justify-end">
+          <Button variant="ghost" size="icon-sm" title="Historial de despachos"
+            onClick={() => router.push(navTo(`tanks/${row.original.id}/receptions`))}>
+            <History className="size-4" />
+          </Button>
           <Button variant="ghost" size="icon-sm"
             onClick={() => router.push(navTo(`tanks/${row.original.id}/edit`))}>
             <Pencil className="size-4" />

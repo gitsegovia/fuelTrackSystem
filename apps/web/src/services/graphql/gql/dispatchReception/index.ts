@@ -13,6 +13,7 @@ const DISPATCH_RECEPTION_FRAGMENT = gql`
     finalTankVolumeLiters
     createdAt
     tank { id name }
+    invoice { id invoiceNumber fuelKind liters }
   }
 `
 
