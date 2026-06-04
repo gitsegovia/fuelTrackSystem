@@ -63,15 +63,16 @@ export default function NewInvoicePage() {
 
   const onSubmit = async (data: FormData) => {
     try {
+      const { dispatchTime, dischargeTime, ...rest } = data
       await create({
         variables: {
           input: {
-            ...data,
+            ...rest,
             liters: parseFloat(data.liters),
             totalAmount: parseFloat(data.totalAmount),
             costPerLiter: parseFloat(data.costPerLiter),
-            dispatchDate: new Date(`${data.dispatchDate}T${data.dispatchTime}`).toISOString(),
-            dischargeDate: new Date(`${data.dischargeDate}T${data.dischargeTime}`).toISOString(),
+            dispatchDate: new Date(`${data.dispatchDate}T${dispatchTime}`).toISOString(),
+            dischargeDate: new Date(`${data.dischargeDate}T${dischargeTime}`).toISOString(),
           },
         },
       })
