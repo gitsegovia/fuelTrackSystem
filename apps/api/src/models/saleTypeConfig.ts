@@ -109,7 +109,7 @@ export function initialize(sequelize: Sequelize): ModelStatic<SaleTypeConfig> {
         allowNull: false,
       },
       percentage: {
-        type: DataTypes.DECIMAL(3, 2), // Porcentaje, ej. 99.99 (0-100)
+        type: DataTypes.DECIMAL(5, 2), // 0.00 – 100.00
         allowNull: false,
         validate: {
           min: 0,

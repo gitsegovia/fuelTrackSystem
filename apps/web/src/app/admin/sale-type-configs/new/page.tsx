@@ -56,11 +56,20 @@ export default function NewSaleTypeConfigPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await create({ variables: { input: data } })
+      await create({
+        variables: {
+          input: {
+            ...data,
+            salePricePerLiter: parseFloat(data.salePricePerLiter),
+            percentage: parseFloat(data.percentage),
+          },
+        },
+      })
       toast.success('Configuración creada correctamente.')
       router.push('/admin/sale-type-configs')
     } catch (err: any) {
-      toast.error(err.message?.includes('already exists') ? 'Ya existe una configuración con esa combinación.' : 'No se pudo crear la configuración.')
+      const msg = err.message ?? ''
+      toast.error(msg.includes('already exists') ? 'Ya existe una configuración con esa combinación.' : `No se pudo crear la configuración: ${msg}`)
     }
   }
 
@@ -123,12 +132,12 @@ export default function NewSaleTypeConfigPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Precio por litro *</Label>
-                <Input placeholder="0.00" {...register('salePricePerLiter')} aria-invalid={!!errors.salePricePerLiter} />
+                <Input type="number" step="0.0001" placeholder="0.0000" {...register('salePricePerLiter')} aria-invalid={!!errors.salePricePerLiter} />
                 {errors.salePricePerLiter && <p className="text-xs text-destructive">{errors.salePricePerLiter.message}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label>Porcentaje *</Label>
-                <Input placeholder="0.00" {...register('percentage')} aria-invalid={!!errors.percentage} />
+                <Input type="number" step="0.01" placeholder="0.00" {...register('percentage')} aria-invalid={!!errors.percentage} />
                 {errors.percentage && <p className="text-xs text-destructive">{errors.percentage.message}</p>}
               </div>
             </div>
