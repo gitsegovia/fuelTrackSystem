@@ -1,5 +1,14 @@
 import dotenv from 'dotenv'
+import { existsSync } from 'fs'
+import { resolve, dirname } from 'path'
+import { fileURLToPath } from 'url'
+
 dotenv.config()
+
+const localEnv = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env.local')
+if (existsSync(localEnv)) {
+  dotenv.config({ path: localEnv, override: true })
+}
 
 export default {
   // Configuración para el entorno de desarrollo
