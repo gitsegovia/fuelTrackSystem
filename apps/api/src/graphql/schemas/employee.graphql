@@ -20,6 +20,18 @@ input CreateEmployeeInput {
   position: String!
 }
 
+input CreateEmployeeWithUserInput {
+  username: String!
+  password: String!
+  role: UserRole!
+  userType: UserType!
+  companyId: UUID!
+  gasStationId: UUID!
+  firstName: String!
+  lastName: String!
+  position: String!
+}
+
 input UpdateEmployeeInput {
   userId: UUID
   gasStationId: UUID
@@ -35,6 +47,7 @@ extend type Query {
 
 extend type Mutation {
   createEmployee(input: CreateEmployeeInput!): Employee!
+  createEmployeeWithUser(input: CreateEmployeeWithUserInput!): Employee!
   updateEmployee(id: UUID!, input: UpdateEmployeeInput!): Employee
   deleteEmployee(id: UUID!): Boolean!
 }

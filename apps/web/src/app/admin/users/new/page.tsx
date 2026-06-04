@@ -143,7 +143,7 @@ export default function NewUserPage() {
                   <option value="Administrator">Administrador</option>
                   <option value="Supervisor">Supervisor</option>
                   <option value="Cashier">Cajero</option>
-                  <option value="FuelAttendant">Pistero</option>
+                  <option value="FuelAttendant">Bombero</option>
                   <option value="Administrative">Administrativo</option>
                 </select>
                 {errors.userType && (

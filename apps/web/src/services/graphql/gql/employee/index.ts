@@ -27,6 +27,11 @@ export const MUTATIONS = {
       createEmployee(input: $input) { ...EmployeeFields }
     } ${EMPLOYEE_FRAGMENT}
   `,
+  createEmployeeWithUser: gql`
+    mutation CreateEmployeeWithUser($input: CreateEmployeeWithUserInput!) {
+      createEmployeeWithUser(input: $input) { ...EmployeeFields }
+    } ${EMPLOYEE_FRAGMENT}
+  `,
   updateEmployee: gql`
     mutation UpdateEmployee($id: UUID!, $input: UpdateEmployeeInput!) {
       updateEmployee(id: $id, input: $input) { ...EmployeeFields }

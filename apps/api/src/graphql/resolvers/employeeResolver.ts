@@ -1,4 +1,5 @@
 import { IResolvers } from "@graphql-tools/utils";
+import bcrypt from "bcryptjs";
 import { Context } from "../../interfaces";
 import { AppModels } from "../../interfaces/models";
 import { Employee as EmployeeModel } from "../../models/employee"; // Importar el tipo de modelo Employee
@@ -55,6 +56,47 @@ const employeeResolver: IResolvers<Context> = {
           `An error occurred while creating the employee: ${
             error.message || "Unknown error"
           }`
+        );
+      }
+    },
+    createEmployeeWithUser: async (_parent, { input }, context: Context) => {
+      const {
+        username, password, role, userType, companyId,
+        gasStationId, firstName, lastName, position,
+      } = input;
+
+      const existingUser = await context.models.User.findOne({ where: { username } });
+      if (existingUser) {
+        throw new Error("Username already exists. Please choose a different one.");
+      }
+
+      try {
+        const result = await context.sequelize.transaction(async (t: any) => {
+          const passwordHash = await bcrypt.hash(password, 10);
+          const newUser = await context.models.User.create(
+            { username, passwordHash, role, userType, companyId, gasStationId },
+            { transaction: t }
+          );
+          const employee = await context.models.Employee.create(
+            { userId: newUser.id, gasStationId, firstName, lastName, position },
+            { transaction: t }
+          );
+          return context.models.Employee.findByPk(employee.id, {
+            include: [
+              { model: context.models.User, as: "user" },
+              { model: context.models.GasStation, as: "gasStation" },
+            ],
+            transaction: t,
+          });
+        });
+        return result;
+      } catch (error: any) {
+        console.error(`❌ Error in 'createEmployeeWithUser' mutation:`, error.message || error);
+        if (error.name === "SequelizeUniqueConstraintError") {
+          throw new Error("Username already exists. Please choose another one.");
+        }
+        throw new Error(
+          `An error occurred while creating the employee: ${error.message || "Unknown error"}`
         );
       }
     },
