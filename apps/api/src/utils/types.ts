@@ -21,9 +21,9 @@ export enum FuelType {
 
 // ENUM para los diferentes tipos de venta si son fijos
 export enum SaleTypeName {
-  REGULAR = "Regular",
-  PREMIUM = "Premium",
-  SUBSIDIZED = "Subsidized", // Ejemplo: Venta con precio subsidiado
+  REGULAR = "REGULAR",
+  PREMIUM = "PREMIUM",
+  SUBSIDIZED = "SUBSIDIZED",
 }
 
 // Definimos un ENUM para los roles de empleado en el turno
