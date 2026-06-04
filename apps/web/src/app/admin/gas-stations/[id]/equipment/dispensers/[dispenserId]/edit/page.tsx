@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -36,8 +36,10 @@ interface Tank { id: string; name: string; fuelType: { name: string } }
 
 export default function EditDispenserPage() {
   const { id: stationId, dispenserId } = useParams<{ id: string; dispenserId: string }>()
+  const searchParams = useSearchParams()
+  const expandIsland = searchParams.get('expandIsland') ?? ''
   const router = useRouter()
-  const back = `/admin/gas-stations/${stationId}/equipment`
+  const back = `/admin/gas-stations/${stationId}/equipment${expandIsland ? `?expandIsland=${expandIsland}` : ''}`
 
   const { data, loading: fetching } = useQuery<{ dispenser: any }>(
     QUERIES.dispenser, { variables: { id: dispenserId }, skip: !dispenserId }

@@ -36,8 +36,9 @@ export default function NewDispenserPage() {
   const { id: stationId } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const defaultIslandId = searchParams.get('pumpIslandId') ?? ''
+  const expandIsland = searchParams.get('expandIsland') ?? ''
   const router = useRouter()
-  const back = `/admin/gas-stations/${stationId}/equipment`
+  const back = `/admin/gas-stations/${stationId}/equipment${expandIsland ? `?expandIsland=${expandIsland}` : ''}`
 
   const { data: islandsData } = useQuery<{ pumpIslandsByGasStation: { id: string; name: string }[] }>(
     ISLAND_QUERIES.pumpIslandsByGasStation, { variables: { gasStationId: stationId } }

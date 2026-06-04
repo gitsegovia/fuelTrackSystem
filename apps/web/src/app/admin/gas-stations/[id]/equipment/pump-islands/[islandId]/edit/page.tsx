@@ -24,7 +24,7 @@ type FormData = z.infer<typeof schema>
 export default function EditPumpIslandPage() {
   const { id: stationId, islandId } = useParams<{ id: string; islandId: string }>()
   const router = useRouter()
-  const back = `/admin/gas-stations/${stationId}/equipment`
+  const back = `/admin/gas-stations/${stationId}/equipment?expandIsland=${islandId}`
 
   const { data, loading: fetching } = useQuery<{ pumpIsland: any }>(QUERIES.pumpIsland, { variables: { id: islandId }, skip: !islandId })
   const [update, { loading }] = useMutation(MUTATIONS.updatePumpIsland, {

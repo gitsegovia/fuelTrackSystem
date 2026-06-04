@@ -32,9 +32,10 @@ export default function NewPumpIslandPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await create({ variables: { input: { gasStationId: stationId, name: data.name, description: data.description || undefined } } })
+      const result = await create({ variables: { input: { gasStationId: stationId, name: data.name, description: data.description || undefined } } })
       toast.success('Isla creada correctamente.')
-      router.push(back)
+      const createdId = result.data?.createPumpIsland?.id
+      router.push(createdId ? `${back}?expandIsland=${createdId}` : back)
     } catch (err: any) { toast.error(err.message ?? 'Error al crear.') }
   }
 

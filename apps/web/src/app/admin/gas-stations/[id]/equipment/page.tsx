@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
 import {
@@ -36,9 +36,10 @@ type DeleteTarget = { type: 'island' | 'dispenser' | 'nozzle' | 'tank'; id: stri
 
 // ─── Nozzle list (lazy-loaded per dispenser) ──────────────────────────────────
 
-function NozzleList({ dispenserId, stationId, onEdit, onDelete }: {
+function NozzleList({ dispenserId, stationId, islandId, onEdit, onDelete }: {
   dispenserId: string
   stationId: string
+  islandId: string
   onEdit: (id: string) => void
   onDelete: (target: DeleteTarget) => void
 }) {
@@ -77,7 +78,7 @@ function NozzleList({ dispenserId, stationId, onEdit, onDelete }: {
       )}
       <div className="px-12 py-2 border-t border-border/40">
         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
-          onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/new?dispenserId=${dispenserId}`)}>
+          onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/new?dispenserId=${dispenserId}&expandIsland=${islandId}`)}>
           <Plus className="size-3.5" /> Añadir boquilla
         </Button>
       </div>
@@ -90,10 +91,19 @@ function NozzleList({ dispenserId, stationId, onEdit, onDelete }: {
 export default function EquipmentPage() {
   const { id: stationId } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const expandIslandParam = searchParams.get('expandIsland')
 
   const [expandedIslands, setExpandedIslands] = useState<Set<string>>(new Set())
   const [expandedDispensers, setExpandedDispensers] = useState<Set<string>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null)
+
+  // Auto-expand the island indicated by the URL param on mount
+  useEffect(() => {
+    if (expandIslandParam) {
+      setExpandedIslands((prev) => new Set([...prev, expandIslandParam]))
+    }
+  }, [expandIslandParam])
 
   // Queries
   const { data: stationData } = useQuery<{ gasStation: { id: string; name: string; code: string } }>(
@@ -153,6 +163,8 @@ export default function EquipmentPage() {
   const tanks = tanksData?.tanksByGasStation ?? []
   const stationName = stationData?.gasStation?.name ?? '...'
 
+  const navTo = (path: string) => `/admin/gas-stations/${stationId}/equipment/${path}`
+
   // Tank columns
   const tankColumns: ColumnDef<Tank>[] = [
     {
@@ -180,7 +192,7 @@ export default function EquipmentPage() {
       cell: ({ row }) => (
         <div className="flex items-center gap-1 justify-end">
           <Button variant="ghost" size="icon-sm"
-            onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/tanks/${row.original.id}/edit`)}>
+            onClick={() => router.push(navTo(`tanks/${row.original.id}/edit`))}>
             <Pencil className="size-4" />
           </Button>
           <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
@@ -211,7 +223,7 @@ export default function EquipmentPage() {
             <Layers className="size-4 text-muted-foreground" /> Islas y Dispensadores
           </h2>
           <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-            onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/pump-islands/new`)}>
+            onClick={() => router.push(navTo('pump-islands/new'))}>
             <Plus className="size-3.5" /> Nueva isla
           </Button>
         </div>
@@ -223,7 +235,7 @@ export default function EquipmentPage() {
             <Layers className="size-8 mx-auto mb-2 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">No hay islas registradas</p>
             <Button size="sm" variant="outline" className="mt-3 text-xs gap-1.5"
-              onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/pump-islands/new`)}>
+              onClick={() => router.push(navTo('pump-islands/new'))}>
               <Plus className="size-3.5" /> Crear primera isla
             </Button>
           </div>
@@ -231,12 +243,16 @@ export default function EquipmentPage() {
           <div className="rounded-lg border border-border overflow-hidden">
             {islands.map((island, idx) => {
               const islandOpen = expandedIslands.has(island.id)
+              const isActive = island.id === expandIslandParam
               const islandDispensers = dispensers.filter((d) => d.pumpIslandId === island.id)
 
               return (
                 <div key={island.id} className={cn(idx > 0 && 'border-t border-border')}>
                   {/* Island row */}
-                  <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors">
+                  <div className={cn(
+                    'flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors',
+                    isActive && 'border-l-2 border-l-amber-500 bg-amber-500/5'
+                  )}>
                     <button
                       onClick={() => toggleIsland(island.id)}
                       className="flex items-center gap-2 flex-1 text-left"
@@ -244,7 +260,7 @@ export default function EquipmentPage() {
                       {islandOpen
                         ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
                         : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
-                      <Layers className="size-4 text-primary shrink-0" />
+                      <Layers className={cn('size-4 shrink-0', isActive ? 'text-amber-500' : 'text-primary')} />
                       <span className="text-sm font-semibold">{island.name}</span>
                       {island.description && (
                         <span className="text-xs text-muted-foreground truncate">— {island.description}</span>
@@ -254,11 +270,11 @@ export default function EquipmentPage() {
                       </Badge>
                     </button>
                     <Button variant="ghost" size="icon-sm"
-                      onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/dispensers/new?pumpIslandId=${island.id}`)}>
+                      onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
                       <Plus className="size-4" />
                     </Button>
                     <Button variant="ghost" size="icon-sm"
-                      onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/pump-islands/${island.id}/edit`)}>
+                      onClick={() => router.push(navTo(`pump-islands/${island.id}/edit?expandIsland=${island.id}`))}>
                       <Pencil className="size-4" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
@@ -296,7 +312,7 @@ export default function EquipmentPage() {
                                   </Badge>
                                 </button>
                                 <Button variant="ghost" size="icon-sm"
-                                  onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/dispensers/${disp.id}/edit`)}>
+                                  onClick={() => router.push(navTo(`dispensers/${disp.id}/edit?expandIsland=${island.id}`))}>
                                   <Pencil className="size-3.5" />
                                 </Button>
                                 <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
@@ -310,7 +326,8 @@ export default function EquipmentPage() {
                                 <NozzleList
                                   dispenserId={disp.id}
                                   stationId={stationId}
-                                  onEdit={(nozzleId) => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/${nozzleId}/edit`)}
+                                  islandId={island.id}
+                                  onEdit={(nozzleId) => router.push(navTo(`nozzles/${nozzleId}/edit?expandIsland=${island.id}`))}
                                   onDelete={setDeleteTarget}
                                 />
                               )}
@@ -320,7 +337,7 @@ export default function EquipmentPage() {
                       )}
                       <div className="px-8 py-2 border-t border-border/50">
                         <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
-                          onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/dispensers/new?pumpIslandId=${island.id}`)}>
+                          onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
                           <Plus className="size-3.5" /> Añadir dispensador
                         </Button>
                       </div>
@@ -340,7 +357,7 @@ export default function EquipmentPage() {
             <Droplets className="size-4 text-muted-foreground" /> Tanques
           </h2>
           <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-            onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/tanks/new`)}>
+            onClick={() => router.push(navTo('tanks/new'))}>
             <Plus className="size-3.5" /> Nuevo tanque
           </Button>
         </div>

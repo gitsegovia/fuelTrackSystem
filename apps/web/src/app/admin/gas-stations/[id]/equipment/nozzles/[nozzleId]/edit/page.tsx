@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,24 +31,47 @@ const selectClass = cn(
 
 export default function EditNozzlePage() {
   const { id: stationId, nozzleId } = useParams<{ id: string; nozzleId: string }>()
+  const searchParams = useSearchParams()
+  const expandIsland = searchParams.get('expandIsland') ?? ''
   const router = useRouter()
-  const back = `/admin/gas-stations/${stationId}/equipment`
+  const back = `/admin/gas-stations/${stationId}/equipment${expandIsland ? `?expandIsland=${expandIsland}` : ''}`
 
-  const { data, loading: fetching } = useQuery<{ dispenserNozzle: any }>(QUERIES.dispenserNozzle, { variables: { id: nozzleId }, skip: !nozzleId })
-  const [update, { loading }] = useMutation(MUTATIONS.updateDispenserNozzle)
+  const { data, loading: fetching } = useQuery<{ dispenserNozzle: any }>(
+    QUERIES.dispenserNozzle, { variables: { id: nozzleId }, skip: !nozzleId }
+  )
+  const [update, { loading }] = useMutation(MUTATIONS.updateDispenserNozzle, {
+    refetchQueries: data?.dispenserNozzle?.dispenserId
+      ? [{ query: QUERIES.dispenserNozzlesByDispenser, variables: { dispenserId: data.dispenserNozzle.dispenserId } }]
+      : [],
+  })
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<FormData>({ resolver: zodResolver(schema) })
 
   useEffect(() => {
     if (data?.dispenserNozzle) {
       const n = data.dispenserNozzle
-      reset({ name: n.name, initialMeterReading: String(n.initialMeterReading), currentMeterReading: String(n.currentMeterReading), isOperational: String(n.isOperational) })
+      reset({
+        name: n.name,
+        initialMeterReading: String(n.initialMeterReading),
+        currentMeterReading: String(n.currentMeterReading),
+        isOperational: String(n.isOperational),
+      })
     }
   }, [data, reset])
 
   const onSubmit = async (data: FormData) => {
     try {
-      await update({ variables: { id: nozzleId, input: { name: data.name, initialMeterReading: data.initialMeterReading, currentMeterReading: data.currentMeterReading, isOperational: data.isOperational === 'true' } } })
+      await update({
+        variables: {
+          id: nozzleId,
+          input: {
+            name: data.name,
+            initialMeterReading: data.initialMeterReading,
+            currentMeterReading: data.currentMeterReading,
+            isOperational: data.isOperational === 'true',
+          },
+        },
+      })
       toast.success('Boquilla actualizada.')
       router.push(back)
     } catch (err: any) { toast.error(err.message ?? 'Error al actualizar.') }

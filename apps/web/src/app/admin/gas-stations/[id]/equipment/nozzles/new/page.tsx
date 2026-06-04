@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { toast } from 'sonner'
 import { useMutation } from '@apollo/client/react'
-import { MUTATIONS } from '@/services/graphql/gql/dispenserNozzle'
+import { MUTATIONS, QUERIES } from '@/services/graphql/gql/dispenserNozzle'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,22 +36,34 @@ export default function NewNozzlePage() {
   const { id: stationId } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const dispenserId = searchParams.get('dispenserId') ?? ''
+  const expandIsland = searchParams.get('expandIsland') ?? ''
   const router = useRouter()
-  const back = `/admin/gas-stations/${stationId}/equipment`
+  const back = `/admin/gas-stations/${stationId}/equipment${expandIsland ? `?expandIsland=${expandIsland}` : ''}`
 
-  const [create, { loading }] = useMutation(MUTATIONS.createDispenserNozzle)
+  const [create, { loading }] = useMutation(MUTATIONS.createDispenserNozzle, {
+    refetchQueries: dispenserId
+      ? [{ query: QUERIES.dispenserNozzlesByDispenser, variables: { dispenserId } }]
+      : [],
+  })
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<FormData>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { isOperational: 'true', initialMeterReading: '', currentMeterReading: '' },
   })
 
-  // Mirror initial reading to current when typing initial
-  const initialReading = watch('initialMeterReading')
-
   const onSubmit = async (data: FormData) => {
     try {
-      await create({ variables: { input: { dispenserId, name: data.name, initialMeterReading: data.initialMeterReading, currentMeterReading: data.currentMeterReading, isOperational: data.isOperational === 'true' } } })
+      await create({
+        variables: {
+          input: {
+            dispenserId,
+            name: data.name,
+            initialMeterReading: data.initialMeterReading,
+            currentMeterReading: data.currentMeterReading,
+            isOperational: data.isOperational === 'true',
+          },
+        },
+      })
       toast.success('Boquilla creada correctamente.')
       router.push(back)
     } catch (err: any) { toast.error(err.message ?? 'Error al crear.') }
@@ -72,8 +84,16 @@ export default function NewNozzlePage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="initialMeterReading">Lectura inicial *</Label>
-                <Input id="initialMeterReading" placeholder="0.00" {...register('initialMeterReading')} aria-invalid={!!errors.initialMeterReading}
-                  onChange={(e) => { register('initialMeterReading').onChange(e); setValue('currentMeterReading', e.target.value) }} />
+                <Input
+                  id="initialMeterReading"
+                  placeholder="0.00"
+                  {...register('initialMeterReading')}
+                  aria-invalid={!!errors.initialMeterReading}
+                  onChange={(e) => {
+                    register('initialMeterReading').onChange(e)
+                    setValue('currentMeterReading', e.target.value)
+                  }}
+                />
                 {errors.initialMeterReading && <p className="text-xs text-destructive">{errors.initialMeterReading.message}</p>}
               </div>
               <div className="space-y-1.5">
