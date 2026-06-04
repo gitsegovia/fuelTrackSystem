@@ -117,7 +117,7 @@ export class SalesTicket
     // Un SalesTicket utiliza una configuración de tipo de venta (precio)
     this.belongsTo(models.SaleTypeConfig, {
       foreignKey: "assignedSaleTypeConfigId",
-      as: "saleTypeConfig",
+      as: "assignedSaleTypeConfig",
     });
     // Un SalesTicket puede tener uno o muchos pagos asociados
     this.hasMany(models.Payment, {
