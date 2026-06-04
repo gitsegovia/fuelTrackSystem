@@ -58,7 +58,7 @@ export default function FuelTypesPage() {
       accessorKey: 'costPerLiter',
       header: 'Costo por litro',
       cell: ({ row }) => (
-        <span>${Number(row.original.costPerLiter).toFixed(4)}</span>
+        <span>${Number(row.original.costPerLiter).toFixed(2)}</span>
       ),
     },
     {
