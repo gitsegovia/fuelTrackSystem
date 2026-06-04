@@ -79,6 +79,19 @@ const invoiceResolver: IResolvers<Context> = {
         );
       }
     },
+    // Cerrar una factura manualmente
+    closeInvoice: async (_parent, { id }: { id: string }, context: Context) => {
+      try {
+        const invoice = await context.models.Invoice.findByPk(id);
+        if (!invoice) throw new Error("Invoice not found.");
+        if (invoice.status === 'CLOSED') throw new Error("La factura ya está cerrada.");
+        await invoice.update({ status: 'CLOSED' });
+        return invoice;
+      } catch (error: any) {
+        console.error(`❌ Error in 'closeInvoice' mutation:`, error.message || error);
+        throw new Error(`An error occurred while closing the invoice: ${error.message || "Unknown error"}`);
+      }
+    },
     // Eliminar una factura
     deleteInvoice: async (
       _parent,

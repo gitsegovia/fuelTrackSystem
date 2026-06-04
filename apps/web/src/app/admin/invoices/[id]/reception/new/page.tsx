@@ -89,6 +89,14 @@ export default function NewDispatchReceptionPage() {
   if (fetchingInvoice) return <Skeleton className="h-64 w-full max-w-lg" />
 
   const invoice = invoiceData?.invoice
+  const totalLiters = invoice ? parseFloat(invoice.liters) : 0
+  const receivedLiters = invoice
+    ? (invoice.dispatchReceptions ?? []).reduce((s: number, r: any) => s + parseFloat(r.receivedLiters), 0)
+    : 0
+  const remainingLiters = totalLiters - receivedLiters
+  const isClosed = invoice?.status === 'CLOSED'
+  const isComplete = remainingLiters <= 0
+  const blocked = isClosed || isComplete
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -103,13 +111,37 @@ export default function NewDispatchReceptionPage() {
       />
 
       {invoice && (
-        <div className="rounded-lg border bg-muted/30 px-4 py-3 text-sm space-y-1">
-          <p><span className="text-muted-foreground">Combustible:</span> {invoice.fuelKind}</p>
-          <p><span className="text-muted-foreground">Litros facturados:</span> {parseFloat(invoice.liters).toLocaleString()} L</p>
+        <div className={`rounded-lg border px-4 py-3 text-sm space-y-2 ${isClosed ? 'bg-muted border-muted-foreground/20' : 'bg-muted/30'}`}>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Estado</span>
+            <span className={`font-medium ${isClosed ? 'text-muted-foreground' : 'text-primary'}`}>
+              {isClosed ? 'Cerrada' : 'Pendiente'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Litros facturados</span>
+            <span>{totalLiters.toLocaleString()} L</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Ya recibidos</span>
+            <span>{receivedLiters.toLocaleString()} L</span>
+          </div>
+          <div className="flex justify-between font-medium border-t pt-2">
+            <span>Pendiente de recibir</span>
+            <span className={remainingLiters <= 0 ? 'text-muted-foreground' : 'text-primary'}>
+              {remainingLiters.toLocaleString()} L
+            </span>
+          </div>
+          {isClosed && (
+            <p className="text-xs text-muted-foreground pt-1">Esta factura está cerrada. No se pueden registrar más recepciones.</p>
+          )}
+          {!isClosed && isComplete && (
+            <p className="text-xs text-muted-foreground pt-1">Los litros de esta factura ya están completos.</p>
+          )}
         </div>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" aria-disabled={blocked}>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Destino</CardTitle>
@@ -171,7 +203,7 @@ export default function NewDispatchReceptionPage() {
         </Card>
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={loading}>
+          <Button type="submit" disabled={loading || blocked}>
             {loading && <Loader2 className="size-4 animate-spin" />}
             {loading ? 'Guardando...' : 'Registrar recepción'}
           </Button>

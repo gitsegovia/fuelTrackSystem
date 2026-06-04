@@ -5,6 +5,11 @@ enum FuelKind {
   KEROSENE
 }
 
+enum InvoiceStatus {
+  PENDING
+  CLOSED
+}
+
 type Invoice {
   id: UUID!
   invoiceNumber: String!
@@ -17,6 +22,7 @@ type Invoice {
   fuelKind: FuelKind!
   totalAmount: Decimal!
   costPerLiter: Decimal!
+  status: InvoiceStatus!
   createdAt: DateTime!
   updatedAt: DateTime!
   # Relaciones
@@ -64,4 +70,5 @@ extend type Mutation {
   createInvoice(input: CreateInvoiceInput!): Invoice!
   updateInvoice(id: UUID!, input: UpdateInvoiceInput!): Invoice
   deleteInvoice(id: UUID!): Boolean!
+  closeInvoice(id: UUID!): Invoice!
 }

@@ -63,29 +63,43 @@ const dispatchReceptionResolver: IResolvers<Context> = {
   Mutation: {
     // Crear una nueva recepción de despacho
     createDispatchReception: async (_parent, { input }, context: Context) => {
+      const invoice = await context.models.Invoice.findByPk(input.invoiceId, {
+        include: [{ model: context.models.DispatchReception, as: "dispatchReceptions" }],
+      });
+      if (!invoice) throw new Error("Factura no encontrada.");
+      if (invoice.status === "CLOSED") {
+        throw new Error("Esta factura ya está cerrada. No se pueden agregar más recepciones.");
+      }
+
+      const alreadyReceived = (invoice.dispatchReceptions ?? []).reduce(
+        (sum: number, r: any) => sum + parseFloat(r.receivedLiters),
+        0
+      );
+      const newTotal = alreadyReceived + parseFloat(input.receivedLiters);
+      const invoiceLiters = parseFloat(invoice.liters as any);
+
+      if (newTotal > invoiceLiters) {
+        throw new Error(
+          `Litros excedidos. Factura: ${invoiceLiters} L, ya recibidos: ${alreadyReceived} L, intentas registrar: ${input.receivedLiters} L.`
+        );
+      }
+
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
-          const reception = await context.models.DispatchReception.create(
-            input,
-            { transaction: t }
-          );
+          const reception = await context.models.DispatchReception.create(input, { transaction: t });
+          if (newTotal >= invoiceLiters) {
+            await invoice.update({ status: "CLOSED" }, { transaction: t });
+          }
           return reception;
         });
         return result;
       } catch (error: any) {
-        console.error(
-          `❌ Error in 'createDispatchReception' mutation:`,
-          error.message || error
-        );
+        console.error(`❌ Error in 'createDispatchReception' mutation:`, error.message || error);
         if (error.name === "SequelizeUniqueConstraintError") {
-          throw new Error(
-            "A dispatch reception for this invoice and tank already exists."
-          );
+          throw new Error("Ya existe una recepción para esta factura y este tanque.");
         }
         throw new Error(
-          `An error occurred while creating the dispatch reception: ${
-            error.message || "Unknown error"
-          }`
+          `An error occurred while creating the dispatch reception: ${error.message || "Unknown error"}`
         );
       }
     },

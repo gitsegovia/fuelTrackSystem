@@ -15,18 +15,19 @@ import { Currency } from "./currency";
 
 export interface InvoiceAttributes {
   id: string;
-  invoiceNumber: string; // Número de factura
-  controlNumber: string; // Número de control
-  sealNumber: string; // Número de precinto (opcional)
-  liters: number; // Litros despachados
-  dispatchDate: Date; // Fecha de despacho
-  dischargeDate: Date; // Fecha de descarga
-  truckIdentifier: string; // Identificador de la gandola/cisterna
-  fuelType: FuelType; // Tipo de combustible
-  totalAmount: number; // Monto total de la factura
-  costPerLiter: number; // Costo por litro
-  gasStationId: string; // ID de la estación que recibe (GasStation)
-  currencyId: string; // ID de la moneda (Currency)
+  invoiceNumber: string;
+  controlNumber: string;
+  sealNumber: string;
+  liters: number;
+  dispatchDate: Date;
+  dischargeDate: Date;
+  truckIdentifier: string;
+  fuelType: FuelType;
+  totalAmount: number;
+  costPerLiter: number;
+  gasStationId: string;
+  currencyId: string;
+  status: 'PENDING' | 'CLOSED';
 }
 
 // Para la creación, 'id' y 'sealNumber' son opcionales
@@ -49,6 +50,7 @@ export class Invoice
   public costPerLiter!: number;
   public gasStationId!: string;
   public currencyId!: string;
+  public status!: 'PENDING' | 'CLOSED';
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -138,6 +140,12 @@ export function initialize(sequelize: Sequelize): ModelStatic<Invoice> {
         references: { model: "currencies", key: "id" },
         onUpdate: "CASCADE",
         onDelete: "RESTRICT",
+      },
+      status: {
+        type: DataTypes.STRING(10),
+        allowNull: false,
+        defaultValue: 'PENDING',
+        validate: { isIn: [['PENDING', 'CLOSED']] },
       },
     },
     {

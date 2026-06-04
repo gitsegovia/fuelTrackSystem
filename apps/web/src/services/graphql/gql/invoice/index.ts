@@ -13,9 +13,11 @@ const INVOICE_FRAGMENT = gql`
     fuelKind
     totalAmount
     costPerLiter
+    status
     createdAt
     receivingGasStation { id name }
     currency { id name symbol }
+    dispatchReceptions { id receivedLiters tank { id name } }
   }
 `
 
@@ -41,5 +43,10 @@ export const MUTATIONS = {
   `,
   deleteInvoice: gql`
     mutation DeleteInvoice($id: UUID!) { deleteInvoice(id: $id) }
+  `,
+  closeInvoice: gql`
+    mutation CloseInvoice($id: UUID!) {
+      closeInvoice(id: $id) { ...InvoiceFields }
+    } ${INVOICE_FRAGMENT}
   `,
 }
