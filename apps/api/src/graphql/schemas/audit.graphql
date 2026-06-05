@@ -1,0 +1,141 @@
+# ─────────────────────────────────────────────────────────────────
+# MÓDULO DE AUDITORÍA — FuelTrack
+# ─────────────────────────────────────────────────────────────────
+
+# 1. Auditoría de Recepciones (Factura vs Descarga Física)
+type InvoiceAuditRow {
+  invoiceId: UUID!
+  invoiceNumber: String!
+  controlNumber: String!
+  dispatchDate: DateTime!
+  driverName: String!
+  driverIdNumber: String!
+  truckPlate: String!
+  tankPlate: String!
+  fuelKind: String!
+  invoicedLiters: Decimal!
+  receivedLiters: Decimal!           # SUM(dispatchReception.receivedLiters)
+  differential: Decimal!             # receivedLiters - invoicedLiters (+ = excedente, - = merma)
+  differentialPercent: Decimal!      # (differential / invoicedLiters) * 100
+  gasStation: GasStation!
+}
+
+# 2. Ranking de choferes por diferencial acumulado
+type DriverAuditSummary {
+  driverName: String!
+  driverIdNumber: String!
+  truckPlate: String!
+  totalDeliveries: Int!
+  totalInvoicedLiters: Decimal!
+  totalReceivedLiters: Decimal!
+  totalDifferential: Decimal!
+  avgDifferentialPercent: Decimal!
+  shortDeliveries: Int!              # veces que recibido < facturado
+  excessDeliveries: Int!             # veces que recibido > facturado
+}
+
+# 3. Triple diferencial por turno (Medidor vs Cajero vs Tanque)
+type ShiftAuditRow {
+  shift: EmployeeShift!
+  meterDeltaLiters: Decimal          # FINAL - INITIAL de lecturas de medidor en el turno
+  cashierTicketLiters: Decimal       # SUM(actualLitersDispatched) de tickets del cajero
+  tankMeasurementLiters: Decimal     # dispensedVolumeSinceLastMeasurement del SHIFT_CLOSURE
+  meterVsCashierDiff: Decimal        # meterDelta - cashierTickets
+  cashierVsTankDiff: Decimal         # cashierTickets - tankMeasurement
+  meterVsTankDiff: Decimal           # meterDelta - tankMeasurement
+  totalTickets: Int!
+  canceledTickets: Int!
+}
+
+# 4. Rendimiento por bombero (despachador)
+type DispatcherAuditRow {
+  employee: Employee!
+  totalTickets: Int!
+  totalRequestedLiters: Decimal!
+  totalDispatchedLiters: Decimal!
+  totalDifferential: Decimal!        # dispatched - requested (- = falta, + = excedente)
+  avgDifferentialPerTicket: Decimal!
+  shortTickets: Int!                 # tickets donde despachó menos de lo solicitado
+  excessTickets: Int!                # tickets donde despachó más de lo solicitado
+  shortTicketPercent: Decimal!       # % de tickets con faltante
+}
+
+# 5. Balance de tanque por período
+type TankBalanceAuditRow {
+  tank: Tank!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  openingVolumeLiters: Decimal!      # medición más cercana al inicio del período
+  totalReceivedLiters: Decimal!      # SUM(dispatchReception.receivedLiters) en el período
+  totalDispatchedLiters: Decimal!    # SUM(actualLitersDispatched) en el período
+  expectedClosingVolume: Decimal!    # opening + received - dispatched
+  actualClosingVolume: Decimal!      # última medición del período
+  varianceLiters: Decimal!           # actual - expected (- = merma, + = ganancia)
+  variancePercent: Decimal!
+}
+
+# 6. Cuadre financiero por turno (cajero)
+type ShiftFinancialAuditRow {
+  shift: EmployeeShift!
+  totalExpectedAmount: Decimal!      # SUM(totalAmountExpected) de los tickets
+  totalCollectedAmount: Decimal!     # SUM(payment.amount convertido) de esos tickets
+  financialDifferential: Decimal!    # collected - expected
+  cashAmount: Decimal!
+  electronicAmount: Decimal!         # débito + crédito + transferencia + pago móvil
+  totalTickets: Int!
+  completedTickets: Int!
+  canceledTickets: Int!
+  pendingTickets: Int!               # tickets sin pago completo al cierre
+}
+
+extend type Query {
+  # 1 — Recepciones por estación y rango de fechas
+  invoiceAudit(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [InvoiceAuditRow!]!
+
+  # 2 — Ranking de choferes
+  driverAuditSummary(
+    gasStationId: UUID
+    startDate: DateTime
+    endDate: DateTime
+  ): [DriverAuditSummary!]!
+
+  # 3 — Triple diferencial de turno
+  shiftAudit(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [ShiftAuditRow!]!
+
+  shiftAuditDetail(shiftId: UUID!): ShiftAuditRow
+
+  # 4 — Rendimiento por bombero
+  dispatcherAudit(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [DispatcherAuditRow!]!
+
+  # 5 — Balance de tanque
+  tankBalanceAudit(
+    tankId: UUID!
+    startDate: DateTime!
+    endDate: DateTime!
+  ): TankBalanceAuditRow
+
+  tankBalanceAuditByStation(
+    gasStationId: UUID!
+    startDate: DateTime!
+    endDate: DateTime!
+  ): [TankBalanceAuditRow!]!
+
+  # 6 — Cuadre financiero por turno
+  shiftFinancialAudit(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [ShiftFinancialAuditRow!]!
+}

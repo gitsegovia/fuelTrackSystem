@@ -11,6 +11,7 @@ type TankMeasurement {
   id: UUID!
   tankId: UUID!
   employeeId: UUID!
+  employeeShiftId: UUID
   measurementTime: DateTime!
   manualLevelReadingCm: Decimal!
   volumeInLiters: Decimal!
@@ -20,17 +21,18 @@ type TankMeasurement {
   notes: String
   createdAt: DateTime!
   updatedAt: DateTime!
-  # Relaciones
   tank: Tank!
   employee: Employee!
+  employeeShift: EmployeeShift
 }
 
 input CreateTankMeasurementInput {
   tankId: UUID!
   employeeId: UUID!
+  employeeShiftId: UUID
   measurementTime: DateTime!
   manualLevelReadingCm: Decimal!
-  volumeInLiters: Decimal! # Este campo podría ser calculado por el backend
+  volumeInLiters: Decimal!
   measurementReason: MeasurementReason!
   notes: String
 }

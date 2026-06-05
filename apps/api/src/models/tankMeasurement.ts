@@ -10,18 +10,20 @@ import type { AppModels } from "../interfaces/models";
 import { MeasurementReason } from "../utils/types";
 import { Tank } from "./tank";
 import { Employee } from "./employee";
+import type { EmployeeShift } from "./employeeShift";
 
 export interface TankMeasurementAttributes {
   id: string;
-  tankId: string; // FK al Tanque (el tanque que está siendo medido)
-  employeeId: string; // FK al Empleado (el empleado que realizó la medición)
-  measurementTime: Date; // Fecha y hora de la medición
-  manualLevelReadingCm: number; // Lectura manual del nivel en centímetros (cm)
-  volumeInLiters: number; // Volumen calculado en litros basado en la tabla de calibración y la lectura del nivel
-  measurementReason: MeasurementReason; // Motivo de esta medición
-  dispensedVolumeSinceLastMeasurement?: number; // Volumen despachado de este tanque desde la última medición (calculado por la lógica de la aplicación)
-  receivedVolumeSinceLastMeasurement?: number; // Volumen recibido en este tanque desde la última medición (calculado por la lógica de la aplicación)
-  notes?: string; // Notas opcionales sobre la medición
+  tankId: string;
+  employeeId: string;
+  employeeShiftId?: string; // FK al turno activo del empleado, obligatorio en SHIFT_CLOSURE
+  measurementTime: Date;
+  manualLevelReadingCm: number;
+  volumeInLiters: number;
+  measurementReason: MeasurementReason;
+  dispensedVolumeSinceLastMeasurement?: number;
+  receivedVolumeSinceLastMeasurement?: number;
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,6 +32,7 @@ interface TankMeasurementCreationAttributes
   extends Optional<
     TankMeasurementAttributes,
     | "id"
+    | "employeeShiftId"
     | "dispensedVolumeSinceLastMeasurement"
     | "receivedVolumeSinceLastMeasurement"
     | "notes"
@@ -42,6 +45,7 @@ export class TankMeasurement
   public id!: string;
   public tankId!: string;
   public employeeId!: string;
+  public employeeShiftId?: string;
   public measurementTime!: Date;
   public manualLevelReadingCm!: number;
   public volumeInLiters!: number;
@@ -53,32 +57,27 @@ export class TankMeasurement
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
-  // --- Mixins de Sequelize para las relaciones ---
   public getTank!: BelongsToGetAssociationMixin<Tank>;
   public getEmployee!: BelongsToGetAssociationMixin<Employee>;
+  public getEmployeeShift!: BelongsToGetAssociationMixin<EmployeeShift>;
 
-  // --- Propiedades de solo lectura para las relaciones (si se usan con `include`) ---
   public readonly tank?: Tank;
   public readonly employee?: Employee;
+  public readonly employeeShift?: EmployeeShift;
 
   static associate(models: AppModels) {
-    // Una medición de tanque pertenece a un tanque específico
     this.belongsTo(models.Tank, {
       foreignKey: "tankId",
       as: "tank",
     });
-    // Una medición de tanque es realizada por un empleado
     this.belongsTo(models.Employee, {
       foreignKey: "employeeId",
       as: "employee",
     });
-    // Se podría considerar añadir un enlace a EmployeeShift si se desea vincularlo explícitamente al turno
-    // durante el cual ocurrió. Sin embargo, el employeeId y measurementTime podrían ser suficientes
-    // para inferir el turno a través de la lógica de negocio.
-    // this.belongsTo(models.EmployeeShift, {
-    //   foreignKey: 'employeeShiftId', // Se necesitaría añadir esta FK al modelo
-    //   as: 'employeeShift',
-    // });
+    this.belongsTo(models.EmployeeShift, {
+      foreignKey: "employeeShiftId",
+      as: "employeeShift",
+    });
   }
 }
 
@@ -102,7 +101,14 @@ export function initialize(sequelize: Sequelize): ModelStatic<TankMeasurement> {
         allowNull: false,
         references: { model: "employees", key: "id" },
         onUpdate: "CASCADE",
-        onDelete: "RESTRICT", // Evita eliminar un empleado si realizó mediciones
+        onDelete: "RESTRICT",
+      },
+      employeeShiftId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: "employee_shifts", key: "id" },
+        onUpdate: "CASCADE",
+        onDelete: "SET NULL",
       },
       measurementTime: {
         type: DataTypes.DATE,

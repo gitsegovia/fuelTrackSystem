@@ -21,6 +21,7 @@ type EmployeeShift {
   dispenserReadings: [DispenserReading!]!
   salesTicketsProcessed: [SalesTicket!]
   salesTicketsDispatched: [SalesTicket!]
+  tankMeasurements: [TankMeasurement!]!
 }
 
 input CreateEmployeeShiftInput {

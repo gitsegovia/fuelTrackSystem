@@ -13,6 +13,7 @@ import { Employee } from "./employee";
 import { GasStation } from "./gasStation";
 import { DispenserReading } from "./dispenserReading";
 import { SalesTicket } from "./salesTicket";
+import type { TankMeasurement } from "./tankMeasurement";
 
 export interface EmployeeShiftAttributes {
   id: string;
@@ -44,16 +45,17 @@ export class EmployeeShift
 
   public getEmployee!: BelongsToGetAssociationMixin<Employee>;
   public getGasStation!: BelongsToGetAssociationMixin<GasStation>;
-  public getDispenserReadings!: HasManyGetAssociationsMixin<DispenserReading>; // Para lecturas de surtidor
-  public getSalesTicketsProcessed!: HasManyGetAssociationsMixin<SalesTicket>; // Para tickets de venta
-  public getSalesTicketsDispatched!: HasManyGetAssociationsMixin<SalesTicket>; // Para tickets de venta
+  public getDispenserReadings!: HasManyGetAssociationsMixin<DispenserReading>;
+  public getSalesTicketsProcessed!: HasManyGetAssociationsMixin<SalesTicket>;
+  public getSalesTicketsDispatched!: HasManyGetAssociationsMixin<SalesTicket>;
+  public getTankMeasurements!: HasManyGetAssociationsMixin<TankMeasurement>;
 
-  // --- Propiedades de solo lectura para las relaciones (si se usan con `include`) ---
   public readonly employee?: Employee;
   public readonly gasStation?: GasStation;
   public readonly dispenserReadings?: DispenserReading[];
   public readonly salesTicketsProcessed?: SalesTicket[];
   public readonly salesTicketsDispatched?: SalesTicket[];
+  public readonly tankMeasurements?: TankMeasurement[];
 
   static associate(models: AppModels) {
     // Un turno pertenece a un empleado
@@ -71,20 +73,17 @@ export class EmployeeShift
       foreignKey: "employeeShiftId",
       as: "dispenserReadings",
     });
-    // Un turno de cajero puede generar muchos tickets de venta
     this.hasMany(models.SalesTicket, {
       foreignKey: "cashierShiftId",
       as: "salesTicketsProcessed",
     });
-    // Un turno de bombero puede estar asociado a despachos en tickets (aunque el ticket tiene dispatcherEmployeeId directo)
-    // Esto es más para consultas de "qué despachos hizo este bombero en este turno"
     this.hasMany(models.SalesTicket, {
-      foreignKey: "dispatcherEmployeeId", // Usamos el FK del empleado que despachó
-      sourceKey: "employeeId", // La clave en EmployeeShift que se relaciona con dispatcherEmployeeId
+      foreignKey: "dispatcherShiftId",
       as: "salesTicketsDispatched",
-      // Considera añadir un scope o where clause si quieres filtrar por el turno específico
-      // Por ejemplo, donde SalesTicket.ticketIssueTime esté entre shiftStartTime y shiftEndTime
-      // Esto se manejaría mejor en las consultas de la aplicación.
+    });
+    this.hasMany(models.TankMeasurement, {
+      foreignKey: "employeeShiftId",
+      as: "tankMeasurements",
     });
   }
 }

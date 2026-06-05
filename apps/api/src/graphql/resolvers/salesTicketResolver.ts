@@ -390,6 +390,13 @@ const salesTicketResolver: IResolvers<Context> = {
     ) => {
       return parent.getDispatcherEmployee();
     },
+    dispatcherShift: async (
+      parent: SalesTicketModel,
+      _args,
+      _context: Context
+    ) => {
+      return parent.getDispatcherShift();
+    },
     dispenserNozzle: async (
       parent: SalesTicketModel,
       _args,

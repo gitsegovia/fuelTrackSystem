@@ -74,7 +74,7 @@ async function startApolloServer() {
     try {
       await sequelize.authenticate();
       console.log("Connection to database has been established successfully.");
-      await sequelize.sync();
+      await sequelize.sync({ alter: true });
       console.log("Database synced!");
     } catch (error) {
       console.error("Unable to connect to the database: ", error);
@@ -108,4 +108,14 @@ async function startApolloServer() {
   }
 }
 
-startApolloServer();
+startApolloServer().catch((err) => {
+  console.error("❌ Fatal error starting server:");
+  if (err instanceof Error) {
+    console.error(err.message);
+    console.error(err.stack);
+  } else {
+    console.error(JSON.stringify(err, null, 2));
+    console.error(String(err));
+  }
+  process.exit(1);
+});

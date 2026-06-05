@@ -13,6 +13,7 @@ type SalesTicket {
   ticketNumber: Int!
   cashierShiftId: UUID!
   dispatcherEmployeeId: UUID
+  dispatcherShiftId: UUID
   dispenserNozzleId: UUID
   fuelTypeId: UUID!
   requestedLiters: Decimal!
@@ -23,14 +24,14 @@ type SalesTicket {
   status: SalesTicketStatus!
   createdAt: DateTime!
   updatedAt: DateTime!
-  # Relaciones
   gasStation: GasStation!
   cashierShift: EmployeeShift!
   dispatcherEmployee: Employee
+  dispatcherShift: EmployeeShift
   dispenserNozzle: DispenserNozzle
   fuelType: FuelType!
   assignedSaleTypeConfig: SaleTypeConfig!
-  payments: [Payment!]! # Anticipando la tabla de pagos
+  payments: [Payment!]!
 }
 
 input CreateSalesTicketInput {

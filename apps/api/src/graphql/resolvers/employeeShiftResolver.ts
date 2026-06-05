@@ -284,6 +284,13 @@ const employeeShiftResolver: IResolvers<Context> = {
     ) => {
       return parent.getSalesTicketsDispatched();
     },
+    tankMeasurements: async (
+      parent: EmployeeShiftModel,
+      _args,
+      _context: Context
+    ) => {
+      return parent.getTankMeasurements();
+    },
   },
 };
 

@@ -376,7 +376,6 @@ const tankMeasurementResolver: IResolvers<Context> = {
       }
     },
   },
-  // --- Resolvers de Campo para relaciones ---
   TankMeasurement: {
     tank: async (parent: TankMeasurementModel, _args, _context: Context) => {
       return parent.getTank();
@@ -387,6 +386,13 @@ const tankMeasurementResolver: IResolvers<Context> = {
       _context: Context
     ) => {
       return parent.getEmployee();
+    },
+    employeeShift: async (
+      parent: TankMeasurementModel,
+      _args,
+      _context: Context
+    ) => {
+      return parent.getEmployeeShift();
     },
   },
 };

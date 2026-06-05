@@ -18,20 +18,23 @@ import { FuelType } from "./fuelType";
 import { SaleTypeConfig } from "./saleTypeConfig";
 import { Payment } from "./payment";
 
+
+
 export interface SalesTicketAttributes {
   id: string;
-  gasStationId: string; // FK a GasStation (para el secuencial diario)
-  ticketNumber: number; // Número secuencial diario del ticket (reinicia cada día por estación)
-  cashierShiftId: string; // FK a EmployeeShift (el turno del cajero que procesó el ticket)
-  dispatcherEmployeeId?: string; // FK a Employee (el bombero que realizó el despacho) - Opcional al inicio, se llena al despachar
-  dispenserNozzleId?: string; // FK a DispenserNozzle (la boquilla usada para el despacho) - Opcional al inicio, se llena al despachar
-  fuelTypeId: string; // FK a FuelType (el tipo de combustible solicitado)
-  requestedLiters: number; // Litros que se solicitaron despachar
-  actualLitersDispatched?: number; // Litros realmente despachados (se llena después del despacho)
-  assignedSaleTypeConfigId: string; // FK a SaleTypeConfig (la configuración de precio/tipo de venta aplicada)
-  ticketIssueTime: Date; // Fecha y hora de emisión/creación del ticket
-  totalAmountExpected: number; // Monto total que se espera cobrar por este ticket
-  status: SalesTicketStatus; // Estado actual del ticket
+  gasStationId: string;
+  ticketNumber: number;
+  cashierShiftId: string;
+  dispatcherEmployeeId?: string;
+  dispatcherShiftId?: string; // FK a EmployeeShift del turno activo del bombero al momento del despacho
+  dispenserNozzleId?: string;
+  fuelTypeId: string;
+  requestedLiters: number;
+  actualLitersDispatched?: number;
+  assignedSaleTypeConfigId: string;
+  ticketIssueTime: Date;
+  totalAmountExpected: number;
+  status: SalesTicketStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +44,7 @@ interface SalesTicketCreationAttributes
     SalesTicketAttributes,
     | "id"
     | "dispatcherEmployeeId"
+    | "dispatcherShiftId"
     | "dispenserNozzleId"
     | "actualLitersDispatched"
     | "status"
@@ -55,6 +59,7 @@ export class SalesTicket
   public ticketNumber!: number;
   public cashierShiftId!: string;
   public dispatcherEmployeeId?: string;
+  public dispatcherShiftId?: string;
   public dispenserNozzleId?: string;
   public fuelTypeId!: string;
   public requestedLiters!: number;
@@ -67,19 +72,19 @@ export class SalesTicket
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 
-  // --- Mixins de Sequelize para las relaciones ---
   public getGasStation!: BelongsToGetAssociationMixin<GasStation>;
   public getCashierShift!: BelongsToGetAssociationMixin<EmployeeShift>;
   public getDispatcherEmployee!: BelongsToGetAssociationMixin<Employee>;
+  public getDispatcherShift!: BelongsToGetAssociationMixin<EmployeeShift>;
   public getDispenserNozzle!: BelongsToGetAssociationMixin<DispenserNozzle>;
   public getFuelType!: BelongsToGetAssociationMixin<FuelType>;
   public getAssignedSaleTypeConfig!: BelongsToGetAssociationMixin<SaleTypeConfig>;
   public getPayments!: HasManyGetAssociationsMixin<Payment>;
 
-  // --- Propiedades de solo lectura para las relaciones (si se usan con `include`) ---
   public readonly gasStation?: GasStation;
   public readonly cashierShift?: EmployeeShift;
   public readonly dispatcherEmployee?: Employee;
+  public readonly dispatcherShift?: EmployeeShift;
   public readonly dispenserNozzle?: DispenserNozzle;
   public readonly fuelType?: FuelType;
   public readonly assignedSaleTypeConfig?: SaleTypeConfig;
@@ -103,6 +108,11 @@ export class SalesTicket
     this.belongsTo(models.Employee, {
       foreignKey: "dispatcherEmployeeId",
       as: "dispatcherEmployee",
+    });
+    // El turno activo del bombero en el momento del despacho
+    this.belongsTo(models.EmployeeShift, {
+      foreignKey: "dispatcherShiftId",
+      as: "dispatcherShift",
     });
     // Un SalesTicket se despacha a través de una boquilla de surtidor
     this.belongsTo(models.DispenserNozzle, {
@@ -155,8 +165,15 @@ export function initialize(sequelize: Sequelize): ModelStatic<SalesTicket> {
       },
       dispatcherEmployeeId: {
         type: DataTypes.UUID,
-        allowNull: true, // Puede ser nulo al inicio
+        allowNull: true,
         references: { model: "employees", key: "id" },
+        onUpdate: "CASCADE",
+        onDelete: "RESTRICT",
+      },
+      dispatcherShiftId: {
+        type: DataTypes.UUID,
+        allowNull: true,
+        references: { model: "employee_shifts", key: "id" },
         onUpdate: "CASCADE",
         onDelete: "RESTRICT",
       },
