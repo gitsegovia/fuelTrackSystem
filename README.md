@@ -1,141 +1,114 @@
-# FuelTrack Platform
+# FuelTrack
 
-Sistema de gestión para estaciones de servicio de combustible. Desarrollado por [Core Code Innovation (CCI)](https://corecodeinnovation.com).
+**Plataforma SaaS de gestión para estaciones de servicio de combustible**
+Desarrollada por [Core Code Innovation (CCI)](https://corecodeinnovation.com)
 
-## Descripción
+---
 
-FuelTrack permite a empresas propietarias de estaciones administrar sus operaciones: despacho de combustible, inventario de tanques, turnos de empleados, ventas y pagos. El acceso al sistema se valida mediante licencias emitidas por el servidor CCILicenseServer de CCI.
+## ¿Qué es FuelTrack?
+
+FuelTrack es un sistema de gestión integral para empresas que operan estaciones de servicio. Permite administrar desde un panel central las operaciones diarias de cada estación: turnos de empleados, despacho de combustible, cobros, inventario de tanques y análisis de ventas.
+
+El sistema opera bajo un modelo de licencias: cada instalación es validada por el servidor **CCILicenseServer** de CCI antes de arrancar, garantizando que sólo instancias autorizadas puedan operar.
+
+---
+
+## Características principales
+
+### Panel de Administración (`/admin`)
+- **Gestión de empresas y estaciones** — configuración completa de la estructura organizacional
+- **Gestión de usuarios** — roles (Admin, Manager, Employee) y tipos (Cajero, Bombero, Supervisor, etc.)
+- **Equipamiento de estación** — islas, dispensadores, boquillas y tanques por estación
+- **Configuración de precios** — tipos de venta (Regular, Premium, Subsidiado) por combustible, estación y moneda
+- **Registro de facturas de proveedor** — con datos del chofer, placa del camión y placa del tanque para auditorías
+- **Modelos de tanque** — catálogo con tablas de calibración importables desde CSV (altura → volumen)
+- **Gestión de monedas** — tasas de cambio configurables (USD, EUR, Bs, etc.)
+- **Dashboard con gráficos** — litros por día, distribución por combustible, tickets por período, comparativo con período anterior
+
+### Panel de Estación (`/station`)
+- **Turnos operacionales** — inicio, gestión y cierre de turno por empleado
+- **Lecturas de surtidores** — registro de lectura inicial y final del medidor por boquilla
+- **Tickets de venta** — creación, despacho (con litros reales), cobro multi-moneda y multi-método
+- **Pagos con tasa histórica** — cada pago guarda el snapshot de la tasa de cambio al momento del pago
+- **Pagos en varios métodos simultáneos** — el cajero puede combinar efectivo + pago móvil + transferencia en un solo cierre
+- **Inventario de tanques** — nivel actual, alertas de mínimo operativo, historial de mediciones
+- **Reporte de cierre de turno** — resumen de lecturas, litros por boquilla, ventas por bombero, recaudación por moneda y método de pago
+
+---
 
 ## Arquitectura
 
 ```
 Monorepo (pnpm workspaces + Turborepo)
-├── apps/web    → Panel de administración y estación (Next.js 16)
-├── apps/api    → API GraphQL (Apollo Server + Sequelize + PostgreSQL)
-└── packages/   → (futuro) tipos compartidos
+├── apps/web      →  Next.js 16  |  Panel Admin + Panel Estación  |  :3000
+├── apps/api      →  Apollo Server 4 + Sequelize 6  |  API GraphQL  |  :4000
+└── packages/     →  (futuro) tipos compartidos entre apps
 
 Externo al monorepo:
-└── CCILicenseServer  → Validación de licencias (CCI, servidor independiente)
+└── CCILicenseServer  →  Validación de licencias (CCI, servidor independiente)  |  :4100
 ```
 
-## Stack
+**Flujo de datos:**
+```
+Browser  →  apps/web (Next.js)  →  GraphQL  →  apps/api (Apollo)  →  PostgreSQL 15
+                                                        ↓
+                                          CCILicenseServer (validación al arrancar)
+```
 
-| Capa | Tecnología |
-|---|---|
-| Frontend | Next.js 16, React 19, TypeScript 5, Tailwind CSS v4 |
-| UI | shadcn/ui v4 (base-nova, @base-ui/react) |
-| GraphQL client | Apollo Client 4.2 |
-| Backend | Node.js 20, Apollo Server 4, TypeScript |
-| ORM | Sequelize 6 + PostgreSQL 15 |
-| Auth | JWT (localStorage en web, Bearer en API) |
-| Orquestación | Turborepo 2, pnpm 11 |
-| Contenedores | Docker, docker-compose |
+---
 
-## Requisitos
+## Stack técnico
 
-- Node.js 20+
-- pnpm 11+
-- Docker (para levantar el stack completo)
+| Capa | Tecnología | Versión |
+|---|---|---|
+| Frontend | Next.js · React · TypeScript | 16 · 19 · 5.9 |
+| UI | Tailwind CSS v4 · shadcn/ui base-nova (@base-ui/react) | 4 · 4 |
+| GraphQL client | Apollo Client | 4.2 |
+| Backend | Node.js · Apollo Server · TypeScript | 20 · 4.x · 5 |
+| ORM | Sequelize + PostgreSQL | 6 · 15 |
+| Auth | JWT (localStorage / Bearer token) | — |
+| Gráficos | Recharts | 3 |
+| Monorepo | Turborepo · pnpm | 2 · 11 |
+| Contenedores | Docker · docker-compose | — |
 
-## Instalación
+---
+
+## Inicio rápido
 
 ```bash
-# Clonar y entrar al directorio
-git clone <repo>
+# 1. Clonar el repositorio
+git clone <repo-url>
 cd project_fuelTrack
 
-# Instalar dependencias de todos los workspaces
+# 2. Instalar dependencias (todos los workspaces)
 pnpm install
+
+# 3. Configurar variables de entorno
+#    Ver docs/setup.md para instrucciones detalladas
+cp apps/api/.env.example apps/api/.env
+# Editar apps/api/.env y apps/web/.env.local
+
+# 4. Levantar el stack con Docker (forma más rápida)
+docker compose --env-file .env.demo -f docker-compose.yml -f docker-compose.demo.yml up --build
 ```
 
-## Desarrollo
+Para desarrollo local sin Docker, ver → [docs/setup.md](docs/setup.md)
 
-### Con Turborepo (recomendado)
+---
 
-```bash
-# Desde la raíz — levanta web y api en paralelo
-pnpm dev
-```
+## Documentación
 
-> **Nota de puertos:** La API usa `PORT=3000` por defecto y el web también corre en 3000. Para desarrollo local sin Docker, cambiar `PORT=4000` en `apps/api/.env` para evitar conflicto.
-
-### Por separado
-
-```bash
-pnpm --filter web dev   # http://localhost:3000
-pnpm --filter api dev   # configurar PORT=4000 en apps/api/.env
-```
-
-### Variables de entorno
-
-**apps/web/.env.local**
-```
-NEXT_PUBLIC_GRAPHQL_URI=http://localhost:4000
-NEXT_PUBLIC_JWT_SECRET=<mismo que JWT_SECRET de la API>
-```
-
-**apps/api/.env** — copiar desde `apps/api/.env.example` y completar.
-
-## Docker
-
-```bash
-# Stack completo en producción
-docker-compose up --build
-
-# Con overrides de desarrollo (hot-reload)
-docker-compose up
-```
-
-Los overrides de desarrollo (`docker-compose.override.yml`) montan el código fuente como volumen y usan los archivos `dev-machine-id.md` / `dev-mac-address.md` en lugar del hardware real para la validación de licencia.
-
-## Base de datos
-
-```bash
-cd apps/api
-
-# Correr migraciones
-pnpm sequelize db:migrate
-
-# Cargar datos iniciales
-pnpm sequelize db:seed:all
-```
-
-## Estructura del proyecto
-
-```
-apps/web/src/
-├── app/                    → rutas (App Router)
-│   ├── (auth)/             → login admin, login estación
-│   ├── admin/              → panel de administración
-│   └── station/            → panel de estación (en desarrollo)
-├── components/
-│   ├── ui/                 → componentes shadcn/ui
-│   ├── layout/             → sidebar, topbar, providers
-│   └── shared/             → DataTable, PageHeader
-├── context/                → AuthContext (JWT)
-├── hooks/                  → useAuth
-├── lib/                    → apollo-client, utils (cn)
-├── services/graphql/gql/   → queries y mutations por módulo
-└── types/                  → tipos TypeScript (auth, etc.)
-
-apps/api/src/
-├── graphql/
-│   ├── schemas/            → .graphql SDL por entidad
-│   └── resolvers/          → resolvers por entidad
-├── models/                 → modelos Sequelize
-├── middleware/             → auth JWT, autorización
-└── utils/                  → licenseValidator, authUtils
-```
-
-## Módulos admin disponibles
-
-| Módulo | Ruta |
+| Documento | Descripción |
 |---|---|
-| Dashboard | `/admin/dashboard` |
-| Empresas | `/admin/companies` |
-| Estaciones | `/admin/gas-stations` |
-| Tipos de combustible | `/admin/fuel-types` |
-| Usuarios | `/admin/users` |
+| [docs/setup.md](docs/setup.md) | Configuración de entorno local y Docker |
+| [docs/architecture.md](docs/architecture.md) | Arquitectura detallada, flujos de autenticación y decisiones técnicas |
+| [docs/business-domain.md](docs/business-domain.md) | Entidades del negocio, relaciones y flujos de estado |
+| [docs/modules.md](docs/modules.md) | Módulos del frontend — rutas, funcionalidad y flujo operacional |
+| [docs/api.md](docs/api.md) | API GraphQL — queries, mutations y autenticación |
+| [docs/deployment.md](docs/deployment.md) | Guía de despliegue en producción |
+| [docs/offline-first-pending.md](docs/offline-first-pending.md) | Offline-first — estado, limitaciones y plan de migración futura |
+
+---
 
 ## Licencia
 

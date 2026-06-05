@@ -14,6 +14,7 @@ type Payment {
   paymentTime: DateTime!
   transactionReference: String
   currencyId: UUID!
+  exchangeRateAtPayment: Decimal!
   createdAt: DateTime!
   updatedAt: DateTime!
   # Relaciones
@@ -28,6 +29,14 @@ input CreatePaymentInput {
   paymentTime: DateTime!
   transactionReference: String
   currencyId: UUID!
+}
+
+# Línea de pago para la mutación de multi-pago
+input PaymentLineInput {
+  paymentMethod: PaymentMethod!
+  amount: Decimal!
+  currencyId: UUID!
+  transactionReference: String
 }
 
 input UpdatePaymentInput {
@@ -48,6 +57,7 @@ extend type Query {
 
 extend type Mutation {
   createPayment(input: CreatePaymentInput!): Payment!
+  createPayments(salesTicketId: UUID!, paymentTime: DateTime!, payments: [PaymentLineInput!]!): [Payment!]!
   updatePayment(id: UUID!, input: UpdatePaymentInput!): Payment
   deletePayment(id: UUID!): Boolean!
 }

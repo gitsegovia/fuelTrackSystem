@@ -18,13 +18,14 @@ export interface PaymentAttributes {
   amount: number; // Monto pagado con este método
   paymentTime: Date; // Fecha y hora en que se registró el pago
   transactionReference?: string; // Referencia de la transacción (ej. número de aprobación de tarjeta, ID de transferencia)
-  currencyId: string; // FK a Currency (la moneda en la que se realizó el pago, si es diferente a la moneda base)
+  currencyId: string; // FK a Currency (la moneda en la que se realizó el pago)
+  exchangeRateAtPayment: number; // Snapshot de la tasa de cambio de la moneda al momento del pago
   createdAt: Date;
   updatedAt: Date;
 }
 
 interface PaymentCreationAttributes
-  extends Optional<PaymentAttributes, "id" | "transactionReference"> {}
+  extends Optional<PaymentAttributes, "id" | "transactionReference" | "createdAt" | "updatedAt"> {}
 
 export class Payment
   extends Model<PaymentAttributes, PaymentCreationAttributes>
@@ -37,6 +38,7 @@ export class Payment
   public paymentTime!: Date;
   public transactionReference?: string;
   public currencyId!: string;
+  public exchangeRateAtPayment!: number;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -99,7 +101,11 @@ export function initialize(sequelize: Sequelize): ModelStatic<Payment> {
         allowNull: false,
         references: { model: "currencies", key: "id" },
         onUpdate: "CASCADE",
-        onDelete: "RESTRICT", // No eliminar moneda si hay pagos en ella
+        onDelete: "RESTRICT",
+      },
+      exchangeRateAtPayment: {
+        type: DataTypes.DECIMAL(18, 6),
+        allowNull: false,
       },
       createdAt: {
         type: DataTypes.DATE,

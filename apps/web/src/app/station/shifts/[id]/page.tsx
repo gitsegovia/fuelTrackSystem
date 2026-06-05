@@ -4,10 +4,11 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, StopCircle, Clock } from 'lucide-react'
+import { ArrowLeft, Plus, StopCircle, Clock, Gauge, BarChart2 } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
+import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { useAuth } from '@/hooks/useAuth'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -37,13 +38,18 @@ export default function ShiftDetailPage() {
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
-  const employee = empData?.employees?.find((e) => e.user.id === user?.id)
+  const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
   const { data, loading } = useQuery(QUERIES.employeeShift, { variables: { id }, skip: !id })
   const { data: ticketsData } = useQuery(TicketQueries.salesTicketsByCashierShift, {
     variables: { cashierShiftId: id },
     skip: !id,
   })
+  const { data: readingsData } = useQuery(ReadingQueries.dispenserReadingsByShift, {
+    variables: { employeeShiftId: id },
+    skip: !id,
+  })
+
   const [endShift, { loading: ending }] = useMutation(MUTATIONS.endEmployeeShift, {
     refetchQueries: [
       { query: QUERIES.employeeShift, variables: { id } },
@@ -54,6 +60,25 @@ export default function ShiftDetailPage() {
 
   const shift = data?.employeeShift
   const tickets: any[] = ticketsData?.salesTicketsByCashierShift ?? []
+  const readings: any[] = readingsData?.dispenserReadingsByShift ?? []
+
+  const initialReadings = readings.filter((r) => r.readingType === 'INITIAL')
+  const finalReadings = readings.filter((r) => r.readingType === 'FINAL')
+  const hasInitial = initialReadings.length > 0
+  const hasFinal = finalReadings.length > 0
+
+  // Agrupar por boquilla para mostrar la tabla de lecturas
+  const nozzleIds = [...new Set(readings.map((r) => r.dispenserNozzleId))]
+  const readingsByNozzle = nozzleIds.map((nid) => {
+    const initial = initialReadings.find((r) => r.dispenserNozzleId === nid)
+    const final = finalReadings.find((r) => r.dispenserNozzleId === nid)
+    const nozzle = (initial ?? final)?.dispenserNozzle
+    const diff =
+      initial && final
+        ? parseFloat(final.meterReading) - parseFloat(initial.meterReading)
+        : null
+    return { nozzleId: nid, nozzle, initial, final, diff }
+  })
 
   const handleEndShift = async () => {
     try {
@@ -79,6 +104,9 @@ export default function ShiftDetailPage() {
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => router.back()}>
               <ArrowLeft className="size-4" /> Volver
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push(`/station/shifts/${id}/report`)}>
+              <BarChart2 className="size-4" /> Reporte
             </Button>
             {isActive && isMyShift && (
               <Button variant="destructive" size="sm" onClick={handleEndShift} disabled={ending}>
@@ -112,6 +140,61 @@ export default function ShiftDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Lecturas de surtidores */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium">Lecturas de surtidores</h3>
+          <div className="flex gap-2">
+            {isActive && !hasInitial && (
+              <Button size="sm" variant="outline" onClick={() => router.push(`/station/shifts/${id}/readings/new?type=INITIAL`)}>
+                <Gauge className="size-4" /> Lecturas iniciales
+              </Button>
+            )}
+            {isActive && hasInitial && !hasFinal && (
+              <Button size="sm" variant="outline" onClick={() => router.push(`/station/shifts/${id}/readings/new?type=FINAL`)}>
+                <Gauge className="size-4" /> Lecturas finales
+              </Button>
+            )}
+            {isActive && hasInitial && hasFinal && (
+              <span className="text-xs text-green-600 font-medium self-center">✓ Completas</span>
+            )}
+          </div>
+        </div>
+
+        {readings.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No hay lecturas registradas en este turno.</p>
+        ) : (
+          <Card>
+            <CardContent className="pt-4">
+              <div className="space-y-2 text-sm">
+                {/* Cabecera */}
+                <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground font-medium pb-1 border-b">
+                  <span className="col-span-2">Boquilla</span>
+                  <span className="text-right">Inicial</span>
+                  <span className="text-right">Final</span>
+                </div>
+                {readingsByNozzle.map(({ nozzleId, nozzle, initial, final, diff }) => (
+                  <div key={nozzleId} className="grid grid-cols-4 gap-2 items-center">
+                    <span className="col-span-2 truncate">{nozzle?.name ?? nozzleId}</span>
+                    <span className="text-right font-mono text-xs">
+                      {initial ? parseFloat(initial.meterReading).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    </span>
+                    <span className="text-right font-mono text-xs">
+                      {final ? parseFloat(final.meterReading).toLocaleString(undefined, { minimumFractionDigits: 2 }) : '—'}
+                    </span>
+                    {diff !== null && (
+                      <span className="col-span-4 text-xs text-amber-600 text-right -mt-1">
+                        +{diff.toLocaleString(undefined, { minimumFractionDigits: 2 })} L despachados
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {/* Tickets del turno */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -125,7 +208,7 @@ export default function ShiftDetailPage() {
         {tickets.length === 0 ? (
           <p className="text-sm text-muted-foreground">No hay tickets en este turno.</p>
         ) : (
-          tickets.map((t) => (
+          tickets.map((t: any) => (
             <Link key={t.id} href={`/station/tickets/${t.id}`}>
               <div className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors">
                 <div>

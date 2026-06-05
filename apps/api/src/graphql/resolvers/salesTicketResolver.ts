@@ -244,11 +244,24 @@ const salesTicketResolver: IResolvers<Context> = {
             );
           }
 
+          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
+            salesTicket.assignedSaleTypeConfigId,
+            { transaction: t }
+          );
+          if (!saleTypeConfig) {
+            throw new Error("Sale type config not found for this ticket.");
+          }
+
+          const recalculatedTotal =
+            parseFloat(String(actualLitersDispatched)) *
+            parseFloat(String(saleTypeConfig.salePricePerLiter));
+
           await salesTicket.update(
             {
               dispatcherEmployeeId,
               dispenserNozzleId,
               actualLitersDispatched,
+              totalAmountExpected: recalculatedTotal,
               status: SalesTicketStatus.PAID_PENDING_DISPATCH,
             },
             { transaction: t }

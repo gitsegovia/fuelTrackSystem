@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
+import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Truck, CreditCard, XCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, Truck, CreditCard, XCircle, Plus, Trash2 } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/salesTicket'
 import { MUTATIONS as PaymentMutations, QUERIES as PaymentQueries } from '@/services/graphql/gql/payment'
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
@@ -37,26 +37,6 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELED: 'Cancelado',
 }
 
-const dispatchSchema = z.object({
-  dispatcherEmployeeId: z.string().min(1, 'Selecciona el bombero'),
-  dispenserNozzleId: z.string().min(1, 'Selecciona la boquilla'),
-  actualLitersDispatched: z.string().min(1, 'Requerido').refine(
-    (v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Debe ser mayor a 0'
-  ),
-})
-
-const paymentSchema = z.object({
-  paymentMethod: z.enum(['CASH', 'DEBIT_CARD', 'CREDIT_CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER']),
-  amount: z.string().min(1, 'Requerido').refine(
-    (v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Debe ser mayor a 0'
-  ),
-  currencyId: z.string().min(1, 'Selecciona una moneda'),
-  transactionReference: z.string().optional(),
-})
-
-type DispatchForm = z.infer<typeof dispatchSchema>
-type PaymentForm = z.infer<typeof paymentSchema>
-
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
   DEBIT_CARD: 'Tarjeta de débito',
@@ -65,6 +45,34 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   BANK_TRANSFER: 'Transferencia bancaria',
 }
 
+// --- Schemas ---
+
+const dispatchSchema = z.object({
+  dispatcherEmployeeId: z.string().min(1, 'Selecciona el bombero'),
+  dispenserNozzleId: z.string().min(1, 'Selecciona la boquilla'),
+  actualLitersDispatched: z.string().min(1, 'Requerido').refine(
+    (v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Debe ser mayor a 0'
+  ),
+})
+
+const paymentLineSchema = z.object({
+  paymentMethod: z.enum(['CASH', 'DEBIT_CARD', 'CREDIT_CARD', 'MOBILE_PAYMENT', 'BANK_TRANSFER']),
+  amount: z.string().min(1, 'Requerido').refine(
+    (v) => !isNaN(parseFloat(v)) && parseFloat(v) > 0, 'Debe ser mayor a 0'
+  ),
+  currencyId: z.string().min(1, 'Selecciona moneda'),
+  transactionReference: z.string().optional(),
+})
+
+const paymentSchema = z.object({
+  lines: z.array(paymentLineSchema).min(1),
+})
+
+type DispatchForm = z.infer<typeof dispatchSchema>
+type PaymentForm = z.infer<typeof paymentSchema>
+
+const EMPTY_LINE = { paymentMethod: 'CASH' as const, amount: '', currencyId: '', transactionReference: '' }
+
 export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -72,6 +80,7 @@ export default function TicketDetailPage() {
   const gasStationId = user?.assignedGasStation?.id ?? ''
   const [showDispatch, setShowDispatch] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
+  const [lockedCount, setLockedCount] = useState(0)
 
   const { data, loading } = useQuery(QUERIES.salesTicket, { variables: { id }, skip: !id })
   const { data: paymentsData } = useQuery(PaymentQueries.paymentsBySalesTicket, { variables: { salesTicketId: id }, skip: !id })
@@ -85,7 +94,7 @@ export default function TicketDetailPage() {
   const [processDispatch, { loading: dispatching }] = useMutation(MUTATIONS.processSalesTicketDispatch, {
     refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }],
   })
-  const [createPayment, { loading: paying }] = useMutation(PaymentMutations.createPayment, {
+  const [createPayments, { loading: paying }] = useMutation(PaymentMutations.createPayments, {
     refetchQueries: [
       { query: QUERIES.salesTicket, variables: { id } },
       { query: PaymentQueries.paymentsBySalesTicket, variables: { salesTicketId: id } },
@@ -107,17 +116,18 @@ export default function TicketDetailPage() {
   const dispatchForm = useForm<DispatchForm>({ resolver: zodResolver(dispatchSchema) })
   const paymentForm = useForm<PaymentForm>({
     resolver: zodResolver(paymentSchema),
-    defaultValues: { paymentMethod: 'CASH' },
+    defaultValues: { lines: [EMPTY_LINE] },
   })
+  const { fields, append, remove } = useFieldArray({ control: paymentForm.control, name: 'lines' })
+  const watchedLines = paymentForm.watch('lines')
 
   const ticket = data?.salesTicket
   const payments: any[] = paymentsData?.paymentsBySalesTicket ?? []
-  const stationEmployees = empData?.employees?.filter((e) => e.gasStation?.id === gasStationId) ?? []
+  const stationEmployees = empData?.employees?.filter((e: any) => e.gasStation?.id === gasStationId) ?? []
 
-  // Boquillas: dispensadores de la estación filtrados por el combustible del ticket
   const allDispensers: any[] = dispensersData?.dispensersByGasStation ?? []
   const relevantDispensers = ticket
-    ? allDispensers.filter((d) => d.fuelTypeId === ticket.fuelTypeId && d.isOperational)
+    ? allDispensers.filter((d: any) => d.fuelTypeId === ticket.fuelTypeId && d.isOperational)
     : allDispensers
   const nozzles = relevantDispensers.flatMap((d: any) =>
     (d.nozzles ?? []).filter((n: any) => n.isOperational).map((n: any) => ({
@@ -125,6 +135,38 @@ export default function TicketDetailPage() {
       label: `${d.name} — ${n.name}`,
     }))
   )
+
+  // Moneda del ticket y monto esperado
+  const ticketCurrency = ticket?.assignedSaleTypeConfig?.currency
+  const ticketCurrencyRate = parseFloat(ticketCurrency?.exchangeRate ?? '1')
+  const totalExpected = ticket ? parseFloat(ticket.totalAmountExpected) : 0
+  const totalExpectedInBase = totalExpected / ticketCurrencyRate
+
+  // Lo ya pagado en base (usando el snapshot de tasa de cada pago histórico)
+  const alreadyPaidInBase = payments.reduce((sum: number, p: any) => {
+    const rate = parseFloat(p.exchangeRateAtPayment)
+    return sum + (rate > 0 ? parseFloat(p.amount) / rate : 0)
+  }, 0)
+  const remainingInBase = Math.max(0, totalExpectedInBase - alreadyPaidInBase)
+
+  // Lo que descuentan las líneas ya bloqueadas (confirmadas por el cajero en este form)
+  const lockedLinesInBase = watchedLines.slice(0, lockedCount).reduce((sum, line) => {
+    const currency = currenciesData?.currencies.find((c: any) => c.id === line.currencyId)
+    const amount = parseFloat(line.amount)
+    if (!currency || isNaN(amount) || amount <= 0) return sum
+    return sum + amount / parseFloat(currency.exchangeRate)
+  }, 0)
+  const pendingForActiveLine = Math.max(0, remainingInBase - lockedLinesInBase)
+
+  // Resumen del formulario de pago: total ingresado en moneda base usando tasas actuales
+  const totalEnteredInBase = watchedLines.reduce((sum, line) => {
+    const currency = currenciesData?.currencies.find((c: any) => c.id === line.currencyId)
+    const amount = parseFloat(line.amount)
+    if (!currency || isNaN(amount) || amount <= 0) return sum
+    return sum + amount / parseFloat(currency.exchangeRate)
+  }, 0)
+  const formRemainingInBase = totalExpectedInBase - totalEnteredInBase
+  const formIsCovered = totalEnteredInBase >= totalExpectedInBase
 
   const onDispatch = async (formData: DispatchForm) => {
     try {
@@ -145,24 +187,41 @@ export default function TicketDetailPage() {
 
   const onPayment = async (formData: PaymentForm) => {
     try {
-      await createPayment({
+      await createPayments({
         variables: {
-          input: {
-            salesTicketId: id,
-            paymentMethod: formData.paymentMethod,
-            amount: parseFloat(formData.amount),
-            currencyId: formData.currencyId,
-            paymentTime: new Date().toISOString(),
-            transactionReference: formData.transactionReference || null,
-          },
+          salesTicketId: id,
+          paymentTime: new Date().toISOString(),
+          payments: formData.lines.map((l) => ({
+            paymentMethod: l.paymentMethod,
+            amount: parseFloat(l.amount),
+            currencyId: l.currencyId,
+            transactionReference: l.transactionReference || null,
+          })),
         },
       })
-      toast.success('Pago registrado.')
+      toast.success('Pago(s) registrado(s).')
       setShowPayment(false)
-      paymentForm.reset()
+      setLockedCount(0)
+      paymentForm.reset({ lines: [EMPTY_LINE] })
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
     }
+  }
+
+  const handleRemove = (index: number) => {
+    if (index < lockedCount) setLockedCount((n) => n - 1)
+    remove(index)
+  }
+
+  const handleAppend = () => {
+    const lastLine = watchedLines[fields.length - 1]
+    const amount = parseFloat(lastLine?.amount ?? '0')
+    if (!lastLine?.currencyId || isNaN(amount) || amount <= 0) {
+      toast.error('Completa el monto y la moneda del pago actual antes de agregar otro.')
+      return
+    }
+    setLockedCount((n) => n + 1)
+    append(EMPTY_LINE)
   }
 
   const onComplete = async () => {
@@ -188,7 +247,6 @@ export default function TicketDetailPage() {
   if (!ticket) return <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>
 
   const isActive = ticket.status !== 'COMPLETED' && ticket.status !== 'CANCELED'
-  const currency = ticket.assignedSaleTypeConfig?.currency
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -224,20 +282,32 @@ export default function TicketDetailPage() {
             </div>
           )}
           <div className="flex justify-between font-medium border-t pt-2">
-            <span>Total esperado</span>
-            <span>{currency?.symbol} {parseFloat(ticket.totalAmountExpected).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+            <span>Total a cobrar</span>
+            <span>
+              {ticketCurrency?.symbol}{' '}
+              {totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            </span>
           </div>
         </CardContent>
       </Card>
 
-      {/* Pagos recibidos */}
+      {/* Histórico de pagos */}
       {payments.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">Pagos registrados</h3>
-          {payments.map((p) => (
-            <div key={p.id} className="flex justify-between rounded-lg border px-4 py-2 text-sm">
-              <span>{PAYMENT_METHOD_LABELS[p.paymentMethod] ?? p.paymentMethod}</span>
-              <span className="font-medium">{p.currency.symbol} {parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+          {payments.map((p: any) => (
+            <div key={p.id} className="rounded-lg border px-4 py-2 text-sm space-y-0.5">
+              <div className="flex justify-between">
+                <span>{PAYMENT_METHOD_LABELS[p.paymentMethod] ?? p.paymentMethod}</span>
+                <span className="font-medium">
+                  {p.currency.symbol}{' '}
+                  {parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Tasa al pagar</span>
+                <span>1 base = {parseFloat(p.exchangeRateAtPayment).toLocaleString(undefined, { maximumFractionDigits: 4 })} {p.currency.symbol}</span>
+              </div>
             </div>
           ))}
         </div>
@@ -263,7 +333,7 @@ export default function TicketDetailPage() {
                         <Label>Bombero *</Label>
                         <select {...dispatchForm.register('dispatcherEmployeeId')} className={selectClass}>
                           <option value="">Seleccionar...</option>
-                          {stationEmployees.map((e) => (
+                          {stationEmployees.map((e: any) => (
                             <option key={e.id} value={e.id}>{e.firstName} {e.lastName}</option>
                           ))}
                         </select>
@@ -272,7 +342,7 @@ export default function TicketDetailPage() {
                         <Label>Boquilla *</Label>
                         <select {...dispatchForm.register('dispenserNozzleId')} className={selectClass}>
                           <option value="">Seleccionar...</option>
-                          {nozzles.map((n) => (
+                          {nozzles.map((n: any) => (
                             <option key={n.id} value={n.id}>{n.label}</option>
                           ))}
                         </select>
@@ -305,37 +375,154 @@ export default function TicketDetailPage() {
                 <CardTitle className="text-sm">Registrar pago</CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={paymentForm.handleSubmit(onPayment)} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label>Método *</Label>
-                      <select {...paymentForm.register('paymentMethod')} className={selectClass}>
-                        {Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
+                <form onSubmit={paymentForm.handleSubmit(onPayment)} className="space-y-4">
+                  {/* Líneas de pago */}
+                  <div className="space-y-3">
+                    {fields.map((field, index) => {
+                      const isLocked = index < lockedCount
+                      const line = watchedLines[index]
+                      const lineCurrency = currenciesData?.currencies.find((c: any) => c.id === line?.currencyId)
+                      const lineAmount = parseFloat(line?.amount ?? '0')
+                      const lineInBase = lineCurrency && !isNaN(lineAmount) && lineAmount > 0
+                        ? lineAmount / parseFloat(lineCurrency.exchangeRate)
+                        : null
+                      const showLineConversion = !isLocked && lineInBase !== null && lineCurrency?.id !== ticketCurrency?.id
+
+                      return (
+                        <div
+                          key={field.id}
+                          className={cn(
+                            'rounded-lg border p-3 space-y-2.5',
+                            isLocked && 'bg-muted/40 border-muted'
+                          )}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-muted-foreground">Pago {index + 1}</span>
+                              {isLocked && (
+                                <span className="text-xs font-medium text-green-600">✓ Confirmado</span>
+                              )}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-2"
+                              onClick={() => handleRemove(index)}
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Método</Label>
+                              <select
+                                {...paymentForm.register(`lines.${index}.paymentMethod`)}
+                                className={selectClass}
+                                disabled={isLocked}
+                              >
+                                {Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => (
+                                  <option key={v} value={v}>{l}</option>
+                                ))}
+                              </select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <Label className="text-xs">Moneda</Label>
+                                {!isLocked && lineCurrency && pendingForActiveLine > 0 && (
+                                  <span className="text-xs font-medium text-amber-600">
+                                    {lineCurrency.symbol}{' '}
+                                    {(pendingForActiveLine * parseFloat(lineCurrency.exchangeRate))
+                                      .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                )}
+                              </div>
+                              <select
+                                {...paymentForm.register(`lines.${index}.currencyId`)}
+                                className={selectClass}
+                                disabled={isLocked}
+                              >
+                                <option value="">Seleccionar...</option>
+                                {currenciesData?.currencies.map((c: any) => (
+                                  <option key={c.id} value={c.id}>{c.symbol} — {c.name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Monto</Label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...paymentForm.register(`lines.${index}.amount`)}
+                              disabled={isLocked}
+                            />
+                          </div>
+                          {showLineConversion && (
+                            <p className="text-xs text-amber-600">
+                              ≈ {ticketCurrency?.symbol}{' '}
+                              {(lineInBase!).toLocaleString(undefined, { minimumFractionDigits: 2 })} en la moneda del ticket
+                            </p>
+                          )}
+                          {!isLocked && (
+                            <div className="space-y-1.5">
+                              <Label className="text-xs">Referencia (opcional)</Label>
+                              <Input
+                                placeholder="Nro. de transacción"
+                                {...paymentForm.register(`lines.${index}.transactionReference`)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  {/* Agregar línea */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={handleAppend}
+                  >
+                    <Plus className="size-4" /> Agregar otro método de pago
+                  </Button>
+
+                  {/* Resumen de cobertura */}
+                  <div className="rounded-lg bg-muted/30 border px-3 py-2 text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total a cobrar</span>
+                      <span className="font-medium">
+                        {ticketCurrency?.symbol}{' '}
+                        {totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
-                    <div className="space-y-1.5">
-                      <Label>Moneda *</Label>
-                      <select {...paymentForm.register('currencyId')} className={selectClass}>
-                        <option value="">Seleccionar...</option>
-                        {currenciesData?.currencies.map((c) => (
-                          <option key={c.id} value={c.id}>{c.symbol}</option>
-                        ))}
-                      </select>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total ingresado (equiv.)</span>
+                      <span className={cn('font-medium', formIsCovered ? 'text-green-600' : '')}>
+                        {ticketCurrency?.symbol}{' '}
+                        {(totalEnteredInBase * ticketCurrencyRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
+                    {!formIsCovered && totalEnteredInBase > 0 && (
+                      <div className="flex justify-between text-destructive text-xs">
+                        <span>Falta</span>
+                        <span>
+                          {ticketCurrency?.symbol}{' '}
+                          {(formRemainingInBase * ticketCurrencyRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    {formIsCovered && (
+                      <p className="text-xs text-green-600 font-medium">✓ Pago cubierto</p>
+                    )}
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>Monto *</Label>
-                    <Input type="number" step="0.01" placeholder="0.00" {...paymentForm.register('amount')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Referencia (opcional)</Label>
-                    <Input placeholder="Nro. de transacción" {...paymentForm.register('transactionReference')} />
-                  </div>
+
                   <Button type="submit" size="sm" disabled={paying}>
                     {paying && <Loader2 className="size-4 animate-spin" />}
-                    Confirmar pago
+                    Confirmar pago{fields.length > 1 ? 's' : ''}
                   </Button>
                 </form>
               </CardContent>

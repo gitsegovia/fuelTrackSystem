@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Clock, Receipt, LogOut, Gauge } from 'lucide-react'
+import { LayoutDashboard, Clock, Receipt, LogOut, Gauge, Droplets } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/station/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/station/shifts', label: 'Turnos', icon: Clock },
   { href: '/station/tickets', label: 'Tickets de venta', icon: Receipt },
+  { href: '/station/tanks', label: 'Tanques', icon: Droplets },
 ]
 
 export function StationSidebar() {

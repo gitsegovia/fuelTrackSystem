@@ -45,11 +45,20 @@ export default function EditCurrencyPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await update({ variables: { id, input: { name: data.name, symbol: data.symbol, exchangeRate: data.exchangeRate } } })
+      await update({
+        variables: {
+          id,
+          input: {
+            name: data.name,
+            symbol: data.symbol,
+            exchangeRate: parseFloat(data.exchangeRate),
+          },
+        },
+      })
       toast.success('Moneda actualizada correctamente.')
       router.push('/admin/currencies')
-    } catch {
-      toast.error('No se pudo actualizar la moneda.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'No se pudo actualizar la moneda.')
     }
   }
 

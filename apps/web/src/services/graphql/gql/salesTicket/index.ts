@@ -21,7 +21,7 @@ const SALES_TICKET_FRAGMENT = gql`
       id
       saleTypeName
       salePricePerLiter
-      currency { id symbol }
+      currency { id symbol exchangeRate }
     }
   }
 `

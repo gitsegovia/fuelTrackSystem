@@ -21,7 +21,10 @@ export interface InvoiceAttributes {
   liters: number;
   dispatchDate: Date;
   dischargeDate: Date;
-  truckIdentifier: string;
+  truckPlate: string;
+  tankPlate: string;
+  driverName: string;
+  driverIdNumber: string;
   fuelType: FuelType;
   totalAmount: number;
   costPerLiter: number;
@@ -44,7 +47,10 @@ export class Invoice
   public liters!: number;
   public dispatchDate!: Date;
   public dischargeDate!: Date;
-  public truckIdentifier!: string;
+  public truckPlate!: string;
+  public tankPlate!: string;
+  public driverName!: string;
+  public driverIdNumber!: string;
   public fuelType!: FuelType;
   public totalAmount!: number;
   public costPerLiter!: number;
@@ -111,7 +117,19 @@ export function initialize(sequelize: Sequelize): ModelStatic<Invoice> {
         type: DataTypes.DATE,
         allowNull: false,
       },
-      truckIdentifier: {
+      truckPlate: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      tankPlate: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      driverName: {
+        type: DataTypes.STRING,
+        allowNull: false,
+      },
+      driverIdNumber: {
         type: DataTypes.STRING,
         allowNull: false,
       },

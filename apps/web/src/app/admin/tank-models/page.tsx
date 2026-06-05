@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, TableProperties } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/tankModel'
 import { DataTable } from '@/components/shared/DataTable'
@@ -71,6 +71,14 @@ export default function TankModelsPage() {
       header: '',
       cell: ({ row }) => (
         <div className="flex items-center gap-1 justify-end">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title="Calibración"
+            onClick={() => router.push(`/admin/tank-models/${row.original.id}`)}
+          >
+            <TableProperties className="size-4" />
+          </Button>
           <Button
             variant="ghost"
             size="icon-sm"

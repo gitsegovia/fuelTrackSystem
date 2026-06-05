@@ -125,27 +125,29 @@ const tankMeasurementResolver: IResolvers<Context> = {
             );
           }
 
-          // Calcular volumeInLiters usando la tabla de calibración
+          // Calcular volumeInLiters: si hay tabla de calibración, usarla.
+          // Si no, usar el valor ingresado manualmente (el operador lo leyó del varillaje).
           const calibrationEntry =
             await context.models.TankCalibrationEntry.findOne({
               where: {
                 tankModelId: tank.tankModelId,
-                heightCm: { [Op.lte]: manualLevelReadingCm }, // Buscar la entrada más cercana por debajo o igual
+                heightCm: { [Op.lte]: manualLevelReadingCm },
               },
               order: [["heightCm", "DESC"]],
               transaction: t,
             });
 
-          if (!calibrationEntry) {
-            throw new Error(
-              "No calibration data found for this tank model at or below the given height."
-            );
+          let calculatedVolumeInLiters: number;
+          if (calibrationEntry) {
+            calculatedVolumeInLiters = calibrationEntry.volumeLiters;
+          } else {
+            if (input.volumeInLiters === undefined || input.volumeInLiters === null) {
+              throw new Error(
+                "No calibration data found for this tank model. Please provide the volume in liters manually."
+              );
+            }
+            calculatedVolumeInLiters = input.volumeInLiters;
           }
-
-          // Nota: Una implementación más robusta usaría interpolación lineal
-          // entre dos puntos de calibración si la altura no es exacta.
-          // Por simplicidad, tomamos el volumen del punto de calibración más cercano por debajo.
-          const calculatedVolumeInLiters = calibrationEntry.volumeLiters;
 
           // Obtener la última medición para calcular las diferencias
           const latestMeasurement =
@@ -276,12 +278,15 @@ const tankMeasurementResolver: IResolvers<Context> = {
                 transaction: t,
               });
 
-            if (!calibrationEntry) {
+            if (calibrationEntry) {
+              calculatedVolumeInLiters = calibrationEntry.volumeLiters;
+            } else if (input.volumeInLiters !== undefined && input.volumeInLiters !== null) {
+              calculatedVolumeInLiters = input.volumeInLiters;
+            } else {
               throw new Error(
-                "No calibration data found for this tank model at or below the given height."
+                "No calibration data found for this tank model. Please provide the volume in liters manually."
               );
             }
-            calculatedVolumeInLiters = calibrationEntry.volumeLiters;
           }
 
           // **Consideración importante:** Actualizar `dispensedVolumeSinceLastMeasurement` y `receivedVolumeSinceLastMeasurement`

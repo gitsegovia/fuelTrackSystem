@@ -35,11 +35,19 @@ export default function NewCurrencyPage() {
 
   const onSubmit = async (data: FormData) => {
     try {
-      await create({ variables: { input: { name: data.name, symbol: data.symbol, exchangeRate: data.exchangeRate } } })
+      await create({
+        variables: {
+          input: {
+            name: data.name,
+            symbol: data.symbol,
+            exchangeRate: parseFloat(data.exchangeRate),
+          },
+        },
+      })
       toast.success('Moneda creada correctamente.')
       router.push('/admin/currencies')
-    } catch {
-      toast.error('No se pudo crear la moneda.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'No se pudo crear la moneda.')
     }
   }
 

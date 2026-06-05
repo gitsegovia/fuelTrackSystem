@@ -9,6 +9,7 @@ const PAYMENT_FRAGMENT = gql`
     paymentTime
     transactionReference
     currencyId
+    exchangeRateAtPayment
     createdAt
     currency { id name symbol }
   }
@@ -26,6 +27,11 @@ export const MUTATIONS = {
   createPayment: gql`
     mutation CreatePayment($input: CreatePaymentInput!) {
       createPayment(input: $input) { ...PaymentFields }
+    } ${PAYMENT_FRAGMENT}
+  `,
+  createPayments: gql`
+    mutation CreatePayments($salesTicketId: UUID!, $paymentTime: DateTime!, $payments: [PaymentLineInput!]!) {
+      createPayments(salesTicketId: $salesTicketId, paymentTime: $paymentTime, payments: $payments) { ...PaymentFields }
     } ${PAYMENT_FRAGMENT}
   `,
   deletePayment: gql`

@@ -18,7 +18,10 @@ type Invoice {
   liters: Decimal!
   dispatchDate: DateTime!
   dischargeDate: DateTime!
-  truckIdentifier: String!
+  truckPlate: String!
+  tankPlate: String!
+  driverName: String!
+  driverIdNumber: String!
   fuelKind: FuelKind!
   totalAmount: Decimal!
   costPerLiter: Decimal!
@@ -38,7 +41,10 @@ input CreateInvoiceInput {
   liters: Decimal!
   dispatchDate: DateTime!
   dischargeDate: DateTime!
-  truckIdentifier: String!
+  truckPlate: String!
+  tankPlate: String!
+  driverName: String!
+  driverIdNumber: String!
   fuelKind: FuelKind!
   totalAmount: Decimal!
   costPerLiter: Decimal!
@@ -53,7 +59,10 @@ input UpdateInvoiceInput {
   liters: Decimal
   dispatchDate: DateTime
   dischargeDate: DateTime
-  truckIdentifier: String
+  truckPlate: String
+  tankPlate: String
+  driverName: String
+  driverIdNumber: String
   fuelKind: FuelKind
   totalAmount: Decimal
   costPerLiter: Decimal

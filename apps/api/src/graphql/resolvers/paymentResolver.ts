@@ -81,9 +81,18 @@ const paymentResolver: IResolvers<Context> = {
             );
           }
 
-          const payment = await context.models.Payment.create(input, {
-            transaction: t,
-          });
+          const paymentCurrency = await context.models.Currency.findByPk(
+            input.currencyId,
+            { transaction: t }
+          );
+          if (!paymentCurrency) {
+            throw new Error(`Currency not found: ${input.currencyId}`);
+          }
+
+          const payment = await context.models.Payment.create(
+            { ...input, exchangeRateAtPayment: paymentCurrency.exchangeRate },
+            { transaction: t }
+          );
 
           // Opcional: Actualizar el estado del SalesTicket a COMPLETED si la suma de pagos cubre el total esperado.
           // Esto se podría hacer también en una mutación separada `completeSalesTicketPayment`.
@@ -93,45 +102,42 @@ const paymentResolver: IResolvers<Context> = {
             transaction: t,
           });
 
-          // Calcular el total pagado, considerando la tasa de cambio de cada moneda
-          let totalPaidInBaseCurrency = 0; // Asumiendo que tenemos una moneda base, ej. USD
-          const baseCurrency = await context.models.Currency.findOne({
-            where: { name: "USD" },
+          // Obtener la moneda del SaleTypeConfig para saber en qué moneda está totalAmountExpected
+          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
+            salesTicket.assignedSaleTypeConfigId,
+            { transaction: t }
+          );
+          if (!saleTypeConfig) {
+            throw new Error("Sale type config not found for this ticket.");
+          }
+          const ticketCurrency = await saleTypeConfig.getCurrency({
             transaction: t,
-          }); // O la moneda base que definas
+          });
+          if (!ticketCurrency) {
+            throw new Error("Currency not found for sale type config.");
+          }
 
+          // Convertir totalAmountExpected a moneda base: amount / exchangeRate = monto base
+          const totalExpectedInBase =
+            parseFloat(String(salesTicket.totalAmountExpected)) /
+            ticketCurrency.exchangeRate;
+
+          // Calcular el total pagado en moneda base sumando cada pago con su propia tasa
+          let totalPaidInBaseCurrency = 0;
           for (const p of paymentsForTicket) {
             const currencyOfPayment = await p.getCurrency({ transaction: t });
             if (!currencyOfPayment) {
               throw new Error(`Currency not found for payment ${p.id}`);
             }
-            // Convertir el monto del pago a la moneda base
-            // Si la moneda base es 'USD' y la moneda del pago es 'VES' con exchangeRate 36.5 VES/USD,
-            // entonces p.amount (en VES) / 36.5 = monto en USD
-            const amountInBase = p.amount / currencyOfPayment.exchangeRate;
-            totalPaidInBaseCurrency += amountInBase;
+            totalPaidInBaseCurrency +=
+              parseFloat(String(p.amount)) / currencyOfPayment.exchangeRate;
           }
 
-          // Convertir el totalAmountExpected del ticket a la moneda base para la comparación
-          // Esto requeriría que SalesTicket también tenga un currencyId o que totalAmountExpected siempre esté en moneda base
-          // Por simplicidad aquí, asumiremos que totalAmountExpected está en la moneda base.
-          // Si salesTicket.totalAmountExpected está en una moneda específica, también se debe convertir.
-          // Por ejemplo: salesTicket.assignedSaleTypeConfig.getCurrency() -> currencyForTicket -> salesTicket.totalAmountExpected / currencyForTicket.exchangeRate
-
-          // Simplemente como ejemplo, sin conversión compleja:
-          if (
-            totalPaidInBaseCurrency >=
-            salesTicket.totalAmountExpected / (baseCurrency?.exchangeRate || 1)
-          ) {
-            // Asume totalAmountExpected en moneda base o se convierte
+          if (totalPaidInBaseCurrency >= totalExpectedInBase) {
             await salesTicket.update(
               { status: SalesTicketStatus.COMPLETED },
               { transaction: t }
             );
-          } else {
-            // Si el ticket estaba PENDING_PAYMENT_DISPATCH y se recibió un pago, podría pasar a DISPATCHED_PENDING_PAYMENT
-            // o mantener el mismo si aún se espera más, dependiendo del flujo de negocio.
-            // Aquí lo dejamos como está si no se completa.
           }
 
           return payment;
@@ -144,6 +150,118 @@ const paymentResolver: IResolvers<Context> = {
         );
         throw new Error(
           `An error occurred while creating the payment: ${
+            error.message || "Unknown error"
+          }`
+        );
+      }
+    },
+    createPayments: async (
+      _parent,
+      {
+        salesTicketId,
+        paymentTime,
+        payments,
+      }: {
+        salesTicketId: string;
+        paymentTime: Date;
+        payments: Array<{
+          paymentMethod: string;
+          amount: number;
+          currencyId: string;
+          transactionReference?: string;
+        }>;
+      },
+      context: Context
+    ) => {
+      try {
+        const result = await context.sequelize.transaction(async (t: any) => {
+          const salesTicket = await context.models.SalesTicket.findByPk(
+            salesTicketId,
+            { transaction: t }
+          );
+          if (!salesTicket) {
+            throw new Error("Sales ticket not found.");
+          }
+          if (salesTicket.status === SalesTicketStatus.CANCELED) {
+            throw new Error(
+              `Cannot add payments to a ticket with status: ${salesTicket.status}.`
+            );
+          }
+
+          // Crear cada línea de pago capturando el snapshot de la tasa
+          const createdPayments = [];
+          for (const line of payments) {
+            const currency = await context.models.Currency.findByPk(
+              line.currencyId,
+              { transaction: t }
+            );
+            if (!currency) {
+              throw new Error(`Currency not found: ${line.currencyId}`);
+            }
+            const payment = await context.models.Payment.create(
+              {
+                salesTicketId,
+                paymentMethod: line.paymentMethod as any,
+                amount: line.amount,
+                currencyId: line.currencyId,
+                paymentTime,
+                transactionReference: line.transactionReference,
+                exchangeRateAtPayment: currency.exchangeRate,
+              },
+              { transaction: t }
+            );
+            createdPayments.push(payment);
+          }
+
+          // Verificar si el total pagado cubre el monto esperado del ticket
+          const allPayments = await context.models.Payment.findAll({
+            where: { salesTicketId },
+            transaction: t,
+          });
+
+          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
+            salesTicket.assignedSaleTypeConfigId,
+            { transaction: t }
+          );
+          if (!saleTypeConfig) {
+            throw new Error("Sale type config not found for this ticket.");
+          }
+          const ticketCurrency = await saleTypeConfig.getCurrency({
+            transaction: t,
+          });
+          if (!ticketCurrency) {
+            throw new Error("Currency not found for sale type config.");
+          }
+
+          const totalExpectedInBase =
+            parseFloat(String(salesTicket.totalAmountExpected)) /
+            ticketCurrency.exchangeRate;
+
+          // Usar el snapshot guardado en cada pago para la suma (no la tasa actual)
+          let totalPaidInBase = 0;
+          for (const p of allPayments) {
+            totalPaidInBase +=
+              parseFloat(String(p.amount)) /
+              parseFloat(String(p.exchangeRateAtPayment));
+          }
+
+          if (totalPaidInBase >= totalExpectedInBase) {
+            await salesTicket.update(
+              { status: SalesTicketStatus.COMPLETED },
+              { transaction: t }
+            );
+          }
+
+          return createdPayments;
+        });
+        return result;
+      } catch (error: any) {
+        console.error(
+          `❌ Error in 'createPayments' mutation:`,
+          error.message || error
+        );
+        throw new Error(
+          `An error occurred while creating payments: ${
             error.message || "Unknown error"
           }`
         );

@@ -21,9 +21,15 @@ input UpdateTankCalibrationEntryInput {
   volumeLiters: Decimal
 }
 
+input CalibrationRowInput {
+  heightCm: Decimal!
+  volumeLiters: Decimal!
+}
+
 extend type Query {
   tankCalibrationEntries: [TankCalibrationEntry!]!
   tankCalibrationEntry(id: UUID!): TankCalibrationEntry
+  tankCalibrationEntriesByModel(tankModelId: UUID!): [TankCalibrationEntry!]!
   tankCalibrationEntryByModelAndHeight(
     tankModelId: UUID!
     heightCm: Decimal!
@@ -34,6 +40,11 @@ extend type Mutation {
   createTankCalibrationEntry(
     input: CreateTankCalibrationEntryInput!
   ): TankCalibrationEntry!
+  # Importación masiva desde CSV — reemplaza todas las entradas existentes del modelo
+  bulkCreateTankCalibrationEntries(
+    tankModelId: UUID!
+    entries: [CalibrationRowInput!]!
+  ): [TankCalibrationEntry!]!
   updateTankCalibrationEntry(
     id: UUID!
     input: UpdateTankCalibrationEntryInput!

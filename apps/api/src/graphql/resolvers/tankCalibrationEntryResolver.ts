@@ -20,6 +20,16 @@ const tankCalibrationEntryResolver: IResolvers<Context> = {
         include: [{ model: context.models.TankModel, as: "tankModel" }],
       });
     },
+    tankCalibrationEntriesByModel: async (
+      _parent,
+      { tankModelId }: { tankModelId: string },
+      context: Context
+    ) => {
+      return context.models.TankCalibrationEntry.findAll({
+        where: { tankModelId },
+        order: [["heightCm", "ASC"]],
+      });
+    },
     // Obtener una entrada de calibración por modelo de tanque y altura (usando el índice único)
     tankCalibrationEntryByModelAndHeight: async (
       _parent,
@@ -36,6 +46,32 @@ const tankCalibrationEntryResolver: IResolvers<Context> = {
     },
   },
   Mutation: {
+    bulkCreateTankCalibrationEntries: async (
+      _parent,
+      { tankModelId, entries }: { tankModelId: string; entries: Array<{ heightCm: number; volumeLiters: number }> },
+      context: Context
+    ) => {
+      try {
+        const result = await context.sequelize.transaction(async (t: any) => {
+          // Eliminar todas las entradas existentes del modelo antes de importar
+          await context.models.TankCalibrationEntry.destroy({
+            where: { tankModelId },
+            transaction: t,
+          });
+          const created = await context.models.TankCalibrationEntry.bulkCreate(
+            entries.map((e) => ({ tankModelId, heightCm: e.heightCm, volumeLiters: e.volumeLiters })),
+            { transaction: t }
+          );
+          return created;
+        });
+        return result;
+      } catch (error: any) {
+        console.error(`❌ Error in 'bulkCreateTankCalibrationEntries':`, error.message || error);
+        throw new Error(
+          `An error occurred while importing calibration entries: ${error.message || "Unknown error"}`
+        );
+      }
+    },
     // Crear una nueva entrada de calibración
     createTankCalibrationEntry: async (
       _parent,

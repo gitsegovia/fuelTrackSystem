@@ -9,7 +9,10 @@ const INVOICE_FRAGMENT = gql`
     liters
     dispatchDate
     dischargeDate
-    truckIdentifier
+    truckPlate
+    tankPlate
+    driverName
+    driverIdNumber
     fuelKind
     totalAmount
     costPerLiter

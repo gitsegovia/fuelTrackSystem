@@ -37,7 +37,10 @@ const schema = z.object({
   invoiceNumber: z.string().min(1, 'Requerido'),
   controlNumber: z.string().min(1, 'Requerido'),
   sealNumber: z.string().min(1, 'Requerido'),
-  truckIdentifier: z.string().min(1, 'Requerido'),
+  truckPlate: z.string().min(1, 'Requerido'),
+  tankPlate: z.string().min(1, 'Requerido'),
+  driverName: z.string().min(1, 'Requerido'),
+  driverIdNumber: z.string().min(1, 'Requerido'),
   fuelKind: z.enum(['GASOLINE_91', 'GASOLINE_95', 'DIESEL', 'KEROSENE']),
   liters: decimal('Litros'),
   totalAmount: decimal('Monto total'),
@@ -71,7 +74,10 @@ export default function EditInvoicePage() {
         invoiceNumber: inv.invoiceNumber,
         controlNumber: inv.controlNumber,
         sealNumber: inv.sealNumber,
-        truckIdentifier: inv.truckIdentifier,
+        truckPlate: inv.truckPlate,
+        tankPlate: inv.tankPlate,
+        driverName: inv.driverName,
+        driverIdNumber: inv.driverIdNumber,
         fuelKind: inv.fuelKind,
         liters: String(inv.liters),
         totalAmount: String(inv.totalAmount),
@@ -140,10 +146,29 @@ export default function EditInvoicePage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label>Camión *</Label>
-                <Input {...register('truckIdentifier')} aria-invalid={!!errors.truckIdentifier} />
-                {errors.truckIdentifier && <p className="text-xs text-destructive">{errors.truckIdentifier.message}</p>}
+                <Label>Placa del camión *</Label>
+                <Input {...register('truckPlate')} aria-invalid={!!errors.truckPlate} />
+                {errors.truckPlate && <p className="text-xs text-destructive">{errors.truckPlate.message}</p>}
               </div>
+              <div className="space-y-1.5">
+                <Label>Placa del tanque *</Label>
+                <Input {...register('tankPlate')} aria-invalid={!!errors.tankPlate} />
+                {errors.tankPlate && <p className="text-xs text-destructive">{errors.tankPlate.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Nombre del chofer *</Label>
+                <Input {...register('driverName')} aria-invalid={!!errors.driverName} />
+                {errors.driverName && <p className="text-xs text-destructive">{errors.driverName.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Cédula del chofer *</Label>
+                <Input {...register('driverIdNumber')} aria-invalid={!!errors.driverIdNumber} />
+                {errors.driverIdNumber && <p className="text-xs text-destructive">{errors.driverIdNumber.message}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Combustible *</Label>
                 <select {...register('fuelKind')} className={selectClass}>

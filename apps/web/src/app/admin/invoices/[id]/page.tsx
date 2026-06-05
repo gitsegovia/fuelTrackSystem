@@ -71,8 +71,20 @@ export default function InvoiceDetailPage() {
             <span className="font-medium">{invoice.sealNumber}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Camión</span>
-            <span className="font-medium">{invoice.truckIdentifier}</span>
+            <span className="text-muted-foreground">Placa camión</span>
+            <span className="font-medium">{invoice.truckPlate}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Placa tanque</span>
+            <span className="font-medium">{invoice.tankPlate}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Chofer</span>
+            <span className="font-medium">{invoice.driverName}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Cédula chofer</span>
+            <span className="font-medium">{invoice.driverIdNumber}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Estado</span>
