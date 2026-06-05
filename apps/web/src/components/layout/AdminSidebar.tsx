@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ const navGroups = [
     label: 'Operaciones',
     items: [
       { href: '/admin/invoices', label: 'Facturas', icon: FileText },
+      { href: '/admin/invoice-payments', label: 'Pagos de Facturas', icon: CreditCard },
     ],
   },
   {

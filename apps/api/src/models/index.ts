@@ -23,6 +23,7 @@ import { initialize as initDispenserReading } from "./dispenserReading";
 import { initialize as initSalesTicket } from "./salesTicket";
 import { initialize as initPayment } from "./payment";
 import { initialize as initTankMeasurement } from "./tankMeasurement";
+import { initialize as initInvoicePayment } from "./invoicePayment";
 
 const models: AppModels = {
   Company: initCompany(sequelize),
@@ -46,6 +47,7 @@ const models: AppModels = {
   SalesTicket: initSalesTicket(sequelize),
   Payment: initPayment(sequelize),
   TankMeasurement: initTankMeasurement(sequelize),
+  InvoicePayment: initInvoicePayment(sequelize),
 };
 
 //Defined associations

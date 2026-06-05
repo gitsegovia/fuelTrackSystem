@@ -1,0 +1,91 @@
+enum InvoicePaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CHECK
+  CARD
+}
+
+enum InvoicePaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+}
+
+type InvoicePayment {
+  id: UUID!
+  invoiceId: UUID!
+  amount: Decimal!
+  paymentDate: DateTime!
+  bankName: String!
+  paymentMethod: InvoicePaymentMethod!
+  referenceNumber: String
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  invoice: Invoice!
+  recordedBy: User!
+}
+
+type InvoiceBalance {
+  invoice: Invoice!
+  totalAmount: Decimal!
+  totalPaid: Decimal!
+  balance: Decimal!
+  paymentStatus: InvoicePaymentStatus!
+  payments: [InvoicePayment!]!
+}
+
+type InvoiceProfitMargin {
+  gasStationId: UUID!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  totalRevenue: Decimal!
+  totalInvoicedCost: Decimal!
+  totalPaidCost: Decimal!
+  grossMargin: Decimal!
+  grossMarginPercent: Decimal!
+  pendingInvoicesAmount: Decimal!
+}
+
+input CreateInvoicePaymentInput {
+  invoiceId: UUID!
+  amount: Decimal!
+  paymentDate: DateTime!
+  bankName: String!
+  paymentMethod: InvoicePaymentMethod!
+  referenceNumber: String
+  notes: String
+  recordedById: UUID!
+}
+
+input UpdateInvoicePaymentInput {
+  amount: Decimal
+  paymentDate: DateTime
+  bankName: String
+  paymentMethod: InvoicePaymentMethod
+  referenceNumber: String
+  notes: String
+}
+
+extend type Query {
+  invoicePayment(id: UUID!): InvoicePayment
+  invoicePayments(invoiceId: UUID!): [InvoicePayment!]!
+  invoiceBalance(invoiceId: UUID!): InvoiceBalance!
+  invoicePaymentsByStation(
+    gasStationId: UUID!
+    startDate: DateTime
+    endDate: DateTime
+  ): [InvoicePayment!]!
+  unpaidInvoices(gasStationId: UUID!): [InvoiceBalance!]!
+  invoiceProfitMargin(
+    gasStationId: UUID!
+    startDate: DateTime!
+    endDate: DateTime!
+  ): InvoiceProfitMargin!
+}
+
+extend type Mutation {
+  createInvoicePayment(input: CreateInvoicePaymentInput!): InvoicePayment!
+  updateInvoicePayment(id: UUID!, input: UpdateInvoicePaymentInput!): InvoicePayment
+  deleteInvoicePayment(id: UUID!): Boolean!
+}

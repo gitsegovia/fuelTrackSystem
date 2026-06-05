@@ -12,6 +12,7 @@ import { FuelType } from "../utils/types";
 import { GasStation } from "./gasStation";
 import { DispatchReception } from "./dispatchReception";
 import { Currency } from "./currency";
+import type { InvoicePayment } from "./invoicePayment";
 
 export interface InvoiceAttributes {
   id: string;
@@ -64,10 +65,12 @@ export class Invoice
   public getReceivingGasStation!: BelongsToGetAssociationMixin<GasStation>;
   public getCurrency!: BelongsToGetAssociationMixin<Currency>;
   public getDispatchReceptions!: HasManyGetAssociationsMixin<DispatchReception>;
+  public getInvoicePayments!: HasManyGetAssociationsMixin<InvoicePayment>;
 
   public readonly receivingGasStation?: GasStation;
   public readonly currency?: Currency;
   public readonly dispatchReceptions?: DispatchReception[];
+  public readonly invoicePayments?: InvoicePayment[];
 
   static associate(models: AppModels) {
     this.belongsTo(models.GasStation, {
@@ -81,6 +84,10 @@ export class Invoice
     this.hasMany(models.DispatchReception, {
       foreignKey: "invoiceId",
       as: "dispatchReceptions",
+    });
+    this.hasMany(models.InvoicePayment, {
+      foreignKey: "invoiceId",
+      as: "invoicePayments",
     });
   }
 }

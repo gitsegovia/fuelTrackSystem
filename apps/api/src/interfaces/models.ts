@@ -20,6 +20,7 @@ import { DispenserReading } from "src/models/dispenserReading";
 import { SalesTicket } from "src/models/salesTicket";
 import { Payment } from "src/models/payment";
 import { TankMeasurement } from "src/models/tankMeasurement";
+import { InvoicePayment } from "src/models/invoicePayment";
 
 export interface AppModels {
   Company: ModelStatic<Company>;
@@ -43,4 +44,5 @@ export interface AppModels {
   SalesTicket: ModelStatic<SalesTicket>;
   Payment: ModelStatic<Payment>;
   TankMeasurement: ModelStatic<TankMeasurement>;
+  InvoicePayment: ModelStatic<InvoicePayment>;
 }

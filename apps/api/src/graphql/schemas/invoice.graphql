@@ -32,6 +32,8 @@ type Invoice {
   receivingGasStation: GasStation!
   currency: Currency!
   dispatchReceptions: [DispatchReception!]
+  invoicePayments: [InvoicePayment!]!
+  paymentStatus: InvoicePaymentStatus!
 }
 
 input CreateInvoiceInput {

@@ -64,5 +64,12 @@ export enum MeasurementReason {
   OTHER = "OTHER",
 }
 
+export enum InvoicePaymentMethod {
+  CASH = "CASH",
+  BANK_TRANSFER = "BANK_TRANSFER",
+  CHECK = "CHECK",
+  CARD = "CARD",
+}
+
 export type ParentType = any;
 export type ArgsType = any;

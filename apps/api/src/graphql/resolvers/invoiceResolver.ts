@@ -123,22 +123,25 @@ const invoiceResolver: IResolvers<Context> = {
   // --- Resolvers de Campo ---
   Invoice: {
     fuelKind: (parent: InvoiceModel) => parent.fuelType,
-    receivingGasStation: async (
-      parent: InvoiceModel,
-      _args,
-      _context: Context
-    ) => {
+    receivingGasStation: async (parent: InvoiceModel, _args, _context: Context) => {
       return parent.getReceivingGasStation();
     },
     currency: async (parent: InvoiceModel, _args, _context: Context) => {
       return parent.getCurrency();
     },
-    dispatchReceptions: async (
-      parent: InvoiceModel,
-      _args,
-      _context: Context
-    ) => {
+    dispatchReceptions: async (parent: InvoiceModel, _args, _context: Context) => {
       return parent.getDispatchReceptions();
+    },
+    invoicePayments: async (parent: InvoiceModel, _args, _context: Context) => {
+      return parent.getInvoicePayments();
+    },
+    paymentStatus: async (parent: InvoiceModel, _args, _context: Context) => {
+      const payments = await parent.getInvoicePayments();
+      const totalAmount = parseFloat(String(parent.totalAmount ?? 0));
+      const totalPaid = payments.reduce((s, p) => s + parseFloat(String((p as any).amount ?? 0)), 0);
+      if (totalPaid >= totalAmount) return "PAID";
+      if (totalPaid > 0) return "PARTIAL";
+      return "PENDING";
     },
   },
 };
