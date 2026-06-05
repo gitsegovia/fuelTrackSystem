@@ -1,0 +1,65 @@
+enum AuditCloseType {
+  MONTHLY
+  MANUAL
+}
+
+enum AuditCloseStatus {
+  DRAFT
+  CLOSED
+}
+
+type AuditPeriodCloseSummary {
+  invoiceCount: Int!
+  totalInvoicedLiters: Decimal!
+  totalReceivedLiters: Decimal!
+  invoiceDifferential: Decimal!
+  shiftCount: Int!
+  grossMargin: Decimal
+  grossMarginPercent: Decimal
+  pendingInvoicesAmount: Decimal
+}
+
+type AuditPeriodClose {
+  id: UUID!
+  gasStationId: UUID!
+  closedById: UUID!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  closeType: AuditCloseType!
+  status: AuditCloseStatus!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  # Relations
+  gasStation: GasStation!
+  closedBy: User!
+  # Snapshots (JSON inmutable una vez CLOSED)
+  invoiceSnapshot: JSON
+  shiftSnapshot: JSON
+  dispatcherSnapshot: JSON
+  tankSnapshot: JSON
+  financialSnapshot: JSON
+  driverSnapshot: JSON
+  marginSnapshot: JSON
+  # KPIs calculados desde los snapshots
+  summary: AuditPeriodCloseSummary!
+}
+
+input CreateAuditPeriodCloseInput {
+  gasStationId: UUID!
+  closedById: UUID!
+  periodStart: DateTime!
+  periodEnd: DateTime!
+  closeType: AuditCloseType!
+}
+
+extend type Query {
+  auditPeriodCloses(gasStationId: UUID!): [AuditPeriodClose!]!
+  auditPeriodClose(id: UUID!): AuditPeriodClose
+}
+
+extend type Mutation {
+  createAuditPeriodClose(input: CreateAuditPeriodCloseInput!): AuditPeriodClose!
+  confirmAuditPeriodClose(id: UUID!): AuditPeriodClose!
+  recalculateAuditPeriodClose(id: UUID!): AuditPeriodClose!
+  deleteAuditPeriodClose(id: UUID!): Boolean!
+}

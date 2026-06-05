@@ -28,6 +28,7 @@ import paymentResolver from "./resolvers/paymentResolver";
 import tankMeasurementResolver from "./resolvers/tankMeasurementResolver";
 import auditResolver from "./resolvers/auditResolver";
 import invoicePaymentResolver from "./resolvers/invoicePaymentResolver";
+import auditPeriodCloseResolver from "./resolvers/auditPeriodCloseResolver";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -64,4 +65,5 @@ export const resolvers: IResolvers<any>[] = [
   tankMeasurementResolver,
   auditResolver,
   invoicePaymentResolver,
+  auditPeriodCloseResolver,
 ];

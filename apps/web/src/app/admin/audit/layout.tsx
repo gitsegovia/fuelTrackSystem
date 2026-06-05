@@ -6,7 +6,7 @@ import { useQuery } from '@apollo/client/react'
 import { useAuth } from '@/hooks/useAuth'
 import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { cn } from '@/lib/utils'
-import { Truck, Timer, User, Layers, Wallet } from 'lucide-react'
+import { Truck, Timer, User, Layers, Wallet, Archive } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 
 const tabs = [
@@ -15,6 +15,7 @@ const tabs = [
   { href: '/admin/audit/bomberos', label: 'Bomberos', icon: User },
   { href: '/admin/audit/tanques', label: 'Tanques', icon: Layers },
   { href: '/admin/audit/financiero', label: 'Financiero', icon: Wallet },
+  { href: '/admin/audit/cierres', label: 'Cierres', icon: Archive },
 ]
 
 const selectClass = cn(
