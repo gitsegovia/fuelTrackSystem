@@ -1,12 +1,14 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { useQuery } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, StopCircle, Clock, Gauge, BarChart2 } from 'lucide-react'
+import { ArrowLeft, Plus, StopCircle, Clock, Gauge, BarChart2, WifiOff } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { useAuth } from '@/hooks/useAuth'
+import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -32,6 +34,7 @@ export default function ShiftDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
@@ -47,13 +50,16 @@ export default function ShiftDetailPage() {
     skip: !id,
   })
 
-  const [endShift, { loading: ending }] = useMutation(MUTATIONS.endEmployeeShift, {
-    refetchQueries: [
-      { query: QUERIES.employeeShift, variables: { id } },
-      { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
-      { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
-    ],
-  })
+  const [endShift, { loading: ending }] = useOfflineMutation<{ endEmployeeShift: { id: string } }>(
+    MUTATIONS.endEmployeeShift,
+    {
+      refetchQueries: [
+        { query: QUERIES.employeeShift, variables: { id } },
+        { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
+        { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
+      ],
+    }
+  )
 
   const shift = data?.employeeShift
   const tickets: any[] = ticketsData?.salesTicketsByCashierShift ?? []
@@ -78,8 +84,16 @@ export default function ShiftDetailPage() {
 
   const handleEndShift = async () => {
     try {
-      await endShift({ variables: { id, shiftEndTime: new Date().toISOString() } })
-      toast.success('Turno finalizado.')
+      const { wasQueued } = await endShift({
+        variables: { id, shiftEndTime: new Date().toISOString() },
+        dependsOn: id,
+        optimisticResponse: { endEmployeeShift: { id: id! } },
+      })
+      if (wasQueued) {
+        toast.success('Cierre de turno guardado. Se procesará al reconectar.')
+      } else {
+        toast.success('Turno finalizado.')
+      }
       navigate('/shifts')
     } catch (err: any) {
       toast.error(`Error al cerrar turno: ${err.message ?? ''}`)
@@ -93,6 +107,13 @@ export default function ShiftDetailPage() {
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {isActive && !isOnline && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <WifiOff className="size-4 shrink-0" />
+          <span>Sin conexión — las acciones se guardarán localmente y se sincronizarán al reconectar.</span>
+        </div>
+      )}
+
       <PageHeader
         title={`Turno — ${shift?.employee?.firstName} ${shift?.employee?.lastName}`}
         description={shift ? `${shift.employeeRole} · ${format(new Date(shift.shiftStartTime), 'dd/MM/yyyy HH:mm')}` : ''}

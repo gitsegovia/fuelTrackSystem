@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom'
-import { useMutation, useQuery } from '@apollo/client/react'
+import { useQuery } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, WifiOff } from 'lucide-react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { useAuth } from '@/hooks/useAuth'
+import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -29,6 +31,7 @@ const ROLE_LABELS: Record<string, string> = {
 export default function NewShiftPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
@@ -36,12 +39,15 @@ export default function NewShiftPage() {
 
   const employeeRole = USERTYPE_TO_ROLE[user?.userType ?? ''] ?? 'CASHIER'
 
-  const [create, { loading }] = useMutation<{ createEmployeeShift: { id: string } }>(MUTATIONS.createEmployeeShift, {
-    refetchQueries: [
-      { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
-      { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
-    ],
-  })
+  const [create, { loading }] = useOfflineMutation<{ createEmployeeShift: { id: string } }>(
+    MUTATIONS.createEmployeeShift,
+    {
+      refetchQueries: [
+        { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
+        { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
+      ],
+    }
+  )
 
   const handleStart = async () => {
     if (!employee) {
@@ -49,7 +55,8 @@ export default function NewShiftPage() {
       return
     }
     try {
-      const result = await create({
+      const localId = crypto.randomUUID()
+      const { data: result, wasQueued } = await create({
         variables: {
           input: {
             employeeId: employee.id,
@@ -58,9 +65,17 @@ export default function NewShiftPage() {
             employeeRole,
           },
         },
+        localId,
+        optimisticResponse: { createEmployeeShift: { id: localId } },
       })
-      toast.success('Turno iniciado.')
-      navigate(`/shifts/${result.data!.createEmployeeShift.id}`)
+
+      if (wasQueued) {
+        toast.success('Turno guardado. Se enviará al servidor cuando vuelva la conexión.')
+        navigate(`/shifts/${localId}`)
+      } else {
+        toast.success('Turno iniciado.')
+        navigate(`/shifts/${result!.createEmployeeShift.id}`)
+      }
     } catch (err: any) {
       toast.error(`No se pudo iniciar el turno: ${err.message ?? ''}`)
     }
@@ -84,6 +99,13 @@ export default function NewShiftPage() {
         </p>
       )}
 
+      {!isOnline && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <WifiOff className="size-4 shrink-0" />
+          <span>Sin conexión — el turno se guardará localmente y se sincronizará al reconectar.</span>
+        </div>
+      )}
+
       <Card>
         <CardContent className="pt-6 space-y-5">
           <div className="rounded-lg border bg-muted/30 px-4 py-3 space-y-2 text-sm">
@@ -104,7 +126,7 @@ export default function NewShiftPage() {
           <div className="flex gap-3">
             <Button onClick={handleStart} disabled={loading || !employee}>
               {loading && <Loader2 className="size-4 animate-spin" />}
-              {loading ? 'Iniciando...' : 'Iniciar turno'}
+              {loading ? 'Guardando...' : !isOnline ? 'Guardar offline' : 'Iniciar turno'}
             </Button>
             <Button variant="outline" onClick={() => navigate(-1)}>Cancelar</Button>
           </div>

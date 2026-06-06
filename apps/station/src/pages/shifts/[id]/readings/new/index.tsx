@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { useQuery } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, WifiOff } from 'lucide-react'
 import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { QUERIES as ReadingQueries, MUTATIONS as ReadingMutations } from '@/services/graphql/gql/dispenserReading'
+import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,11 +33,16 @@ export default function NewReadingsPage() {
     skip: !shiftId,
   })
 
-  const [createReading] = useMutation(ReadingMutations.createDispenserReading, {
-    refetchQueries: [
-      { query: ReadingQueries.dispenserReadingsByShift, variables: { employeeShiftId: shiftId } },
-    ],
-  })
+  const { isOnline } = useOffline()
+
+  const [createReading, { loading: savingReading }] = useOfflineMutation(
+    ReadingMutations.createDispenserReading,
+    {
+      refetchQueries: [
+        { query: ReadingQueries.dispenserReadingsByShift, variables: { employeeShiftId: shiftId } },
+      ],
+    }
+  )
 
   const [values, setValues] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -83,8 +90,9 @@ export default function NewReadingsPage() {
 
     setSubmitting(true)
     try {
+      let anyQueued = false
       for (const n of pendingNozzles) {
-        await createReading({
+        const { wasQueued } = await createReading({
           variables: {
             input: {
               dispenserNozzleId: n.id,
@@ -94,9 +102,16 @@ export default function NewReadingsPage() {
               readingTime: new Date().toISOString(),
             },
           },
+          dependsOn: shiftId,
         })
+        if (wasQueued) anyQueued = true
       }
-      toast.success(`Lecturas ${type === 'INITIAL' ? 'iniciales' : 'finales'} registradas.`)
+      const label = type === 'INITIAL' ? 'iniciales' : 'finales'
+      if (anyQueued) {
+        toast.success(`Lecturas ${label} guardadas. Se enviarán al servidor cuando vuelva la conexión.`)
+      } else {
+        toast.success(`Lecturas ${label} registradas.`)
+      }
       navigate(`/shifts/${shiftId}`)
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
@@ -160,6 +175,13 @@ export default function NewReadingsPage() {
         </div>
       )}
 
+      {!isOnline && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <WifiOff className="size-4 shrink-0" />
+          <span>Sin conexión — las lecturas se guardarán localmente y se sincronizarán al reconectar.</span>
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-3">
         {pendingNozzles.map((n) => {
           const initial = initialByNozzle[n.id]
@@ -209,9 +231,14 @@ export default function NewReadingsPage() {
           )
         })}
 
-        <Button type="submit" className="w-full" disabled={submitting || !allFilled}>
-          {submitting && <Loader2 className="size-4 animate-spin" />}
-          Confirmar lecturas ({pendingNozzles.length} boquilla{pendingNozzles.length !== 1 ? 's' : ''})
+        <Button type="submit" className="w-full" disabled={submitting || savingReading || !allFilled}>
+          {(submitting || savingReading) && <Loader2 className="size-4 animate-spin" />}
+          {submitting || savingReading
+            ? 'Guardando...'
+            : !isOnline
+              ? `Guardar offline (${pendingNozzles.length} boquilla${pendingNozzles.length !== 1 ? 's' : ''})`
+              : `Confirmar lecturas (${pendingNozzles.length} boquilla${pendingNozzles.length !== 1 ? 's' : ''})`
+          }
         </Button>
       </form>
     </div>

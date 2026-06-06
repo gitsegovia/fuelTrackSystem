@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { useQuery } from '@apollo/client/react'
 import { gql } from '@apollo/client'
 import { toast } from 'sonner'
-import { Loader2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Loader2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, WifiOff } from 'lucide-react'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
 import { useAuth } from '@/hooks/useAuth'
+import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -85,9 +87,11 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
   const [volumeL, setVolumeL] = useState('')
   const [reason, setReason] = useState('SHIFT_CLOSURE')
   const [notes, setNotes] = useState('')
-  const [saving, setSaving] = useState(false)
+  const { isOnline } = useOffline()
 
-  const [createMeasurement] = useMutation(MeasurementMutations.createTankMeasurement)
+  const [createMeasurement, { loading: saving }] = useOfflineMutation(
+    MeasurementMutations.createTankMeasurement
+  )
 
   const currentVolume = parseFloat(tank.currentVolumeLiters ?? '0')
   const maxCapacity = parseFloat(tank.maxCapacityLiters)
@@ -109,9 +113,8 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
       toast.error('Ingresa valores válidos.')
       return
     }
-    setSaving(true)
     try {
-      await createMeasurement({
+      const { wasQueued } = await createMeasurement({
         variables: {
           input: {
             tankId: tank.id,
@@ -124,16 +127,18 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
           },
         },
       })
-      toast.success('Medición registrada.')
+      if (wasQueued) {
+        toast.success('Medición guardada. Se enviará al servidor cuando vuelva la conexión.')
+      } else {
+        toast.success('Medición registrada.')
+        refetch()
+      }
       setLevelCm('')
       setVolumeL('')
       setNotes('')
       setOpen(false)
-      refetch()
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
-    } finally {
-      setSaving(false)
     }
   }
 
@@ -237,6 +242,12 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
 
           {open && (
             <form onSubmit={handleSubmit} className="mt-3 space-y-3">
+              {!isOnline && (
+                <div className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                  <WifiOff className="size-3 shrink-0" />
+                  <span>Sin conexión — se guardará localmente.</span>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Nivel (cm) *</Label>
@@ -281,7 +292,7 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
               </div>
               <Button type="submit" size="sm" className="w-full" disabled={saving}>
                 {saving && <Loader2 className="size-4 animate-spin" />}
-                Confirmar medición
+                {saving ? 'Guardando...' : !isOnline ? 'Guardar offline' : 'Confirmar medición'}
               </Button>
             </form>
           )}
