@@ -40,6 +40,21 @@ services:
       - ./apps/api/dev-machine-id.md:/run/secrets/machine-id:ro
       - ./apps/api/dev-mac-address.md:/run/secrets/mac-address:ro
 
+  station:
+    build:
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_GRAPHQL_URI: http://localhost:4000/graphql
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./apps/station:/app
+      - /app/node_modules
+
   db:
     restart: unless-stopped
     ports:

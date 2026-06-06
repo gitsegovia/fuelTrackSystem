@@ -32,5 +32,15 @@ services:
       - /etc/machine-id:/run/secrets/machine-id:ro
       - /sys/class/net/${NET_IFACE:-eth0}/address:/run/secrets/mac-address:ro
 
+  station:
+    build:
+      target: production
+      args:
+        # Vite bake la URL en el bundle — debe apuntar al dominio público de la API
+        VITE_GRAPHQL_URI: ${STATION_GRAPHQL_URI:-http://localhost:${API_PORT:-4000}/graphql}
+    restart: always
+    ports:
+      - "${STATION_PORT:-3001}:80"
+
   db:
     restart: always

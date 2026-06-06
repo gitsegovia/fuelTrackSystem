@@ -15,6 +15,14 @@ services:
     networks:
       - fueltrack-net
 
+  station:
+    build:
+      context: ./apps/station
+      dockerfile: Dockerfile
+    container_name: fueltrack-station
+    networks:
+      - fueltrack-net
+
   api:
     build:
       context: ./apps/api

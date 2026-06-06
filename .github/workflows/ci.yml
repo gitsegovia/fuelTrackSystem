@@ -1,0 +1,90 @@
+name: CI
+
+# Disparo SOLO manual desde la pestaña Actions de GitHub.
+# No se ejecuta automáticamente en push ni en pull_request.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Qué verificar"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - api
+          - web
+          - station
+
+jobs:
+  lint-typecheck-api:
+    name: "API — lint + typecheck"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/api/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm tsc --noEmit
+        name: TypeScript check
+
+  lint-typecheck-web:
+    name: "Web — lint + typecheck"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'web' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm tsc --noEmit
+        name: TypeScript check
+      - run: pnpm next build
+        name: Next.js build
+        env:
+          NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
+          NEXT_PUBLIC_JWT_SECRET: ci-placeholder-secret
+
+  lint-typecheck-station:
+    name: "Station — lint + typecheck + build"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'station' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/station
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/station/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm tsc --noEmit
+        name: TypeScript check
+      - run: pnpm build
+        name: Vite build
+        env:
+          VITE_GRAPHQL_URI: http://localhost:4000/graphql

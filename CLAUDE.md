@@ -739,8 +739,8 @@ export const MUTATIONS = {
 - Reporte de cierre de turno (`/station/shifts/[id]/report`)
 - Cierres de período inmutables (`AuditPeriodClose`): snapshots JSONB, modos Mensual/Manual
 
-### 🚧 Fase 10 — Producción + Offline-first
-**Rama activa: `feature/offline-first-station`**
+### ✅ Fase 10 — Producción + Offline-first — COMPLETADA (MVP)
+**Mergeada a `main` desde `feature/offline-first-station`. Rama activa: `develop`**
 
 #### ✅ Completado en esta fase
 - `apps/station/` — Vite React SPA PWA (scaffold completo, Service Worker Workbox, `vite-plugin-pwa`)
@@ -750,9 +750,14 @@ export const MUTATIONS = {
 - `buildOfflineLink` — ApolloLink que encola mutaciones sin red (fallback para mutations sin `useOfflineMutation`)
 - `useOfflineMutation` — hook que reemplaza `useMutation` en todas las páginas con escrituras
 - Las 11 páginas del panel estación migradas a React Router v6 con soporte offline completo
+- `createdBy` + `deviceFingerprint` en la cola offline; headers HTTP al sincronizar
+- `offline_mutation_logs` tabla en API + plugin Apollo para auditoría de sincronizaciones
+- `apps/station/Dockerfile` — multi-stage: base / builder (Vite, bake de VITE_GRAPHQL_URI) / production (nginx) / development (HMR)
+- `apps/station/nginx.conf` — SPA routing + cache headers para assets y SW
+- `docker-compose.yml` + demo/prod overrides — servicio `station` integrado al stack
+- `.github/workflows/ci.yml` — GitHub Actions con `workflow_dispatch` manual (typecheck + build para api/web/station)
+- Merge `feature/offline-first-station` → `main` (--no-ff); rama `develop` creada para git-flow
 
-#### Pendiente
-- CI/CD (GitHub Actions — estructura base en `apps/api/.github`)
+#### Pendiente (post-MVP)
 - SSL, dominio, environment de staging
-- Test de integración CCILicenseServer
-- Merge de `feature/offline-first-station` → `main` y ajuste de docker-compose para `apps/station`
+- Test de integración CCILicenseServer en producción
