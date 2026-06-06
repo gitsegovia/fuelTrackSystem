@@ -24,7 +24,7 @@ Lee `CORE.md` en la raíz del proyecto. Ahí está definida tu identidad (CORE),
 project_fuelTrack/                ← raíz del monorepo (git)
 ├── apps/
 │   ├── web/                      ← Next.js 16 frontend admin + station legacy (puerto 3000)
-│   ├── station/                  ← Vite React PWA offline-first — panel de estación (puerto 5173)
+│   ├── station/                  ← Vite React PWA offline-first — panel de estación (puerto 3001)
 │   └── api/                      ← GraphQL API Node.js (puerto 4000 en dev)
 ├── packages/
 │   └── types/                    ← (futuro) tipos GraphQL compartidos
