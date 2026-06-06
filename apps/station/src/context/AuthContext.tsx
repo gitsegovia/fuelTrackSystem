@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useApolloClient } from '@apollo/client/react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/login'
 import type { AuthContextValue, AuthUser, LoginParams, ErrCallbackType } from '@/types/auth'
+import { setStoredUserId, clearStoredUserId } from '@/lib/device-fingerprint'
 
 const defaultContext: AuthContextValue = {
   user: null,
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       if (data?.login?.token) {
         localStorage.setItem('accessToken', data.login.token)
+        setStoredUserId(data.login.user.username)
         setUser(data.login.user)
         if (data.login.user.assignedGasStation) {
           navigate('/dashboard', { replace: true })
@@ -76,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null)
     localStorage.removeItem('accessToken')
+    clearStoredUserId()
     apolloClient.clearStore()
     navigate('/login', { replace: true })
   }

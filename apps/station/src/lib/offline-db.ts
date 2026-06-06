@@ -14,6 +14,8 @@ export interface QueuedMutation {
   retries: number
   localId?: string       // UUID temporal generado offline (para reconciliación de IDs)
   dependsOn?: string     // localId del que depende (para ordenar y remap en sync)
+  createdBy?: string     // username del usuario que generó la mutation
+  deviceFingerprint?: string  // ID estable del navegador/dispositivo (localStorage)
 }
 
 function openDB(): Promise<IDBDatabase> {

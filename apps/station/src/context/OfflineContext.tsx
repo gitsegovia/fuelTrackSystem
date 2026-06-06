@@ -79,6 +79,13 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           const result = await apolloClient.mutate({
             mutation: gql(item.query),
             variables,
+            context: {
+              headers: {
+                'x-offline-created-by': item.createdBy ?? '',
+                'x-offline-device-fp': item.deviceFingerprint ?? '',
+                'x-offline-queued-at': new Date(item.timestamp).toISOString(),
+              },
+            },
           })
           // Si esta mutation generó un ID real, guardarlo para dependientes posteriores
           if (item.localId) {

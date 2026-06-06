@@ -4,6 +4,7 @@ import { setContext } from '@apollo/client/link/context'
 import { persistCache, LocalStorageWrapper } from 'apollo3-cache-persist'
 import { print } from 'graphql'
 import { enqueue } from './offline-db'
+import { getDeviceFingerprint, getStoredUserId } from './device-fingerprint'
 
 export let onMutationQueued: (() => void) | null = null
 export function setMutationQueuedCallback(fn: () => void) {
@@ -48,6 +49,8 @@ function buildOfflineLink(): ApolloLink {
                 operationName: operation.operationName ?? 'unknown',
                 query: print(operation.query),
                 variables: operation.variables as Record<string, unknown>,
+                createdBy: getStoredUserId(),
+                deviceFingerprint: getDeviceFingerprint(),
               })
                 .then(() => onMutationQueued?.())
                 .catch((qErr) => console.warn('[FuelTrack] Queue write failed:', qErr))

@@ -5,6 +5,7 @@ import { print } from 'graphql'
 import { enqueue } from '@/lib/offline-db'
 import { onMutationQueued } from '@/lib/apollo-client'
 import { useOffline } from '@/context/OfflineContext'
+import { getDeviceFingerprint, getStoredUserId } from '@/lib/device-fingerprint'
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -120,6 +121,8 @@ export function useOfflineMutation<TData = unknown>(
           variables: (variables ?? {}) as Record<string, unknown>,
           localId,
           dependsOn,
+          createdBy: getStoredUserId(),
+          deviceFingerprint: getDeviceFingerprint(),
         })
         // Notifica al OfflineContext para actualizar el badge de pendientes + toast
         onMutationQueued?.()
@@ -155,6 +158,8 @@ export function useOfflineMutation<TData = unknown>(
             variables: (variables ?? {}) as Record<string, unknown>,
             localId,
             dependsOn,
+            createdBy: getStoredUserId(),
+            deviceFingerprint: getDeviceFingerprint(),
           })
           onMutationQueued?.()
           baseOptionsRef.current?.writeToCache?.(apolloClient.cache, { variables, localId })
