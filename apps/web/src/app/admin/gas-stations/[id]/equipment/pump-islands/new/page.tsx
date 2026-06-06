@@ -24,7 +24,7 @@ export default function NewPumpIslandPage() {
   const router = useRouter()
   const back = `/admin/gas-stations/${stationId}/equipment`
 
-  const [create, { loading }] = useMutation(MUTATIONS.createPumpIsland, {
+  const [create, { loading }] = useMutation<{ createPumpIsland: { id: string } }>(MUTATIONS.createPumpIsland, {
     refetchQueries: [{ query: QUERIES.pumpIslandsByGasStation, variables: { gasStationId: stationId } }],
   })
 

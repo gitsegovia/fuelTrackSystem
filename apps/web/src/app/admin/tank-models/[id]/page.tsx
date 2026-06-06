@@ -64,10 +64,10 @@ export default function TankModelDetailPage() {
   const [importing, setImporting] = useState(false)
   const [preview, setPreview] = useState<Array<{ heightCm: number; volumeLiters: number }> | null>(null)
 
-  const { data: modelData, loading: loadingModel } = useQuery(
+  const { data: modelData, loading: loadingModel } = useQuery<{ tankModel: any }>(
     TankModelQueries.tankModel, { variables: { id }, skip: !id }
   )
-  const { data: calData, loading: loadingCal, refetch } = useQuery(
+  const { data: calData, loading: loadingCal, refetch } = useQuery<{ tankCalibrationEntriesByModel: any[] }>(
     CalibrationQueries.tankCalibrationEntriesByModel, { variables: { tankModelId: id }, skip: !id }
   )
   const [bulkCreate] = useMutation(CalibrationMutations.bulkCreateTankCalibrationEntries)

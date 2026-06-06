@@ -98,11 +98,11 @@ export default function DashboardPage() {
 
   const showAll = selectedStationId === ''
 
-  const { data: stationTicketsData, loading: loadingStation } = useQuery(DASHBOARD_TICKETS, {
+  const { data: stationTicketsData, loading: loadingStation } = useQuery<{ salesTicketsByGasStation: any[] }>(DASHBOARD_TICKETS, {
     variables: { gasStationId: selectedStationId },
     skip: showAll || !selectedStationId,
   })
-  const { data: allTicketsData, loading: loadingAll } = useQuery(DASHBOARD_ALL_TICKETS, {
+  const { data: allTicketsData, loading: loadingAll } = useQuery<{ salesTickets: any[] }>(DASHBOARD_ALL_TICKETS, {
     skip: !showAll,
   })
 
@@ -313,7 +313,7 @@ export default function DashboardPage() {
                         borderRadius: 8,
                         fontSize: 12,
                       }}
-                      formatter={(v: number) => [`${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} L`]}
+                      formatter={(v: any) => [`${Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })} L`]}
                     />
                     {fuelNames.length > 1 && <Legend wrapperStyle={{ fontSize: 11 }} />}
                     {fuelNames.map((name, i) => (
@@ -354,7 +354,7 @@ export default function DashboardPage() {
                         borderRadius: 8,
                         fontSize: 12,
                       }}
-                      formatter={(v: number) => [`${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} L`]}
+                      formatter={(v: any) => [`${Number(v).toLocaleString(undefined, { maximumFractionDigits: 1 })} L`]}
                     />
                   </PieChart>
                 </ResponsiveContainer>
@@ -406,7 +406,7 @@ export default function DashboardPage() {
                       borderRadius: 8,
                       fontSize: 12,
                     }}
-                    formatter={(v: number) => [v, 'Tickets']}
+                    formatter={(v: any) => [v, 'Tickets']}
                   />
                   <Line
                     type="monotone"

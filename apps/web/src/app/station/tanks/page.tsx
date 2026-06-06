@@ -308,7 +308,7 @@ export default function TanksPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
-  const { data, loading, refetch } = useQuery(TANKS_WITH_LATEST, {
+  const { data, loading, refetch } = useQuery<{ tanksByGasStation: any[] }>(TANKS_WITH_LATEST, {
     variables: { gasStationId },
     skip: !gasStationId,
   })

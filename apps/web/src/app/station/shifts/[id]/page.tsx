@@ -40,12 +40,12 @@ export default function ShiftDetailPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
-  const { data, loading } = useQuery(QUERIES.employeeShift, { variables: { id }, skip: !id })
-  const { data: ticketsData } = useQuery(TicketQueries.salesTicketsByCashierShift, {
+  const { data, loading } = useQuery<{ employeeShift: any }>(QUERIES.employeeShift, { variables: { id }, skip: !id })
+  const { data: ticketsData } = useQuery<{ salesTicketsByCashierShift: any[] }>(TicketQueries.salesTicketsByCashierShift, {
     variables: { cashierShiftId: id },
     skip: !id,
   })
-  const { data: readingsData } = useQuery(ReadingQueries.dispenserReadingsByShift, {
+  const { data: readingsData } = useQuery<{ dispenserReadingsByShift: any[] }>(ReadingQueries.dispenserReadingsByShift, {
     variables: { employeeShiftId: id },
     skip: !id,
   })

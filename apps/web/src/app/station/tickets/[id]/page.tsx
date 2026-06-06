@@ -82,11 +82,11 @@ export default function TicketDetailPage() {
   const [showPayment, setShowPayment] = useState(false)
   const [lockedCount, setLockedCount] = useState(0)
 
-  const { data, loading } = useQuery(QUERIES.salesTicket, { variables: { id }, skip: !id })
-  const { data: paymentsData } = useQuery(PaymentQueries.paymentsBySalesTicket, { variables: { salesTicketId: id }, skip: !id })
+  const { data, loading } = useQuery<{ salesTicket: any }>(QUERIES.salesTicket, { variables: { id }, skip: !id })
+  const { data: paymentsData } = useQuery<{ paymentsBySalesTicket: any[] }>(PaymentQueries.paymentsBySalesTicket, { variables: { salesTicketId: id }, skip: !id })
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const { data: currenciesData } = useQuery<{ currencies: any[] }>(CurrencyQueries.currencies)
-  const { data: dispensersData } = useQuery(DispenserQueries.dispensersByGasStation, {
+  const { data: dispensersData } = useQuery<{ dispensersByGasStation: any[] }>(DispenserQueries.dispensersByGasStation, {
     variables: { gasStationId },
     skip: !gasStationId,
   })

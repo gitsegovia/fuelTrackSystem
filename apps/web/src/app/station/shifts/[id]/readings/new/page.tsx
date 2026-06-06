@@ -20,15 +20,15 @@ export default function NewReadingsPage() {
   const type = (searchParams.get('type') ?? 'INITIAL') as 'INITIAL' | 'FINAL'
   const router = useRouter()
 
-  const { data: shiftData } = useQuery(ShiftQueries.employeeShift, { variables: { id: shiftId }, skip: !shiftId })
+  const { data: shiftData } = useQuery<{ employeeShift: any }>(ShiftQueries.employeeShift, { variables: { id: shiftId }, skip: !shiftId })
   const shift = shiftData?.employeeShift
   const gasStationId = shift?.gasStationId ?? ''
 
-  const { data: dispensersData, loading: loadingDispensers } = useQuery(
+  const { data: dispensersData, loading: loadingDispensers } = useQuery<{ dispensersByGasStation: any[] }>(
     DispenserQueries.dispensersByGasStation,
     { variables: { gasStationId }, skip: !gasStationId }
   )
-  const { data: readingsData } = useQuery(ReadingQueries.dispenserReadingsByShift, {
+  const { data: readingsData } = useQuery<{ dispenserReadingsByShift: any[] }>(ReadingQueries.dispenserReadingsByShift, {
     variables: { employeeShiftId: shiftId },
     skip: !shiftId,
   })

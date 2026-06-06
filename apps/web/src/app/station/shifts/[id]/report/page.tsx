@@ -71,13 +71,13 @@ export default function ShiftReportPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
-  const { data: shiftData, loading: loadingShift } = useQuery(
+  const { data: shiftData, loading: loadingShift } = useQuery<{ employeeShift: any }>(
     ShiftQueries.employeeShift, { variables: { id }, skip: !id }
   )
-  const { data: ticketsData, loading: loadingTickets } = useQuery(
+  const { data: ticketsData, loading: loadingTickets } = useQuery<{ salesTicketsByCashierShift: any[] }>(
     SHIFT_TICKETS_WITH_PAYMENTS, { variables: { cashierShiftId: id }, skip: !id }
   )
-  const { data: readingsData, loading: loadingReadings } = useQuery(
+  const { data: readingsData, loading: loadingReadings } = useQuery<{ dispenserReadingsByShift: any[] }>(
     ReadingQueries.dispenserReadingsByShift, { variables: { employeeShiftId: id }, skip: !id }
   )
 

@@ -22,7 +22,7 @@ export default function InvoiceDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
-  const { data, loading } = useQuery(QUERIES.invoice, { variables: { id }, skip: !id })
+  const { data, loading } = useQuery<{ invoice: any }>(QUERIES.invoice, { variables: { id }, skip: !id })
   const invoice = data?.invoice
 
   if (loading) return <Skeleton className="h-64 w-full max-w-3xl" />

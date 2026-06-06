@@ -34,7 +34,7 @@ export default function TicketsPage() {
   const { user } = useAuth()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
-  const { data, loading } = useQuery(QUERIES.salesTicketsByGasStation, {
+  const { data, loading } = useQuery<{ salesTicketsByGasStation: Ticket[] }>(QUERIES.salesTicketsByGasStation, {
     variables: { gasStationId },
     skip: !gasStationId,
   })

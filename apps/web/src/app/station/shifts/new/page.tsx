@@ -38,7 +38,7 @@ export default function NewShiftPage() {
 
   const employeeRole = USERTYPE_TO_ROLE[user?.userType ?? ''] ?? 'CASHIER'
 
-  const [create, { loading }] = useMutation(MUTATIONS.createEmployeeShift, {
+  const [create, { loading }] = useMutation<{ createEmployeeShift: { id: string } }>(MUTATIONS.createEmployeeShift, {
     refetchQueries: [
       { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
       { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
@@ -62,7 +62,7 @@ export default function NewShiftPage() {
         },
       })
       toast.success('Turno iniciado.')
-      router.push(`/station/shifts/${result.data.createEmployeeShift.id}`)
+      router.push(`/station/shifts/${result.data!.createEmployeeShift.id}`)
     } catch (err: any) {
       toast.error(`No se pudo iniciar el turno: ${err.message ?? ''}`)
     }

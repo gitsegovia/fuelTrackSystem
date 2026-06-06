@@ -22,8 +22,8 @@ export default function TankReceptionsPage() {
   const { id: gasStationId, tankId } = useParams<{ id: string; tankId: string }>()
   const router = useRouter()
 
-  const { data: tankData } = useQuery(TankQueries.tank, { variables: { id: tankId }, skip: !tankId })
-  const { data, loading } = useQuery(ReceptionQueries.dispatchReceptionsByTank, {
+  const { data: tankData } = useQuery<{ tank: any }>(TankQueries.tank, { variables: { id: tankId }, skip: !tankId })
+  const { data, loading } = useQuery<{ dispatchReceptionsByTank: any[] }>(ReceptionQueries.dispatchReceptionsByTank, {
     variables: { tankId },
     skip: !tankId,
   })

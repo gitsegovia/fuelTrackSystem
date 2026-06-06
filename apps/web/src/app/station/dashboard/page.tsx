@@ -29,13 +29,13 @@ export default function StationDashboardPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e) => e.user.id === user?.id)
 
-  const { data: shiftData } = useQuery(ShiftQueries.activeEmployeeShift, {
+  const { data: shiftData } = useQuery<{ activeEmployeeShift: any }>(ShiftQueries.activeEmployeeShift, {
     variables: { employeeId: employee?.id },
     skip: !employee?.id,
   })
   const activeShift = shiftData?.activeEmployeeShift
 
-  const { data: ticketsData } = useQuery(TicketQueries.salesTicketsByGasStation, {
+  const { data: ticketsData } = useQuery<{ salesTicketsByGasStation: any[] }>(TicketQueries.salesTicketsByGasStation, {
     variables: { gasStationId },
     skip: !gasStationId,
   })

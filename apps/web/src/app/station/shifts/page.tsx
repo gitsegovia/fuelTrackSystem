@@ -29,7 +29,7 @@ export default function ShiftsPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e) => e.user.id === user?.id)
 
-  const { data, loading } = useQuery(QUERIES.employeeShiftsByGasStation, {
+  const { data, loading } = useQuery<{ employeeShiftsByGasStation: Shift[] }>(QUERIES.employeeShiftsByGasStation, {
     variables: { gasStationId },
     skip: !gasStationId,
   })

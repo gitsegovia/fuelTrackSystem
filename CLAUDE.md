@@ -262,6 +262,15 @@ Company (empresa)
 - id, gasStationId, fuelTypeId, saleTypeName (enum: REGULAR | PREMIUM | SUBSIDIZED), salePricePerLiter (Decimal), percentage (Decimal), currencyId, createdAt
 - Combinación única: gasStationId + fuelTypeId + saleTypeName
 
+**InvoicePayment** (pago de factura de proveedor)
+- id, invoiceId, amount (Decimal), paymentDate, bankName?, paymentMethod (enum: CASH/BANK_TRANSFER/CHECK/CARD), referenceNumber?, notes?, recordedById, createdAt
+- Tabla: `invoice_payments`
+
+**AuditPeriodClose** (cierre de período de auditoría — inmutable)
+- id, gasStationId, closedById, periodStart, periodEnd, closeType (MONTHLY|MANUAL), status (DRAFT|CLOSED)
+- 7 snapshots JSONB: invoiceSnapshot, shiftSnapshot, dispatcherSnapshot, tankSnapshot, financialSnapshot, driverSnapshot, marginSnapshot
+- Tabla: `audit_period_closes`
+
 ---
 
 ## 6. Estado actual del frontend
@@ -270,7 +279,7 @@ Company (empresa)
 | Módulo | Ruta | GQL service | Fase |
 |---|---|---|---|
 | Login admin | `/admin-login` | `gql/login` | 1-5 |
-| Dashboard | `/admin/dashboard` | queries de todos los módulos | 1-5 |
+| Dashboard operacional | `/admin/dashboard` | queries de todos los módulos + Recharts | 1-5/9 |
 | Empresas | `/admin/companies` | `gql/company` | 1-5 |
 | Estaciones | `/admin/gas-stations` | `gql/gasStation` | 1-5 |
 | Tipos de combustible | `/admin/fuel-types` | `gql/fuelType` | 1-5 |
@@ -280,28 +289,53 @@ Company (empresa)
 | Empleados | `/admin/employees` | `gql/employee` | 7 |
 | Monedas | `/admin/currencies` | `gql/currency` | 7 |
 | Tipos de venta | `/admin/sale-type-configs` | `gql/saleTypeConfig` | 7 |
+| Facturas (despachos) | `/admin/invoices` | `gql/invoice` + `gql/dispatchReception` | 8 |
+| Pagos de facturas | `/admin/invoice-payments` | `gql/invoicePayment` | 8 |
+| Auditoría (6 tabs) | `/admin/audit/recepciones,turnos,bomberos,tanques,financiero,cierres` | `gql/audit` + `gql/auditPeriodClose` | 8-9 |
 
-### Módulos pendientes (no hay páginas aún)
-- Operaciones: EmployeeShift, DispenserReading, SalesTicket, Payment — **Fase 8**
-- Despachos: Invoice, DispatchReception — **Fase 8**
-- **Panel Estación** (`/station`) — UI de operación, offline-first — **Fase 8**
+### Panel Estación — módulos completados
+| Módulo | Ruta | GQL service |
+|---|---|---|
+| Login estación | `/(auth)/login` | `gql/login` |
+| Dashboard | `/station/dashboard` | shifts + tickets |
+| Turnos | `/station/shifts` | `gql/employeeShift` |
+| Iniciar turno | `/station/shifts/new` | `gql/employeeShift` |
+| Detalle de turno | `/station/shifts/[id]` | shift + tickets + readings |
+| Lecturas surtidor | `/station/shifts/[id]/readings/new` | `gql/dispenserReading` |
+| Reporte de turno | `/station/shifts/[id]/report` | shift + tickets + payments |
+| Tickets | `/station/tickets` | `gql/salesTicket` |
+| Nuevo ticket | `/station/tickets/new` | `gql/salesTicket` |
+| Detalle ticket | `/station/tickets/[id]` | ticket + payments + dispatch |
+| Tanques | `/station/tanks` | `gql/tank` + mediciones |
 
 ### GQL services en apps/web
 ```
 services/graphql/gql/
-├── login/            ✅ MUTATIONS.login, QUERIES.me
-├── company/          ✅ QUERIES.companies/company, MUTATIONS.create/update/delete
-├── gasStation/       ✅ QUERIES.gasStations/gasStation, MUTATIONS.create/update/delete
-├── fuelType/         ✅ QUERIES.fuelTypes/fuelType, MUTATIONS.create/update/delete
-├── user/             ✅ QUERIES.users/user, MUTATIONS.create/update/delete
-├── tankModel/        ✅ QUERIES.tankModels/tankModel, MUTATIONS.create/update/delete
-├── pumpIsland/       ✅ QUERIES.pumpIslands/pumpIsland/pumpIslandsByGasStation, MUTATIONS.create/update/delete
-├── dispenser/        ✅ QUERIES.dispenser/dispensersByGasStation/dispensersByPumpIsland, MUTATIONS.create/update/delete
-├── dispenserNozzle/  ✅ QUERIES.dispenserNozzle/dispenserNozzlesByDispenser, MUTATIONS.create/update/delete
-├── tank/             ✅ QUERIES.tank/tanksByGasStation, MUTATIONS.create/update/delete
-├── employee/         ✅ QUERIES.employees/employee, MUTATIONS.create/update/delete
-├── currency/         ✅ QUERIES.currencies/currency, MUTATIONS.create/update/delete
-└── saleTypeConfig/   ✅ QUERIES.saleTypeConfigs/saleTypeConfig, MUTATIONS.create/update/delete
+├── login/                ✅ MUTATIONS.login, QUERIES.me
+├── company/              ✅ QUERIES.companies/company, MUTATIONS.create/update/delete
+├── gasStation/           ✅ QUERIES.gasStations/gasStation, MUTATIONS.create/update/delete
+├── fuelType/             ✅ QUERIES.fuelTypes/fuelType, MUTATIONS.create/update/delete
+├── user/                 ✅ QUERIES.users/user, MUTATIONS.create/update/delete
+├── tankModel/            ✅ QUERIES.tankModels/tankModel, MUTATIONS.create/update/delete
+├── pumpIsland/           ✅ QUERIES.pumpIslands/pumpIsland/pumpIslandsByGasStation, MUTATIONS.create/update/delete
+├── dispenser/            ✅ QUERIES.dispenser/dispensersByGasStation/dispensersByPumpIsland, MUTATIONS.create/update/delete
+├── dispenserNozzle/      ✅ QUERIES.dispenserNozzle/dispenserNozzlesByDispenser, MUTATIONS.create/update/delete
+├── tank/                 ✅ QUERIES.tank/tanksByGasStation, MUTATIONS.create/update/delete
+├── employee/             ✅ QUERIES.employees/employee, MUTATIONS.create/update/delete
+├── currency/             ✅ QUERIES.currencies/currency, MUTATIONS.create/update/delete
+├── saleTypeConfig/       ✅ QUERIES.saleTypeConfigs/saleTypeConfig, MUTATIONS.create/update/delete
+├── employeeShift/        ✅ QUERIES.employeeShifts/employeeShift/employeeShiftsByGasStation/activeEmployeeShift, MUTATIONS.create/end/update/delete
+├── dispenserReading/     ✅ QUERIES.dispenserReadingsByShift, MUTATIONS.createDispenserReading
+├── salesTicket/          ✅ QUERIES.salesTicket/salesTicketsByGasStation/salesTicketsByCashierShift, MUTATIONS.create/processDispatch/completePayment/cancel
+├── payment/              ✅ QUERIES.paymentsBySalesTicket, MUTATIONS.createPayments
+├── invoice/              ✅ QUERIES.invoices/invoice/invoicesByGasStation, MUTATIONS.create/update/delete
+├── dispatchReception/    ✅ QUERIES.dispatchReceptionsByTank/byInvoice, MUTATIONS.create/delete
+├── tankMeasurement/      ✅ QUERIES.tankMeasurementsByTank, MUTATIONS.createTankMeasurement
+├── tankCalibrationEntry/ ✅ QUERIES.tankCalibrationEntriesByModel, MUTATIONS.bulkCreate/delete
+├── tankAssignment/       ✅ MUTATIONS.create/delete
+├── audit/                ✅ QUERIES.6 dimensiones (invoice/shift/dispatcher/tank/financial/driver) + profitMargin
+├── invoicePayment/       ✅ QUERIES.invoicePayment/invoiceBalance/unpaidInvoices/invoiceProfitMargin, MUTATIONS.create/update/delete
+└── auditPeriodClose/     ✅ QUERIES.auditPeriodCloses/auditPeriodClose, MUTATIONS.create/confirm/recalculate/delete
 ```
 
 ---
@@ -333,10 +367,32 @@ apps/web/src/
 │   │   ├── users/               ← CRUD completo
 │   │   ├── employees/           ← CRUD completo
 │   │   ├── currencies/          ← CRUD completo
-│   │   └── sale-type-configs/   ← CRUD completo
+│   │   ├── sale-type-configs/   ← CRUD completo
+│   │   ├── invoices/            ← CRUD + historial de recepciones por tanque
+│   │   │   └── [id]/            ← detalle de factura con recepciones
+│   │   ├── invoice-payments/    ← KPIs de margen + tabla de facturas pendientes
+│   │   │   └── [invoiceId]/     ← balance + historial de pagos + formulario de pago
+│   │   └── audit/               ← 6 tabs de auditoría + cierres de período
+│   │       ├── layout.tsx       ← tab nav + selector de estación
+│   │       ├── recepciones/     ← auditoría de facturas vs recepciones
+│   │       ├── turnos/          ← auditoría de turnos
+│   │       ├── bomberos/        ← rendimiento por bombero
+│   │       ├── tanques/         ← balance de inventario de tanques
+│   │       ├── financiero/      ← cuadre financiero por turno
+│   │       └── cierres/         ← cierres de período (snapshots inmutables)
 │   └── station/
-│       ├── layout.tsx           ← placeholder
-│       └── page.tsx             ← placeholder
+│       ├── layout.tsx           ← layout con sidebar de estación
+│       ├── page.tsx             ← redirect a /station/dashboard
+│       ├── dashboard/           ← turno activo + stats del día
+│       ├── shifts/              ← lista + nuevo turno
+│       │   ├── new/             ← iniciar turno
+│       │   └── [id]/            ← detalle + cierre de turno
+│       │       ├── readings/new/ ← lecturas iniciales/finales de surtidores
+│       │       └── report/      ← reporte completo de cierre de turno
+│       ├── tickets/             ← lista de tickets
+│       │   ├── new/             ← crear ticket con cálculo de precio
+│       │   └── [id]/            ← detalle: cobro + despacho
+│       └── tanks/               ← inventario de tanques con mediciones
 ├── components/
 │   ├── ui/                      ← componentes shadcn/ui (base-nova, auto-generados)
 │   ├── layout/
@@ -567,20 +623,20 @@ export const MUTATIONS = {
 - `/admin/currencies` — CRUD monedas (name, symbol, exchangeRate)
 - `/admin/sale-type-configs` — CRUD configuración de precios por estación+combustible+tipo (REGULAR/PREMIUM/SUBSIDIZED)
 
-### Fase 8 — Panel Estación (offline-first)
-- Layout `/station` con autenticación de estación
-- Flujo de turno: iniciar → despachos (SalesTicket + DispenserReading) → cerrar
-- Despachos de combustible: Invoice + DispatchReception
-- Service Worker + IndexedDB para modo offline
-- Sync al reconectar (queue de mutations pendientes)
-- Objetivo: funciona sin internet, sincroniza cuando vuelve la conexión
+### ✅ Fase 8 — Panel Estación + Operaciones — COMPLETADA
+- Panel `/station`: login, dashboard, turnos, tickets, lecturas de surtidor, inventario de tanques
+- Facturas de proveedor: CRUD Invoice + DispatchReception con historial por tanque
+- Pagos de facturas (cuentas por pagar): InvoicePayment con trazabilidad bancaria
+- Margen operacional: query `invoiceProfitMargin` (ingresos vs costos pagados)
 
-### Fase 9 — Reportes y dashboard operacional
-- Gráficos de ventas (Recharts ya instalado)
-- Reportes de turno
-- Dashboard de inventario de tanques
+### ✅ Fase 9 — Auditoría y Reportes — COMPLETADA
+- 6 dimensiones de auditoría en `/admin/audit`: recepciones, turnos, bomberos, tanques, financiero, driver
+- Dashboard operacional con gráficos Recharts (litros por día, distribución por combustible, tickets por día)
+- Reporte de cierre de turno (`/station/shifts/[id]/report`)
+- Cierres de período inmutables (`AuditPeriodClose`): snapshots JSONB, modos Mensual/Manual
 
 ### Fase 10 — Producción
 - CI/CD (GitHub Actions ya tiene estructura en apps/api/.github)
 - SSL, dominio, environment de staging
 - Test de integración CCILicenseServer
+- Offline-first para panel estación: Service Worker + IndexedDB + sync queue (pendiente)

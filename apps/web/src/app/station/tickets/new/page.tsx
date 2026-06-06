@@ -43,7 +43,7 @@ export default function NewTicketPage() {
   const { data: fuelTypesData } = useQuery<{ fuelTypes: { id: string; name: string }[] }>(FuelTypeQueries.fuelTypes)
   const { data: configsData } = useQuery<{ saleTypeConfigs: any[] }>(SaleTypeConfigQueries.saleTypeConfigs)
 
-  const [create, { loading }] = useMutation(MUTATIONS.createSalesTicket, {
+  const [create, { loading }] = useMutation<{ createSalesTicket: { id: string; ticketNumber: number } }>(MUTATIONS.createSalesTicket, {
     refetchQueries: [
       { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
       ...(shiftId ? [{ query: QUERIES.salesTicketsByCashierShift, variables: { cashierShiftId: shiftId } }] : []),
@@ -88,7 +88,7 @@ export default function NewTicketPage() {
           },
         },
       })
-      const ticket = result.data.createSalesTicket
+      const ticket = result.data!.createSalesTicket
       toast.success(`Ticket #${ticket.ticketNumber} creado.`)
       // Cashier y Dispatcher van al detalle para actuar de inmediato
       const canActOnTicket = ['Cashier', 'FuelAttendant'].includes(user?.userType ?? '')
