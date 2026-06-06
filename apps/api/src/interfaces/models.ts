@@ -22,6 +22,7 @@ import { Payment } from "src/models/payment";
 import { TankMeasurement } from "src/models/tankMeasurement";
 import { InvoicePayment } from "src/models/invoicePayment";
 import { AuditPeriodClose } from "src/models/auditPeriodClose";
+import { OfflineMutationLog } from "src/models/offlineMutationLog";
 
 export interface AppModels {
   Company: ModelStatic<Company>;
@@ -47,4 +48,5 @@ export interface AppModels {
   TankMeasurement: ModelStatic<TankMeasurement>;
   InvoicePayment: ModelStatic<InvoicePayment>;
   AuditPeriodClose: ModelStatic<AuditPeriodClose>;
+  OfflineMutationLog: ModelStatic<OfflineMutationLog>;
 }
