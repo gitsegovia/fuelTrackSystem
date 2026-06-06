@@ -10,8 +10,8 @@ FROM base AS builder
 ARG VITE_GRAPHQL_URI=http://localhost:4000/graphql
 ENV VITE_GRAPHQL_URI=$VITE_GRAPHQL_URI
 
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY package.json ./
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 COPY . .
 RUN pnpm build
 
@@ -29,8 +29,8 @@ CMD ["nginx", "-g", "daemon off;"]
 # accesible desde fuera del contenedor Docker.
 FROM base AS development
 ENV NODE_ENV=development
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --ignore-scripts
+COPY package.json ./
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 COPY . .
 EXPOSE 3001
 CMD ["pnpm", "exec", "vite", "--port", "3001", "--host"]
