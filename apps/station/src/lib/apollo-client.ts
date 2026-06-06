@@ -37,10 +37,13 @@ function buildOfflineLink(): ApolloLink {
         sub = forward(operation).subscribe({
           next(value) { observer.next(value) },
           error(err) {
+            // useOfflineMutation maneja su propio encolado con metadatos completos
+            // (localId, dependsOn). Si el caller activó skipOfflineLink, no duplicar.
+            const skip = operation.getContext().skipOfflineLink
             const isMutation = operation.query.definitions.some(
               (d: any) => d.kind === 'OperationDefinition' && d.operation === 'mutation'
             )
-            if (isMutation && isNetworkDown(err)) {
+            if (!skip && isMutation && isNetworkDown(err)) {
               enqueue({
                 operationName: operation.operationName ?? 'unknown',
                 query: print(operation.query),

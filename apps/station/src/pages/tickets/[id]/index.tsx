@@ -3,15 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useQuery, useMutation } from '@apollo/client/react'
+import { useQuery } from '@apollo/client/react'
 import { toast } from 'sonner'
-import { ArrowLeft, Loader2, Truck, CreditCard, XCircle, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Loader2, Truck, CreditCard, XCircle, Plus, Trash2, WifiOff } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/salesTicket'
 import { MUTATIONS as PaymentMutations, QUERIES as PaymentQueries } from '@/services/graphql/gql/payment'
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { useAuth } from '@/hooks/useAuth'
+import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -73,41 +75,68 @@ export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
   const [showDispatch, setShowDispatch] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [lockedCount, setLockedCount] = useState(0)
 
-  const { data, loading } = useQuery<{ salesTicket: any }>(QUERIES.salesTicket, { variables: { id }, skip: !id })
-  const { data: paymentsData } = useQuery<{ paymentsBySalesTicket: any[] }>(PaymentQueries.paymentsBySalesTicket, { variables: { salesTicketId: id }, skip: !id })
+  const { data, loading } = useQuery<{ salesTicket: any }>(QUERIES.salesTicket, {
+    variables: { id },
+    skip: !id,
+    // cache-first en la vista detalle para funcionar offline con el fragmento escrito por tickets/new
+    fetchPolicy: 'cache-first',
+  })
+  const { data: paymentsData } = useQuery<{ paymentsBySalesTicket: any[] }>(
+    PaymentQueries.paymentsBySalesTicket,
+    { variables: { salesTicketId: id }, skip: !id, fetchPolicy: 'cache-first' }
+  )
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const { data: currenciesData } = useQuery<{ currencies: any[] }>(CurrencyQueries.currencies)
-  const { data: dispensersData } = useQuery<{ dispensersByGasStation: any[] }>(DispenserQueries.dispensersByGasStation, {
-    variables: { gasStationId },
-    skip: !gasStationId,
-  })
+  const { data: dispensersData } = useQuery<{ dispensersByGasStation: any[] }>(
+    DispenserQueries.dispensersByGasStation,
+    { variables: { gasStationId }, skip: !gasStationId }
+  )
 
-  const [processDispatch, { loading: dispatching }] = useMutation(MUTATIONS.processSalesTicketDispatch, {
-    refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }],
-  })
-  const [createPayments, { loading: paying }] = useMutation(PaymentMutations.createPayments, {
-    refetchQueries: [
-      { query: QUERIES.salesTicket, variables: { id } },
-      { query: PaymentQueries.paymentsBySalesTicket, variables: { salesTicketId: id } },
-    ],
-  })
-  const [completeTicket, { loading: completing }] = useMutation(MUTATIONS.completeSalesTicketPayment, {
-    refetchQueries: [
-      { query: QUERIES.salesTicket, variables: { id } },
-      { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
-    ],
-  })
-  const [cancelTicket, { loading: canceling }] = useMutation(MUTATIONS.cancelSalesTicket, {
-    refetchQueries: [
-      { query: QUERIES.salesTicket, variables: { id } },
-      { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
-    ],
-  })
+  // Dispatch — el ticket (id) puede ser un localId si fue creado offline.
+  // dependsOn: id captura eso: cuando el sync procese createSalesTicket primero
+  // y obtenga el ID real, remapeará id → ID real en esta mutation también.
+  const [processDispatch, { loading: dispatching }] = useOfflineMutation(
+    MUTATIONS.processSalesTicketDispatch,
+    { refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }] }
+  )
+
+  const [createPayments, { loading: paying }] = useOfflineMutation(
+    PaymentMutations.createPayments,
+    {
+      refetchQueries: [
+        { query: QUERIES.salesTicket, variables: { id } },
+        { query: PaymentQueries.paymentsBySalesTicket, variables: { salesTicketId: id } },
+      ],
+    }
+  )
+
+  // Completar y cancelar: no hay dependencia de ID offline, usan useMutation normal.
+  // Si el ticket está en la cola offline, estas mutations también fallarán en red
+  // y se encolarán vía el OfflineLink (sin metadatos de ID — aceptable para estas ops).
+  const [completeTicket, { loading: completing }] = useOfflineMutation(
+    MUTATIONS.completeSalesTicketPayment,
+    {
+      refetchQueries: [
+        { query: QUERIES.salesTicket, variables: { id } },
+        { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
+      ],
+    }
+  )
+  const [cancelTicket, { loading: canceling }] = useOfflineMutation(
+    MUTATIONS.cancelSalesTicket,
+    {
+      refetchQueries: [
+        { query: QUERIES.salesTicket, variables: { id } },
+        { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
+      ],
+    }
+  )
 
   const dispatchForm = useForm<DispatchForm>({ resolver: zodResolver(dispatchSchema) })
   const paymentForm = useForm<PaymentForm>({
@@ -162,15 +191,19 @@ export default function TicketDetailPage() {
 
   const onDispatch = async (formData: DispatchForm) => {
     try {
-      await processDispatch({
+      const { wasQueued } = await processDispatch({
         variables: {
           id,
           dispatcherEmployeeId: formData.dispatcherEmployeeId,
           dispenserNozzleId: formData.dispenserNozzleId,
           actualLitersDispatched: parseFloat(formData.actualLitersDispatched),
         },
+        // Si el ticket fue creado offline, id ES su localId.
+        // El sync remapea id → ID real antes de enviar esta mutation.
+        dependsOn: id,
+        optimisticResponse: { processSalesTicketDispatch: { id } },
       })
-      toast.success('Despacho registrado.')
+      toast.success(wasQueued ? 'Despacho guardado offline.' : 'Despacho registrado.')
       setShowDispatch(false)
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
@@ -179,7 +212,7 @@ export default function TicketDetailPage() {
 
   const onPayment = async (formData: PaymentForm) => {
     try {
-      await createPayments({
+      const { wasQueued } = await createPayments({
         variables: {
           salesTicketId: id,
           paymentTime: new Date().toISOString(),
@@ -190,8 +223,10 @@ export default function TicketDetailPage() {
             transactionReference: l.transactionReference || null,
           })),
         },
+        dependsOn: id,
+        optimisticResponse: { createPayments: [] },
       })
-      toast.success('Pago(s) registrado(s).')
+      toast.success(wasQueued ? 'Pago(s) guardado(s) offline.' : 'Pago(s) registrado(s).')
       setShowPayment(false)
       setLockedCount(0)
       paymentForm.reset({ lines: [EMPTY_LINE] })
@@ -218,9 +253,17 @@ export default function TicketDetailPage() {
 
   const onComplete = async () => {
     try {
-      await completeTicket({ variables: { id } })
-      toast.success('Ticket completado.')
-      navigate(`/shifts/${ticket?.cashierShiftId}`)
+      const { wasQueued } = await completeTicket({
+        variables: { id },
+        dependsOn: id,
+        optimisticResponse: { completeSalesTicketPayment: { id } },
+      })
+      if (!wasQueued) {
+        toast.success('Ticket completado.')
+        navigate(`/shifts/${ticket?.cashierShiftId}`)
+      } else {
+        toast.success('Completar ticket guardado offline.')
+      }
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
     }
@@ -228,22 +271,41 @@ export default function TicketDetailPage() {
 
   const onCancel = async () => {
     try {
-      await cancelTicket({ variables: { id } })
-      toast.success('Ticket cancelado.')
+      const { wasQueued } = await cancelTicket({
+        variables: { id },
+        dependsOn: id,
+        optimisticResponse: { cancelSalesTicket: { id } },
+      })
+      toast.success(wasQueued ? 'Cancelación guardada offline.' : 'Ticket cancelado.')
     } catch (err: any) {
       toast.error(`Error: ${err.message ?? ''}`)
     }
   }
 
   if (loading) return <Skeleton className="h-64 w-full" />
-  if (!ticket) return <p className="text-sm text-muted-foreground">Ticket no encontrado.</p>
+
+  // Ticket no existe ni en servidor ni en cache (no fue creado offline con writeToCache)
+  if (!ticket) {
+    return (
+      <div className="space-y-4 max-w-lg">
+        <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <ArrowLeft className="size-4" /> Volver
+        </Button>
+        <p className="text-sm text-muted-foreground">
+          {!isOnline
+            ? 'Sin conexión y el ticket no está en el cache local.'
+            : 'Ticket no encontrado.'}
+        </p>
+      </div>
+    )
+  }
 
   const isActive = ticket.status !== 'COMPLETED' && ticket.status !== 'CANCELED'
 
   return (
     <div className="space-y-6 max-w-lg">
       <PageHeader
-        title={`Ticket #${ticket.ticketNumber}`}
+        title={`Ticket #${ticket.ticketNumber || '—'}`}
         description={`${ticket.fuelType.name} · ${format(new Date(ticket.ticketIssueTime), 'dd/MM/yyyy HH:mm')}`}
         action={
           <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
@@ -252,6 +314,14 @@ export default function TicketDetailPage() {
         }
       />
 
+      {!isOnline && (
+        <div className="flex items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-50 px-4 py-2.5 text-sm text-amber-700">
+          <WifiOff className="size-4 shrink-0" />
+          <span>Sin conexión — las operaciones se guardarán y sincronizarán al reconectar.</span>
+        </div>
+      )}
+
+      {/* Resumen */}
       <Card>
         <CardContent className="pt-4 space-y-3 text-sm">
           <div className="flex justify-between">
@@ -282,6 +352,7 @@ export default function TicketDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Histórico de pagos */}
       {payments.length > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">Pagos registrados</h3>
@@ -303,8 +374,10 @@ export default function TicketDetailPage() {
         </div>
       )}
 
+      {/* Acciones (solo si el ticket está activo) */}
       {isActive && (
         <div className="space-y-3">
+          {/* Despacho */}
           {!ticket.actualLitersDispatched && (
             <>
               <Button variant="outline" className="w-full" onClick={() => setShowDispatch(!showDispatch)}>
@@ -344,7 +417,7 @@ export default function TicketDetailPage() {
                       </div>
                       <Button type="submit" size="sm" disabled={dispatching}>
                         {dispatching && <Loader2 className="size-4 animate-spin" />}
-                        Confirmar despacho
+                        {!isOnline ? 'Guardar offline' : 'Confirmar despacho'}
                       </Button>
                     </form>
                   </CardContent>
@@ -353,6 +426,7 @@ export default function TicketDetailPage() {
             </>
           )}
 
+          {/* Pago */}
           <Button variant="outline" className="w-full" onClick={() => setShowPayment(!showPayment)}>
             <CreditCard className="size-4" /> Registrar pago
           </Button>
@@ -385,28 +459,16 @@ export default function TicketDetailPage() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-muted-foreground">Pago {index + 1}</span>
-                              {isLocked && (
-                                <span className="text-xs font-medium text-green-600">✓ Confirmado</span>
-                              )}
+                              {isLocked && <span className="text-xs font-medium text-green-600">✓ Confirmado</span>}
                             </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2"
-                              onClick={() => handleRemove(index)}
-                            >
+                            <Button type="button" variant="ghost" size="sm" className="h-6 px-2" onClick={() => handleRemove(index)}>
                               <Trash2 className="size-3" />
                             </Button>
                           </div>
                           <div className="grid grid-cols-2 gap-2">
                             <div className="space-y-1.5">
                               <Label className="text-xs">Método</Label>
-                              <select
-                                {...paymentForm.register(`lines.${index}.paymentMethod`)}
-                                className={selectClass}
-                                disabled={isLocked}
-                              >
+                              <select {...paymentForm.register(`lines.${index}.paymentMethod`)} className={selectClass} disabled={isLocked}>
                                 {Object.entries(PAYMENT_METHOD_LABELS).map(([v, l]) => (
                                   <option key={v} value={v}>{l}</option>
                                 ))}
@@ -423,11 +485,7 @@ export default function TicketDetailPage() {
                                   </span>
                                 )}
                               </div>
-                              <select
-                                {...paymentForm.register(`lines.${index}.currencyId`)}
-                                className={selectClass}
-                                disabled={isLocked}
-                              >
+                              <select {...paymentForm.register(`lines.${index}.currencyId`)} className={selectClass} disabled={isLocked}>
                                 <option value="">Seleccionar...</option>
                                 {currenciesData?.currencies.map((c: any) => (
                                   <option key={c.id} value={c.id}>{c.symbol} — {c.name}</option>
@@ -437,13 +495,7 @@ export default function TicketDetailPage() {
                           </div>
                           <div className="space-y-1.5">
                             <Label className="text-xs">Monto</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...paymentForm.register(`lines.${index}.amount`)}
-                              disabled={isLocked}
-                            />
+                            <Input type="number" step="0.01" placeholder="0.00" {...paymentForm.register(`lines.${index}.amount`)} disabled={isLocked} />
                           </div>
                           {showLineConversion && (
                             <p className="text-xs text-amber-600">
@@ -454,10 +506,7 @@ export default function TicketDetailPage() {
                           {!isLocked && (
                             <div className="space-y-1.5">
                               <Label className="text-xs">Referencia (opcional)</Label>
-                              <Input
-                                placeholder="Nro. de transacción"
-                                {...paymentForm.register(`lines.${index}.transactionReference`)}
-                              />
+                              <Input placeholder="Nro. de transacción" {...paymentForm.register(`lines.${index}.transactionReference`)} />
                             </div>
                           )}
                         </div>
@@ -465,13 +514,7 @@ export default function TicketDetailPage() {
                     })}
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={handleAppend}
-                  >
+                  <Button type="button" variant="outline" size="sm" className="w-full" onClick={handleAppend}>
                     <Plus className="size-4" /> Agregar otro método de pago
                   </Button>
 
@@ -499,20 +542,19 @@ export default function TicketDetailPage() {
                         </span>
                       </div>
                     )}
-                    {formIsCovered && (
-                      <p className="text-xs text-green-600 font-medium">✓ Pago cubierto</p>
-                    )}
+                    {formIsCovered && <p className="text-xs text-green-600 font-medium">✓ Pago cubierto</p>}
                   </div>
 
                   <Button type="submit" size="sm" disabled={paying}>
                     {paying && <Loader2 className="size-4 animate-spin" />}
-                    Confirmar pago{fields.length > 1 ? 's' : ''}
+                    {!isOnline ? 'Guardar pago offline' : `Confirmar pago${fields.length > 1 ? 's' : ''}`}
                   </Button>
                 </form>
               </CardContent>
             </Card>
           )}
 
+          {/* Completar / Cancelar */}
           <div className="flex gap-3 pt-2">
             <Button className="flex-1" onClick={onComplete} disabled={completing}>
               {completing && <Loader2 className="size-4 animate-spin" />}
