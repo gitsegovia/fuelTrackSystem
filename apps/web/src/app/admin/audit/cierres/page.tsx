@@ -76,9 +76,9 @@ function DiffBadge({ value }: { value: number | null | undefined }) {
   return <span className={cn('font-medium', color)}>{value > 0 ? '+' : ''}{fmt(value)} L</span>
 }
 
-/** Extrae "yyyy-MM" del ISO string de un cierre mensual */
+/** Extrae "yyyy-MM" del ISO string usando tiempo local (evita desfase UTC) */
 function monthKey(isoDate: string) {
-  return isoDate.slice(0, 7)
+  return format(new Date(isoDate), 'yyyy-MM')
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -533,7 +533,8 @@ export default function AuditCierresPage() {
     if (!user || !stationId) return
     setCreatingMode('MONTHLY')
     try {
-      const d = new Date(`${monthStr}-01`)
+      const [year, month] = monthStr.split('-').map(Number)
+      const d = new Date(year, month - 1, 1) // constructor local — evita desfase UTC
       await createClose({
         variables: {
           input: {
