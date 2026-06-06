@@ -8,10 +8,17 @@ export interface AuthenticatedUser {
   role: UserRole;
 }
 
+export interface OfflineSource {
+  createdBy: string;
+  deviceFingerprint: string;
+  queuedAt: string; // ISO string
+}
+
 export interface Context {
   user?: AuthenticatedUser;
   models: AppModels;
   sequelize: Sequelize;
+  offlineSource?: OfflineSource; // presente solo en mutations sincronizadas desde la cola offline
 }
 
 //Interface to arguments

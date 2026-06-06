@@ -23,7 +23,8 @@ Lee `CORE.md` en la raíz del proyecto. Ahí está definida tu identidad (CORE),
 ```
 project_fuelTrack/                ← raíz del monorepo (git)
 ├── apps/
-│   ├── web/                      ← Next.js 16 frontend (puerto 3000)
+│   ├── web/                      ← Next.js 16 frontend admin + station legacy (puerto 3000)
+│   ├── station/                  ← Vite React PWA offline-first — panel de estación (puerto 3001)
 │   └── api/                      ← GraphQL API Node.js (puerto 4000 en dev)
 ├── packages/
 │   └── types/                    ← (futuro) tipos GraphQL compartidos
@@ -77,6 +78,22 @@ Browser → apps/web (Next.js) → GraphQL → apps/api (Apollo Server) → Post
 | sonner | ^2 | Toast notifications |
 | date-fns | latest | |
 | clsx + tailwind-merge | latest | Helper `cn()` en `lib/utils.ts` |
+
+### apps/station
+| Tool | Versión | Notas críticas |
+|---|---|---|
+| Vite | ^6 | SPA, `@vitejs/plugin-react` |
+| React | 19 | |
+| TypeScript | ^5 | strict mode |
+| React Router | v6 | `useNavigate`, `useParams`, `useSearchParams`, `Link` |
+| Tailwind CSS | **v4** | `@tailwindcss/vite` plugin. **NO hay tailwind.config.ts** |
+| shadcn/ui | **v4 base-nova** | Mismas reglas que apps/web — NO asChild |
+| Apollo Client | **4.2.0** | Mismos subpath imports. `apollo3-cache-persist` para cache offline |
+| vite-plugin-pwa | ^0.21 | Workbox `generateSW`, `NetworkOnly` para GraphQL, SW + manifest auto |
+| idb | ^8 | IndexedDB wrapper para la cola offline de mutaciones |
+| date-fns | latest | |
+| lucide-react | latest | |
+| sonner | ^2 | |
 
 ### apps/api
 | Tool | Versión | Notas |
@@ -416,6 +433,93 @@ apps/web/src/
 
 ---
 
+## 7b. Estructura de archivos — apps/station
+
+SPA Vite React PWA — panel de estación offline-first. **Rama: `feature/offline-first-station`**
+
+```
+apps/station/src/
+├── main.tsx                     ← entry point, monta <App />
+├── App.tsx                      ← BrowserRouter + rutas + AppProviders
+├── components/
+│   ├── ui/                      ← componentes shadcn/ui (base-nova, mismos que apps/web)
+│   ├── layout/
+│   │   ├── AppProviders.tsx     ← ApolloProvider + AuthProvider + OfflineProvider + Toaster
+│   │   ├── ProtectedLayout.tsx  ← guard de auth + Outlet + sidebar
+│   │   └── Sidebar.tsx          ← sidebar con nav + badge de mutaciones pendientes
+│   └── shared/
+│       └── PageHeader.tsx
+├── context/
+│   ├── AuthContext.tsx          ← JWT en localStorage, query `me` al init
+│   └── OfflineContext.tsx       ← isOnline, pendingCount, processQueue() con ID reconciliation
+├── hooks/
+│   ├── useAuth.ts
+│   └── useOfflineMutation.ts    ← reemplaza useMutation; encola en IndexedDB cuando sin red
+├── lib/
+│   ├── apollo-client.ts         ← makeApolloClient() + buildOfflineLink() + persistCache
+│   ├── offline-db.ts            ← IndexedDB via idb: QueuedMutation con localId/dependsOn
+│   └── utils.ts                 ← cn()
+├── pages/
+│   ├── login/                   ← formulario login estación
+│   ├── dashboard/               ← turno activo + stats del día
+│   ├── shifts/
+│   │   ├── index.tsx            ← lista de turnos
+│   │   ├── new/                 ← iniciar turno (useOfflineMutation)
+│   │   ├── [id]/
+│   │   │   ├── index.tsx        ← detalle: tickets + lecturas + cerrar turno (useOfflineMutation)
+│   │   │   ├── readings/new/    ← lecturas iniciales/finales (useOfflineMutation)
+│   │   │   └── report/          ← reporte de cierre de turno
+│   ├── tickets/
+│   │   ├── index.tsx            ← lista de tickets
+│   │   ├── new/                 ← crear ticket (useOfflineMutation)
+│   │   └── [id]/                ← detalle: cobro + despacho (useOfflineMutation)
+│   └── tanks/                   ← inventario con mediciones (useOfflineMutation en TankCard)
+├── services/graphql/gql/        ← mismas queries/mutations que apps/web (copiadas)
+└── types/
+    └── auth.ts
+```
+
+### Arquitectura offline-first de apps/station
+
+```
+useOfflineMutation (hook)
+  ├── online → apolloClient.mutate({ context: { skipOfflineLink: true } })
+  └── offline / red caída → enqueue(IndexedDB) → onMutationQueued() → [optional] writeToCache()
+
+buildOfflineLink (apollo link)
+  └── solo encola si !skipOfflineLink (evita doble encolado con useOfflineMutation)
+
+OfflineContext.processQueue()
+  ├── procesa en orden de timestamp
+  ├── localIdMap: Map<string, string> — localId → realId del servidor
+  └── remapLocalId() — reemplaza localId en variables antes de cada mutation
+```
+
+**Patrón `useOfflineMutation`:**
+```typescript
+// Tipado simple — un solo tipo genérico TData
+const [create, { loading }] = useOfflineMutation<{ createFoo: { id: string } }>(
+  MUTATIONS.createFoo,
+  { refetchQueries: [...], writeToCache: (cache, { variables, localId }) => { ... } }
+)
+
+// Al llamar: localId para entidades nuevas, dependsOn para mutations subordinadas
+const localId = crypto.randomUUID()
+const { data, wasQueued } = await create({ variables, localId, optimisticResponse, dependsOn })
+```
+
+**Gotcha — TVariables eliminado del hook:**
+`useOfflineMutation` tiene UN solo parámetro de tipo (`TData`). No pasar dos tipos como
+`useOfflineMutation<TData, TVariables>` — genera TS2558. Las variables se tipan internamente
+como `Record<string, any>`.
+
+**Gotcha — ApolloCache en writeToCache:**
+El parámetro `cache` de `writeToCache` está tipado como `any`, no como `ApolloCache<unknown>`
+ni `InMemoryCache`. Apollo v4 no re-exporta `InMemoryCache` de forma compatible con
+`apolloClient.cache` en todos los contextos de compilación.
+
+---
+
 ## 8. Entorno de desarrollo
 
 ### Generación de secretos
@@ -635,8 +739,20 @@ export const MUTATIONS = {
 - Reporte de cierre de turno (`/station/shifts/[id]/report`)
 - Cierres de período inmutables (`AuditPeriodClose`): snapshots JSONB, modos Mensual/Manual
 
-### Fase 10 — Producción
-- CI/CD (GitHub Actions ya tiene estructura en apps/api/.github)
+### 🚧 Fase 10 — Producción + Offline-first
+**Rama activa: `feature/offline-first-station`**
+
+#### ✅ Completado en esta fase
+- `apps/station/` — Vite React SPA PWA (scaffold completo, Service Worker Workbox, `vite-plugin-pwa`)
+- `apollo3-cache-persist` — caché Apollo persiste en localStorage para lectura offline
+- `IndexedDB` cola de mutaciones (`offline-db.ts`) con `localId` / `dependsOn` para reconciliación de IDs
+- `OfflineContext` — `isOnline`, `pendingCount`, `processQueue()` con remapeo de IDs locales → reales
+- `buildOfflineLink` — ApolloLink que encola mutaciones sin red (fallback para mutations sin `useOfflineMutation`)
+- `useOfflineMutation` — hook que reemplaza `useMutation` en todas las páginas con escrituras
+- Las 11 páginas del panel estación migradas a React Router v6 con soporte offline completo
+
+#### Pendiente
+- CI/CD (GitHub Actions — estructura base en `apps/api/.github`)
 - SSL, dominio, environment de staging
 - Test de integración CCILicenseServer
-- Offline-first para panel estación: Service Worker + IndexedDB + sync queue (pendiente)
+- Merge de `feature/offline-first-station` → `main` y ajuste de docker-compose para `apps/station`

@@ -1,4 +1,5 @@
 import { ApolloServer } from "@apollo/server";
+import type { ApolloServerPlugin } from "@apollo/server";
 import { expressMiddleware } from "@as-integrations/express5";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
 import express from "express";
@@ -11,6 +12,39 @@ import { typeDefs, resolvers } from "./graphql";
 import { verifyToken } from "./middleware/auth";
 import { AuthenticatedUser, Context } from "./interfaces";
 import { validateLicense } from "./utils/licenseValidator";
+
+// Plugin que persiste un log por cada mutation que llega desde la cola offline.
+// Identifica requests offline por la presencia del header x-offline-created-by.
+const offlineAuditPlugin: ApolloServerPlugin<Context> = {
+  async requestDidStart(requestContext) {
+    if (!requestContext.contextValue.offlineSource) return;
+
+    return {
+      async executionDidStart(ctx) {
+        const { contextValue, request, operation } = ctx;
+        if (!contextValue.offlineSource) return;
+        if (operation?.operation !== "mutation") return;
+
+        const { createdBy, deviceFingerprint, queuedAt } = contextValue.offlineSource;
+        const operationName =
+          request.operationName ?? (operation?.name?.value ?? "unknown");
+
+        try {
+          await contextValue.models.OfflineMutationLog.create({
+            operationName,
+            createdBy,
+            deviceFingerprint,
+            queuedAt: new Date(queuedAt),
+            variables: (request.variables as Record<string, unknown>) ?? {},
+            userId: contextValue.user?.id ?? null,
+          });
+        } catch (e) {
+          console.warn("[FuelTrack] Failed to write offline audit log:", e);
+        }
+      },
+    };
+  },
+};
 
 declare global {
   namespace Express {
@@ -30,7 +64,10 @@ async function startApolloServer() {
   const server = new ApolloServer<Context>({
     typeDefs,
     resolvers,
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      offlineAuditPlugin,
+    ],
     formatError: (formattedError, error) => {
       console.error("GraphQl Error: ", error);
 
@@ -66,7 +103,17 @@ async function startApolloServer() {
       expressMiddleware(server, {
         context: async ({ req }) => {
           const user = req.user || undefined;
-          return { user, models, sequelize };
+
+          const createdByHeader = req.headers["x-offline-created-by"];
+          const offlineSource = createdByHeader
+            ? {
+                createdBy: String(createdByHeader),
+                deviceFingerprint: String(req.headers["x-offline-device-fp"] ?? ""),
+                queuedAt: String(req.headers["x-offline-queued-at"] ?? new Date().toISOString()),
+              }
+            : undefined;
+
+          return { user, models, sequelize, offlineSource };
         },
       })
     );
