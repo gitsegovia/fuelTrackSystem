@@ -304,20 +304,7 @@ module.exports = {
     ]);
 
     // ═════════════════════════════════════════════════════════════════════════
-    // 13. ASIGNACIONES TANQUE ↔ BOQUILLA
-    // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('tank_assignments', [
-      { id: uuidv4(), tankId: tkN95Id,  dispenserNozzleId: nzN1Id, fuelTypeId: fuel95Id,     createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkN91Id,  dispenserNozzleId: nzN2Id, fuelTypeId: fuel91Id,     createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkNDslId, dispenserNozzleId: nzN3Id, fuelTypeId: fuelDieselId, createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkN95Id,  dispenserNozzleId: nzN4Id, fuelTypeId: fuel95Id,     createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkS95Id,  dispenserNozzleId: nzS1Id, fuelTypeId: fuel95Id,     createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkSDslId, dispenserNozzleId: nzS2Id, fuelTypeId: fuelDieselId, createdAt: ts(), updatedAt: ts() },
-      { id: uuidv4(), tankId: tkS95Id,  dispenserNozzleId: nzS3Id, fuelTypeId: fuel95Id,     createdAt: ts(), updatedAt: ts() }
-    ]);
-
-    // ═════════════════════════════════════════════════════════════════════════
-    // 14. CONFIGURACIONES DE PRECIO (sale_type_configs)
+    // 13. CONFIGURACIONES DE PRECIO (sale_type_configs)
     // ═════════════════════════════════════════════════════════════════════════
     await queryInterface.bulkInsert('sale_type_configs', [
       // Norte
@@ -602,7 +589,6 @@ module.exports = {
     await queryInterface.bulkDelete('sales_tickets',         null, {});
     await queryInterface.bulkDelete('dispenser_readings',    null, {});
     await queryInterface.bulkDelete('employee_shifts',       null, {});
-    await queryInterface.bulkDelete('tank_assignments',      null, {});
     await queryInterface.bulkDelete('dispenser_nozzles',     null, {});
     await queryInterface.bulkDelete('dispensers',            null, {});
     await queryInterface.bulkDelete('pump_islands',          null, {});
