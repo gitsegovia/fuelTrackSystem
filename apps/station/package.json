@@ -38,5 +38,8 @@
     "typescript": "^5",
     "vite": "^6",
     "vite-plugin-pwa": "^0.21.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
   }
 }
