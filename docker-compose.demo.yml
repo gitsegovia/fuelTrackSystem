@@ -34,6 +34,7 @@ services:
     environment:
       NODE_ENV: development
       DOCKER_ENV: "true"
+      SEED_DB: "true"
     volumes:
       - ./apps/api:/usr/src/app
       - /usr/src/app/node_modules
