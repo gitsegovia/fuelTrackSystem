@@ -9,7 +9,8 @@
         "dev": "nodemon --exec \"node --loader ts-node/esm --experimental-specifier-resolution=node --trace-uncaught\" src/app.ts",
         "start:dev": "nodemon --exec \"node --loader ts-node/esm --experimental-specifier-resolution=node --trace-uncaught\" src/app.ts",
         "build": "tsc",
-        "seed": "node --loader ts-node/esm --experimental-specifier-resolution=node src/seeders/seed.ts"
+        "seed": "node --loader ts-node/esm --experimental-specifier-resolution=node src/seeders/seed.ts",
+        "bootstrap": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/bootstrap-admin.ts --"
     },
     "keywords": [
         "nodejs",
