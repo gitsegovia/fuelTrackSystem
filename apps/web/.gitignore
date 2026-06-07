@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pnpm lockfile local (lockfile canónico está en la raíz del monorepo)
+pnpm-lock.yaml

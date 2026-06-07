@@ -1,9 +1,9 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-allowBuilds:
-  '@apollo/protobufjs': true
-  'sharp': true
-  'unrs-resolver': true
-  'msw': true
-  esbuild: true
+onlyBuiltDependencies:
+  - '@apollo/protobufjs'
+  - sharp
+  - unrs-resolver
+  - msw
+  - esbuild
