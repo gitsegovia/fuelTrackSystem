@@ -15,8 +15,8 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 # ---- Builder Stage ----
 # Etapa dedicada a construir la aplicación TypeScript a JavaScript.
 FROM base AS builder
-COPY package*.json ./
-RUN npm install
+COPY package*.json package-lock.json ./
+RUN npm ci
 COPY . .
 RUN npm run build
 
@@ -38,7 +38,7 @@ CMD ["npm", "start"]
 # ---- Development Stage ----
 FROM base AS development
 ENV NODE_ENV=development
-COPY package*.json ./
-RUN npm install
+COPY package*.json package-lock.json ./
+RUN npm ci
 COPY . .
 CMD ["npm", "run", "start:dev"]
