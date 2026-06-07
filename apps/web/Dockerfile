@@ -6,7 +6,7 @@ RUN corepack enable pnpm
 
 # ---- Builder Stage ----
 FROM base AS builder
-COPY package.json ./
+COPY package.json pnpm-workspace.yaml ./
 RUN pnpm install --no-frozen-lockfile --ignore-scripts
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -33,7 +33,7 @@ CMD ["node", "server.js"]
 # ---- Development Stage ----
 FROM base AS development
 ENV NODE_ENV=development
-COPY package.json ./
+COPY package.json pnpm-workspace.yaml ./
 RUN pnpm install --no-frozen-lockfile --ignore-scripts
 COPY . .
 EXPOSE 3000
