@@ -31,7 +31,8 @@ CMD ["nginx", "-g", "daemon off;"]
 FROM base AS development
 ENV NODE_ENV=development
 COPY package.json pnpm-workspace.yaml ./
-RUN pnpm install --no-frozen-lockfile --ignore-scripts
+RUN pnpm install --no-frozen-lockfile --ignore-scripts && \
+    pnpm rebuild esbuild
 COPY . .
 EXPOSE 3001
-CMD ["pnpm", "exec", "vite", "--port", "3001", "--host"]
+CMD ["node_modules/.bin/vite", "--port", "3001", "--host"]

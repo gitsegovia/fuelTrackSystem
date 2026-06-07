@@ -5,8 +5,9 @@ import { fileURLToPath } from 'url'
 
 dotenv.config()
 
+// Solo cargar .env.local en dev local — si DB_HOST ya viene del entorno (Docker), no pisar.
 const localEnv = resolve(dirname(fileURLToPath(import.meta.url)), '../../.env.local')
-if (existsSync(localEnv)) {
+if (existsSync(localEnv) && !process.env.DOCKER_ENV) {
   dotenv.config({ path: localEnv, override: true })
 }
 

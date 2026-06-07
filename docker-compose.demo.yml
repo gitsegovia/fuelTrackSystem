@@ -33,6 +33,7 @@ services:
       - "${API_PORT:-4000}:3000"
     environment:
       NODE_ENV: development
+      DOCKER_ENV: "true"
     volumes:
       - ./apps/api:/usr/src/app
       - /usr/src/app/node_modules
