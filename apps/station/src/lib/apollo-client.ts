@@ -6,8 +6,7 @@ import { print } from 'graphql'
 import { enqueue } from './offline-db'
 import { getDeviceFingerprint, getStoredUserId } from './device-fingerprint'
 
-// 'offline': sin red · 'waiting-dependency': hay red, pero depende de algo aún no sincronizado
-export type QueueReason = 'offline' | 'waiting-dependency'
+import type { QueueReason } from './offline-sync'
 
 export let onMutationQueued: ((reason?: QueueReason) => void) | null = null
 export function setMutationQueuedCallback(fn: (reason?: QueueReason) => void) {
@@ -48,6 +47,9 @@ function buildOfflineLink(): ApolloLink {
               (d: any) => d.kind === 'OperationDefinition' && d.operation === 'mutation'
             )
             if (!skip && isMutation && isNetworkDown(err)) {
+              // Red de seguridad para mutations que no usan useOfflineMutation: el intento
+              // original salió sin x-offline-mutation-id, así que no hay id previo que reusar;
+              // enqueue genera uno nuevo (estable desde aquí en adelante).
               enqueue({
                 operationName: operation.operationName ?? 'unknown',
                 query: print(operation.query),

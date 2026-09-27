@@ -95,16 +95,26 @@ const byTimestamp = <T extends { timestamp: number }>(a: T, b: T) => a.timestamp
 
 // ── Cola ──────────────────────────────────────────────────────────────────────
 
+/**
+ * `id` viaja como header `x-offline-mutation-id` en cada envío (dedupe server-side).
+ * Pasar el id con el que ya se intentó enviar la operación; si se omite, se genera uno.
+ */
+let lastTimestamp = 0
+
 export async function enqueue(
-  mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retries'>
-): Promise<void> {
+  mutation: Omit<QueuedMutation, 'id' | 'timestamp' | 'retries'> & { id?: string }
+): Promise<string> {
+  // Estrictamente creciente: dos operaciones en el mismo ms (ej. create + su dependiente)
+  // deben sincronizarse en el orden en que se encolaron.
+  lastTimestamp = Math.max(Date.now(), lastTimestamp + 1)
   const entry: QueuedMutation = {
     ...mutation,
-    id: crypto.randomUUID(),
-    timestamp: Date.now(),
+    id: mutation.id ?? crypto.randomUUID(),
+    timestamp: lastTimestamp,
     retries: 0,
   }
   await request((await store(QUEUE_STORE, 'readwrite')).add(entry))
+  return entry.id
 }
 
 export async function dequeueAll(): Promise<QueuedMutation[]> {
