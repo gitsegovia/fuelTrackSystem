@@ -6,6 +6,7 @@ export interface AuthenticatedUser {
   id: string;
   username: string;
   role: UserRole;
+  sid?: string; // id de AuthSession; ausente en tokens emitidos antes de ADR-014
 }
 
 export interface OfflineSource {

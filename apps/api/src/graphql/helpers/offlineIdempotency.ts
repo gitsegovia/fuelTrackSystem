@@ -173,6 +173,9 @@ async function recordFailure(
   );
 }
 
+// Su respuesta trae tokens: guardarla en responseData dejaría secretos en claro en la BD.
+const EXCLUDED = new Set(["login", "refreshSession", "logout"]);
+
 export function applyOfflineIdempotency(maps: IResolvers<any>[]): IResolvers<any>[] {
   return maps.map((map) => {
     const mutation = map.Mutation as Record<string, GraphQLFieldResolver<unknown, Context>> | undefined;
@@ -182,7 +185,7 @@ export function applyOfflineIdempotency(maps: IResolvers<any>[]): IResolvers<any
       Mutation: Object.fromEntries(
         Object.entries(mutation).map(([field, resolve]) => [
           field,
-          withOfflineIdempotency(field, resolve),
+          EXCLUDED.has(field) ? resolve : withOfflineIdempotency(field, resolve),
         ])
       ),
     };
