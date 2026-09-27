@@ -21,9 +21,9 @@ services:
       api:
         condition: service_started
     volumes:
-      - ./apps/web:/app
-      - /app/node_modules
-      - /app/.next
+      - ./apps/web:/app/apps/web
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
 
   api:
     build:
@@ -54,8 +54,8 @@ services:
       api:
         condition: service_started
     volumes:
-      - ./apps/station:/app
-      - /app/node_modules
+      - ./apps/station:/app/apps/station
+      - /app/apps/station/node_modules
 
   db:
     restart: unless-stopped
