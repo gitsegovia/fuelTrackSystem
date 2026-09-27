@@ -9,16 +9,23 @@
 services:
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
+      # "appsrc" es un context nombrado adicional que apunta a apps/web: permite
+      # copiar el código de la app respetando apps/web/.dockerignore, mientras el
+      # context raíz (".") aporta pnpm-lock.yaml / pnpm-workspace.yaml del monorepo.
+      additional_contexts:
+        appsrc: ./apps/web
     container_name: fueltrack-web
     networks:
       - fueltrack-net
 
   station:
     build:
-      context: ./apps/station
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/station/Dockerfile
+      additional_contexts:
+        appsrc: ./apps/station
     container_name: fueltrack-station
     networks:
       - fueltrack-net

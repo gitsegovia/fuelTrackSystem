@@ -26,25 +26,19 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.5.1
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: pnpm
-          cache-dependency-path: apps/api/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm tsc --noEmit
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
         name: TypeScript check
 
   lint-typecheck-web:
     name: "Web — lint + typecheck"
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'web' }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -54,11 +48,11 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: apps/web/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm tsc --noEmit
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --filter web... --ignore-scripts
+      - run: pnpm --filter web exec tsc --noEmit
         name: TypeScript check
-      - run: pnpm next build
+      - run: pnpm --filter web build
         name: Next.js build
         env:
           NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
@@ -68,9 +62,6 @@ jobs:
     name: "Station — lint + typecheck + build"
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'station' }}
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/station
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -80,11 +71,11 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: apps/station/pnpm-lock.yaml
-      - run: pnpm install --frozen-lockfile --ignore-scripts
-      - run: pnpm tsc --noEmit
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --filter station... --ignore-scripts
+      - run: pnpm --filter station exec tsc -b
         name: TypeScript check
-      - run: pnpm build
+      - run: pnpm --filter station build
         name: Vite build
         env:
           VITE_GRAPHQL_URI: http://localhost:4000/graphql
