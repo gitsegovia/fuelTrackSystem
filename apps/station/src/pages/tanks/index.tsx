@@ -4,6 +4,7 @@ import { gql } from '@apollo/client'
 import { toast } from 'sonner'
 import { Loader2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, WifiOff } from 'lucide-react'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
+import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
@@ -81,7 +82,17 @@ function TankLevelBar({ current, max, min }: { current: number; max: number; min
   )
 }
 
-function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string; refetch: () => void }) {
+function TankCard({
+  tank,
+  employeeId,
+  employeeShiftId,
+  refetch,
+}: {
+  tank: any
+  employeeId: string
+  employeeShiftId?: string | null
+  refetch: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [levelCm, setLevelCm] = useState('')
   const [volumeL, setVolumeL] = useState('')
@@ -119,6 +130,7 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
           input: {
             tankId: tank.id,
             employeeId,
+            ...(employeeShiftId ? { employeeShiftId } : {}),
             measurementTime: new Date().toISOString(),
             manualLevelReadingCm: cm,
             volumeInLiters: vol,
@@ -309,6 +321,12 @@ export default function TanksPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
+  const { data: shiftData } = useQuery<{ activeEmployeeShift: any }>(ShiftQueries.activeEmployeeShift, {
+    variables: { employeeId: employee?.id },
+    skip: !employee?.id,
+  })
+  const activeShiftId = shiftData?.activeEmployeeShift?.id ?? null
+
   const { data, loading, refetch } = useQuery<{ tanksByGasStation: any[] }>(TANKS_WITH_LATEST, {
     variables: { gasStationId },
     skip: !gasStationId,
@@ -371,6 +389,7 @@ export default function TanksPage() {
               key={tank.id}
               tank={tank}
               employeeId={employee?.id ?? ''}
+              employeeShiftId={activeShiftId}
               refetch={refetch}
             />
           ))}
