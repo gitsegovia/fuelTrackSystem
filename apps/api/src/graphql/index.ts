@@ -29,6 +29,7 @@ import tankMeasurementResolver from "./resolvers/tankMeasurementResolver";
 import auditResolver from "./resolvers/auditResolver";
 import invoicePaymentResolver from "./resolvers/invoicePaymentResolver";
 import auditPeriodCloseResolver from "./resolvers/auditPeriodCloseResolver";
+import { applyOfflineIdempotency } from "./helpers/offlineIdempotency";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -40,7 +41,7 @@ const typesArray = loadFilesSync(join(__dirname, "./schemas"), {
 
 export const typeDefs = mergeTypeDefs(typesArray);
 
-export const resolvers: IResolvers<any>[] = [
+export const resolvers: IResolvers<any>[] = applyOfflineIdempotency([
   scalarResolvers,
   userResolver,
   companyResolver,
@@ -66,4 +67,4 @@ export const resolvers: IResolvers<any>[] = [
   auditResolver,
   invoicePaymentResolver,
   auditPeriodCloseResolver,
-];
+]);

@@ -15,9 +15,11 @@ import { validateLicense } from "./utils/licenseValidator";
 
 // Plugin que persiste un log por cada mutation que llega desde la cola offline.
 // Identifica requests offline por la presencia del header x-offline-created-by.
+// Con x-offline-mutation-id el log lo escribe la capa de idempotencia (graphql/helpers/offlineIdempotency).
 const offlineAuditPlugin: ApolloServerPlugin<Context> = {
   async requestDidStart(requestContext) {
     if (!requestContext.contextValue.offlineSource) return;
+    if (requestContext.contextValue.offlineMutationId) return;
 
     return {
       async executionDidStart(ctx) {
@@ -113,7 +115,10 @@ async function startApolloServer() {
               }
             : undefined;
 
-          return { user, models, sequelize, offlineSource };
+          const mutationIdHeader = req.headers["x-offline-mutation-id"];
+          const offlineMutationId = mutationIdHeader ? String(mutationIdHeader) : undefined;
+
+          return { user, models, sequelize, offlineSource, offlineMutationId };
         },
       })
     );
