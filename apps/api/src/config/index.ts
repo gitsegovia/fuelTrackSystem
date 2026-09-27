@@ -21,6 +21,13 @@ interface Config {
   port: number;
   databaseUrl: ConfigDb;
   jwtSecret: string;
+  sessionMaxHours: number;
+  accessTokenMinutes: number;
+}
+
+function positiveNumber(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
 }
 
 const config_db: ConfigDb = {
@@ -36,6 +43,9 @@ const config: Config = {
   port: parseInt(process.env.PORT || "s", 10),
   databaseUrl: config_db,
   jwtSecret: process.env.JWT_SECRET || "s",
+  // ADR-014: tope absoluto de la sesión desde el login, y vida del access token.
+  sessionMaxHours: positiveNumber(process.env.SESSION_MAX_HOURS, 24),
+  accessTokenMinutes: positiveNumber(process.env.ACCESS_TOKEN_MINUTES, 15),
 };
 
 export default config;

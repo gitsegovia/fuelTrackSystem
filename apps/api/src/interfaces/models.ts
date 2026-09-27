@@ -23,6 +23,8 @@ import { TankMeasurement } from "src/models/tankMeasurement";
 import { InvoicePayment } from "src/models/invoicePayment";
 import { AuditPeriodClose } from "src/models/auditPeriodClose";
 import { OfflineMutationLog } from "src/models/offlineMutationLog";
+import { AuthSession } from "src/models/authSession";
+import { RefreshToken } from "src/models/refreshToken";
 
 export interface AppModels {
   Company: ModelStatic<Company>;
@@ -49,4 +51,6 @@ export interface AppModels {
   InvoicePayment: ModelStatic<InvoicePayment>;
   AuditPeriodClose: ModelStatic<AuditPeriodClose>;
   OfflineMutationLog: ModelStatic<OfflineMutationLog>;
+  AuthSession: ModelStatic<AuthSession>;
+  RefreshToken: ModelStatic<RefreshToken>;
 }

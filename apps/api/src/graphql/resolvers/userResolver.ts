@@ -1,7 +1,6 @@
 import { IResolvers } from "@graphql-tools/utils";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import config from "../../config";
+import { startSession, rotateSession, endSession } from "../../utils/authSession";
 import {
   Context,
   AuthenticatedUser,
@@ -214,14 +213,18 @@ const userResolver: IResolvers<Context> = {
         throw new Error("Invalid username or password.");
       }
 
-      const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role },
-        config.jwtSecret,
-        { expiresIn: "1h" }
-      );
-
-      return { token, user };
+      return startSession(context, user);
     },
+    refreshSession: async (
+      _parent: ParentType,
+      { refreshToken }: { refreshToken: string },
+      context: Context
+    ) => rotateSession(context, refreshToken),
+    logout: async (
+      _parent: ParentType,
+      { refreshToken }: { refreshToken: string },
+      context: Context
+    ) => endSession(context, refreshToken),
   },
   User: {
     company: async (parent: UserModel, _args, _context: Context) => {
