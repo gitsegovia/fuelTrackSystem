@@ -35,6 +35,65 @@ jobs:
       - run: npx tsc --noEmit
         name: TypeScript check
 
+  db-migrate-seed-api:
+    name: "API — db:migrate + db:seed:all (PostgreSQL 15 vacío)"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    # Misma imagen mayor que docker-compose.yml (postgres:15-alpine), para detectar
+    # regresiones de esquema/migraciones antes de llegar a producción (H-004, recomendación 5).
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fueltrack_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Variables de prueba, no secretos reales — solo válidas contra el contenedor
+      # postgres descartable de este job.
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_DATABASE: fueltrack_ci
+      DB_HOST: localhost
+      DB_PORT: 5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx sequelize-cli db:migrate
+        name: db:migrate sobre BD vacía
+      - run: npx sequelize-cli db:seed:all
+        name: db:seed:all (seed demo)
+      - name: Conteo mínimo de filas (tickets, pagos, facturas)
+        run: |
+          set -e
+          ROW=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" -t -A -F',' -c \
+            "SELECT (SELECT COUNT(*) FROM sales_tickets), (SELECT COUNT(*) FROM payments), (SELECT COUNT(*) FROM invoices);")
+          TICKETS=$(echo "$ROW" | cut -d',' -f1)
+          PAYMENTS=$(echo "$ROW" | cut -d',' -f2)
+          INVOICES=$(echo "$ROW" | cut -d',' -f3)
+          echo "sales_tickets=$TICKETS payments=$PAYMENTS invoices=$INVOICES"
+          if [ "$TICKETS" -le 0 ] || [ "$PAYMENTS" -le 0 ] || [ "$INVOICES" -le 0 ]; then
+            echo "::error::El seed no cargó datos (sales_tickets=$TICKETS, payments=$PAYMENTS, invoices=$INVOICES)"
+            exit 1
+          fi
+      - run: npx sequelize-cli db:migrate:undo:all
+        name: db:migrate:undo:all (verifica los down)
+
   lint-typecheck-web:
     name: "Web — lint + typecheck"
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'web' }}
