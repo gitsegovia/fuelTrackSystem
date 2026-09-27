@@ -12,6 +12,7 @@ import TicketsPage from './pages/tickets'
 import NewTicketPage from './pages/tickets/new'
 import TicketDetailPage from './pages/tickets/[id]'
 import TanksPage from './pages/tanks'
+import SyncPage from './pages/sync'
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/tickets/:id" element={<TicketDetailPage />} />
 
             <Route path="/tanks" element={<TanksPage />} />
+            <Route path="/sync" element={<SyncPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

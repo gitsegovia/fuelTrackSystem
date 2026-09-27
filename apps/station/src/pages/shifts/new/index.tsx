@@ -46,6 +46,43 @@ export default function NewShiftPage() {
         { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
         { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
       ],
+      // Offline: el turno queda como activo con su localId para que las operaciones
+      // siguientes (ej. medición de tanque) lo referencien y se sincronicen detrás de él.
+      writeToCache: (cache, { variables, localId }) => {
+        if (!localId || !employee) return
+        const input = variables?.input ?? {}
+        try {
+          cache.writeQuery({
+            query: QUERIES.activeEmployeeShift,
+            variables: { employeeId: employee.id },
+            data: {
+              activeEmployeeShift: {
+                __typename: 'EmployeeShift',
+                id: localId,
+                employeeId: employee.id,
+                gasStationId,
+                employeeRole: input.employeeRole,
+                shiftStartTime: input.shiftStartTime,
+                shiftEndTime: null,
+                createdAt: input.shiftStartTime,
+                employee: {
+                  __typename: 'Employee',
+                  id: employee.id,
+                  firstName: employee.firstName,
+                  lastName: employee.lastName,
+                },
+                gasStation: {
+                  __typename: 'GasStation',
+                  id: gasStationId,
+                  name: user?.assignedGasStation?.name ?? '',
+                },
+              },
+            },
+          })
+        } catch (e) {
+          console.warn('[FuelTrack] writeToCache shift failed:', e)
+        }
+      },
     }
   )
 

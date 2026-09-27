@@ -6,14 +6,17 @@ import { print } from 'graphql'
 import { enqueue } from './offline-db'
 import { getDeviceFingerprint, getStoredUserId } from './device-fingerprint'
 
-export let onMutationQueued: (() => void) | null = null
-export function setMutationQueuedCallback(fn: () => void) {
+// 'offline': sin red · 'waiting-dependency': hay red, pero depende de algo aún no sincronizado
+export type QueueReason = 'offline' | 'waiting-dependency'
+
+export let onMutationQueued: ((reason?: QueueReason) => void) | null = null
+export function setMutationQueuedCallback(fn: (reason?: QueueReason) => void) {
   onMutationQueued = fn
 }
 
 // Detecta fallo de red real — compatible con Chrome, Firefox y Safari.
 // Firefox reporta la conexión caída como error CORS con statusCode null.
-function isNetworkDown(err: unknown): boolean {
+export function isNetworkDown(err: unknown): boolean {
   if (!err) return false
   const e = err as any
   if (e?.statusCode) return false // Error HTTP del servidor, no corte de red

@@ -138,6 +138,8 @@ function TankCard({
             notes: notes.trim() || null,
           },
         },
+        // Si el turno se abrió offline, su id es un localId: la medición se envía detrás de él.
+        dependsOn: employeeShiftId ?? undefined,
       })
       if (wasQueued) {
         toast.success('Medición guardada. Se enviará al servidor cuando vuelva la conexión.')
