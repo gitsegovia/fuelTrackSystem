@@ -6,19 +6,12 @@ import {
   dequeueAll,
   discardFailed,
   failedCount as countFailed,
-  getFailed,
-  getIdMap,
-  moveToFailed,
   queueCount,
-  removeFromQueue,
   requeueFailed,
-  saveIdMapping,
-  updateQueueEntry,
 } from '@/lib/offline-db'
-import { extractFirstId, findPendingRef, remapKnownIds } from '@/lib/offline-sync'
+import { syncQueue } from '@/lib/offline-sync'
 import { isNetworkDown, setMutationQueuedCallback } from '@/lib/apollo-client'
 
-const MAX_RETRIES = 3
 const SYNC_LOCK = 'fueltrack-offline-sync'
 
 type SyncStatus = 'idle' | 'syncing' | 'error'
@@ -92,70 +85,22 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     let movedToFailed = 0
 
     try {
-      const idMap = await getIdMap()
-      const failed = await getFailed()
-      // localIds cuyo create todavía no llegó al servidor: sus dependientes esperan.
-      const pending = new Set(
-        [...queue, ...failed].map((i) => i.localId).filter((id): id is string => !!id)
-      )
-
-      for (const item of queue) {
-        // Items de la versión anterior que ya habían agotado reintentos: no se borran.
-        if (item.retries >= MAX_RETRIES) {
-          await moveToFailed(item, item.lastError ?? 'Reintentos agotados')
-          movedToFailed++
-          continue
-        }
-
-        const variables = remapKnownIds(item.variables, idMap)
-        if (findPendingRef(variables, pending, { ownLocalId: item.localId, dependsOn: item.dependsOn })) {
-          continue // espera a que se sincronice (o se resuelva) la operación de la que depende
-        }
-        if (variables !== item.variables) {
-          await updateQueueEntry({ ...item, variables })
-        }
-
-        try {
-          const result = await apolloClient.mutate({
-            mutation: gql(item.query),
+      const result = await syncQueue(queue, {
+        isNetworkError: isNetworkDown,
+        mutate: async ({ query, variables, headers }) => {
+          const res = await apolloClient.mutate({
+            mutation: gql(query),
             variables,
-            context: {
-              // Evita que buildOfflineLink encole una copia si la red cae durante el sync
-              skipOfflineLink: true,
-              headers: {
-                'x-offline-created-by': item.createdBy ?? '',
-                'x-offline-device-fp': item.deviceFingerprint ?? '',
-                'x-offline-queued-at': new Date(item.timestamp).toISOString(),
-              },
-            },
+            // Evita que buildOfflineLink encole una copia si la red cae durante el sync
+            context: { skipOfflineLink: true, headers },
           })
-          if (item.localId) {
-            const realId = extractFirstId(result.data)
-            if (realId) {
-              await saveIdMapping(item.localId, realId)
-              idMap.set(item.localId, realId)
-            }
-            pending.delete(item.localId)
-          }
-          await removeFromQueue(item.id)
-          synced++
-        } catch (err) {
-          hadError = true
-          if (isNetworkDown(err)) {
-            // Se cayó la red: no cuenta como intento; el resto también fallaría.
-            break
-          }
-          console.warn('[FuelTrack] Sync failed for', item.operationName, err)
-          const lastError = (err as Error)?.message || 'Error desconocido'
-          const retries = item.retries + 1
-          if (retries >= MAX_RETRIES) {
-            await moveToFailed({ ...item, variables, retries }, lastError)
-            movedToFailed++
-          } else {
-            await updateQueueEntry({ ...item, variables, retries, lastError })
-          }
-        }
-      }
+          return res.data
+        },
+      })
+      ;({ hadError, synced, movedToFailed } = result)
+    } catch (err) {
+      hadError = true
+      throw err
     } finally {
       await refreshCount()
       setSyncStatus(hadError ? 'error' : 'idle')
