@@ -32,7 +32,9 @@ const SaleType       = { REGULAR: 'REGULAR', PREMIUM: 'PREMIUM' };
 const InvPayMethod   = { BANK_TRANSFER: 'BANK_TRANSFER', CHECK: 'CHECK' };
 
 module.exports = {
-  up: async (queryInterface) => {
+  // Todo o nada: si un insert falla, no queda ninguna fila del seed.
+  up: async (queryInterface) => queryInterface.sequelize.transaction(async (transaction) => {
+    const insert = (table, rows) => queryInterface.bulkInsert(table, rows, { transaction });
 
     // ── PASSWORD ──────────────────────────────────────────────────────────────
     // Contraseña para todos los usuarios demo: Demo1234!
@@ -146,7 +148,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 1. EMPRESA
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('companies', [{
+    await insert('companies', [{
       id: companyId,
       name: 'PetroNorte S.A.',
       address: 'Av. Principal, Torre Empresarial Norte, Piso 8, Caracas',
@@ -158,7 +160,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 2. ESTACIONES
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('gas_stations', [
+    await insert('gas_stations', [
       {
         id: stNorteId,
         name: 'Estación Norte',
@@ -180,7 +182,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 3. MONEDAS
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('currencies', [
+    await insert('currencies', [
       { id: usdId, name: 'Dólar Estadounidense', symbol: '$',  exchangeRate: 1.00,  createdAt: ts(), updatedAt: ts() },
       { id: vesId, name: 'Bolívar',              symbol: 'Bs', exchangeRate: 36.50, createdAt: ts(), updatedAt: ts() }
     ]);
@@ -188,7 +190,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 4. TIPOS DE COMBUSTIBLE
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('fuel_types', [
+    await insert('fuel_types', [
       { id: fuel91Id,     name: 'Gasolina 91 Octanos', costPerLiter: 0.09, createdAt: ts(), updatedAt: ts() },
       { id: fuel95Id,     name: 'Gasolina 95 Octanos', costPerLiter: 0.12, createdAt: ts(), updatedAt: ts() },
       { id: fuelDieselId, name: 'Diesel',              costPerLiter: 0.08, createdAt: ts(), updatedAt: ts() }
@@ -198,7 +200,7 @@ module.exports = {
     // 5. USUARIOS
     // Contraseña: Demo1234!
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('users', [
+    await insert('users', [
       { id: uAdmin,     username: 'admin.petronorte', passwordHash: PWD, role: UserRole.ADMIN,    userType: UserType.ADMINISTRATOR,  companyId, gasStationId: null,    createdAt: ts(), updatedAt: ts() },
       { id: uMgrNorte,  username: 'mgr.norte',        passwordHash: PWD, role: UserRole.MANAGER,  userType: UserType.SUPERVISOR,      companyId, gasStationId: stNorteId, createdAt: ts(), updatedAt: ts() },
       { id: uMgrSur,    username: 'mgr.sur',          passwordHash: PWD, role: UserRole.MANAGER,  userType: UserType.SUPERVISOR,      companyId, gasStationId: stSurId,   createdAt: ts(), updatedAt: ts() },
@@ -212,7 +214,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 6. EMPLEADOS
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('employees', [
+    await insert('employees', [
       { id: eAdmin,     userId: uAdmin,     gasStationId: stNorteId, firstName: 'Ricardo', lastName: 'Montero',  position: 'Administrador General', createdAt: ts(), updatedAt: ts() },
       { id: eMgrNorte,  userId: uMgrNorte,  gasStationId: stNorteId, firstName: 'Laura',   lastName: 'Jiménez',  position: 'Supervisora Norte',     createdAt: ts(), updatedAt: ts() },
       { id: eMgrSur,    userId: uMgrSur,    gasStationId: stSurId,   firstName: 'Carlos',  lastName: 'Rondón',   position: 'Supervisor Sur',        createdAt: ts(), updatedAt: ts() },
@@ -226,7 +228,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 7. MODELOS DE TANQUE
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('tank_models', [
+    await insert('tank_models', [
       { id: model10kId, name: 'Cilíndrico Horizontal 10KL', nominalCapacity: 10000, shape: 'Cylindrical Horizontal', lengthCm: 500, diameterCm: 160, widthCm: null, heightCm: null, description: 'Tanque cilíndrico horizontal de 10,000 litros.', createdAt: ts(), updatedAt: ts() },
       { id: model20kId, name: 'Cilíndrico Horizontal 20KL', nominalCapacity: 20000, shape: 'Cylindrical Horizontal', lengthCm: 800, diameterCm: 200, widthCm: null, heightCm: null, description: 'Tanque cilíndrico horizontal de 20,000 litros.', createdAt: ts(), updatedAt: ts() }
     ]);
@@ -247,7 +249,7 @@ module.exports = {
       [210,18900],[220,19400],[230,19700],[240,19900],[250,20000]
     ];
 
-    await queryInterface.bulkInsert('tank_calibration_entries',
+    await insert('tank_calibration_entries',
       [...cal10k.map(([h,v]) => ({ id: uuidv4(), tankModelId: model10kId, heightCm: h, volumeLiters: v, createdAt: ts(), updatedAt: ts() })),
        ...cal20k.map(([h,v]) => ({ id: uuidv4(), tankModelId: model20kId, heightCm: h, volumeLiters: v, createdAt: ts(), updatedAt: ts() }))]
     );
@@ -255,7 +257,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 9. TANQUES
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('tanks', [
+    await insert('tanks', [
       // Norte
       { id: tkN95Id,  name: 'TK-N-A (G95)',   gasStationId: stNorteId, fuelTypeId: fuel95Id,     tankModelId: model10kId, maxCapacityLiters: 10000, minOperatingVolumeLiters: 500,  currentHeightCm: 130, currentVolumeLiters: 5800, createdAt: ts(), updatedAt: ts() },
       { id: tkN91Id,  name: 'TK-N-B (G91)',   gasStationId: stNorteId, fuelTypeId: fuel91Id,     tankModelId: model10kId, maxCapacityLiters: 10000, minOperatingVolumeLiters: 500,  currentHeightCm: 100, currentVolumeLiters: 3500, createdAt: ts(), updatedAt: ts() },
@@ -268,7 +270,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 10. ISLAS
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('pump_islands', [
+    await insert('pump_islands', [
       { id: islN1Id, gasStationId: stNorteId, name: 'Isla 1', description: 'Gasolina 91 y 95',  createdAt: ts(), updatedAt: ts() },
       { id: islN2Id, gasStationId: stNorteId, name: 'Isla 2', description: 'Diesel y Gasolina 95', createdAt: ts(), updatedAt: ts() },
       { id: islS1Id, gasStationId: stSurId,   name: 'Isla 1', description: 'Gasolina 95 y Diesel', createdAt: ts(), updatedAt: ts() },
@@ -278,7 +280,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 11. DISPENSADORES
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('dispensers', [
+    await insert('dispensers', [
       // Norte
       { id: dspN1Id, name: 'Surtidor N-1A', gasStationId: stNorteId, pumpIslandId: islN1Id, tankId: tkN95Id,  fuelTypeId: fuel95Id,     isOperational: true, createdAt: ts(), updatedAt: ts() },
       { id: dspN2Id, name: 'Surtidor N-1B', gasStationId: stNorteId, pumpIslandId: islN1Id, tankId: tkN91Id,  fuelTypeId: fuel91Id,     isOperational: true, createdAt: ts(), updatedAt: ts() },
@@ -293,7 +295,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 12. BOQUILLAS (1 por dispensador)
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('dispenser_nozzles', [
+    await insert('dispenser_nozzles', [
       { id: nzN1Id, dispenserId: dspN1Id, name: 'Pico 1', initialMeterReading: 5000, currentMeterReading: 5000, isOperational: true, createdAt: ts(), updatedAt: ts() },
       { id: nzN2Id, dispenserId: dspN2Id, name: 'Pico 1', initialMeterReading: 3200, currentMeterReading: 3200, isOperational: true, createdAt: ts(), updatedAt: ts() },
       { id: nzN3Id, dispenserId: dspN3Id, name: 'Pico 1', initialMeterReading: 8700, currentMeterReading: 8700, isOperational: true, createdAt: ts(), updatedAt: ts() },
@@ -306,7 +308,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 13. CONFIGURACIONES DE PRECIO (sale_type_configs)
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('sale_type_configs', [
+    await insert('sale_type_configs', [
       // Norte
       { id: stcN95Reg,  gasStationId: stNorteId, fuelTypeId: fuel95Id,     saleTypeName: SaleType.REGULAR,  salePricePerLiter: 0.65, percentage: 70, currencyId: usdId, createdAt: ts(), updatedAt: ts() },
       { id: stcN95Prem, gasStationId: stNorteId, fuelTypeId: fuel95Id,     saleTypeName: SaleType.PREMIUM,  salePricePerLiter: 3.20, percentage: 30, currencyId: usdId, createdAt: ts(), updatedAt: ts() },
@@ -393,7 +395,7 @@ module.exports = {
 
     for (const shift of closedShifts) {
       // Turno
-      await queryInterface.bulkInsert('employee_shifts', [{
+      await insert('employee_shifts', [{
         id: shift.shiftId,
         employeeId: shift.empId,
         gasStationId: shift.stationId,
@@ -405,7 +407,7 @@ module.exports = {
 
       // Lecturas iniciales
       for (const n of shift.nozzles) {
-        await queryInterface.bulkInsert('dispenser_readings', [{
+        await insert('dispenser_readings', [{
           id: uuidv4(), dispenserNozzleId: n.nozzleId, employeeShiftId: shift.shiftId,
           readingTime: shift.startTime, meterReading: n.init, readingType: ReadingType.INITIAL,
           createdAt: ts(), updatedAt: ts()
@@ -420,7 +422,7 @@ module.exports = {
         const total  = parseFloat((liters * n.price).toFixed(2));
         const issueTime = minutesAfter(shift.startTime, (i + 1) * 50);
 
-        await queryInterface.bulkInsert('sales_tickets', [{
+        await insert('sales_tickets', [{
           id: ticketId,
           gasStationId: shift.stationId,
           ticketNumber: i + 1,
@@ -438,7 +440,7 @@ module.exports = {
           createdAt: ts(), updatedAt: ts()
         }]);
 
-        await queryInterface.bulkInsert('payments', [{
+        await insert('payments', [{
           id: uuidv4(),
           salesTicketId: ticketId,
           paymentMethod: payMethods[i % payMethods.length],
@@ -452,7 +454,7 @@ module.exports = {
 
       // Lecturas finales
       for (const n of shift.nozzles) {
-        await queryInterface.bulkInsert('dispenser_readings', [{
+        await insert('dispenser_readings', [{
           id: uuidv4(), dispenserNozzleId: n.nozzleId, employeeShiftId: shift.shiftId,
           readingTime: shift.endTime, meterReading: n.final, readingType: ReadingType.FINAL,
           createdAt: ts(), updatedAt: ts()
@@ -463,13 +465,13 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 17. TURNOS ACTIVOS (sin shiftEndTime)
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('employee_shifts', [
+    await insert('employee_shifts', [
       { id: shNActive, employeeId: eCajNorte, gasStationId: stNorteId, shiftStartTime: daysAgo(0, 6), shiftEndTime: null, employeeRole: EmployeeRole.CASHIER, createdAt: ts(), updatedAt: ts() },
       { id: shSActive, employeeId: eCajSur,   gasStationId: stSurId,   shiftStartTime: daysAgo(0, 7), shiftEndTime: null, employeeRole: EmployeeRole.CASHIER, createdAt: ts(), updatedAt: ts() }
     ]);
 
     // Lecturas iniciales de turnos activos
-    await queryInterface.bulkInsert('dispenser_readings', [
+    await insert('dispenser_readings', [
       { id: uuidv4(), dispenserNozzleId: nzN1Id, employeeShiftId: shNActive, readingTime: daysAgo(0, 6), meterReading: 6050, readingType: ReadingType.INITIAL, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), dispenserNozzleId: nzN4Id, employeeShiftId: shNActive, readingTime: daysAgo(0, 6), meterReading: 4285, readingType: ReadingType.INITIAL, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), dispenserNozzleId: nzS1Id, employeeShiftId: shSActive, readingTime: daysAgo(0, 7), meterReading: 7250, readingType: ReadingType.INITIAL, createdAt: ts(), updatedAt: ts() },
@@ -500,7 +502,7 @@ module.exports = {
         const total    = parseFloat((t.liters * t.price).toFixed(2));
         const issueTime = minutesAfter(daysAgo(0, startHour), t.min);
 
-        await queryInterface.bulkInsert('sales_tickets', [{
+        await insert('sales_tickets', [{
           id: ticketId,
           gasStationId: stationId,
           ticketNumber: t.num,
@@ -519,7 +521,7 @@ module.exports = {
         }]);
 
         if (t.status === TicketStatus.COMPLETED || t.status === TicketStatus.PAID_PENDING) {
-          await queryInterface.bulkInsert('payments', [{
+          await insert('payments', [{
             id: uuidv4(),
             salesTicketId: ticketId,
             paymentMethod: PaymentMethod.CASH,
@@ -536,7 +538,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 18. MEDICIONES DE TANQUE
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('tank_measurements', [
+    await insert('tank_measurements', [
       { id: uuidv4(), tankId: tkN95Id,  employeeId: eMgrNorte, employeeShiftId: shN3, measurementTime: daysAgo(3, 14), manualLevelReadingCm: 130, volumeInLiters: 5800,  measurementReason: MeasureReason.SHIFT_CLOSURE, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), tankId: tkNDslId, employeeId: eMgrNorte, employeeShiftId: shN3, measurementTime: daysAgo(3, 14), manualLevelReadingCm: 160, volumeInLiters: 14500, measurementReason: MeasureReason.SHIFT_CLOSURE, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), tankId: tkS95Id,  employeeId: eMgrSur,   employeeShiftId: shS3, measurementTime: daysAgo(3, 15), manualLevelReadingCm: 150, volumeInLiters: 13200, measurementReason: MeasureReason.SHIFT_CLOSURE, createdAt: ts(), updatedAt: ts() },
@@ -546,7 +548,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 19. FACTURAS DE PROVEEDOR
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('invoices', [
+    await insert('invoices', [
       { id: inv1, invoiceNumber: 'FAC-2024-001001', controlNumber: 'CTRL-00001', sealNumber: 'SL-00001', liters: 8000, dispatchDate: daysAgo(10, 8), dischargeDate: daysAgo(10, 11), truckPlate: 'ABC-123', tankPlate: 'TK-001', driverName: 'Ramón Blanco',    driverIdNumber: 'V-12345678', fuelType: FuelKind.G95,    totalAmount: 960,  costPerLiter: 0.12, gasStationId: stNorteId, currencyId: usdId, status: 'CLOSED',   createdAt: ts(), updatedAt: ts() },
       { id: inv2, invoiceNumber: 'FAC-2024-001002', controlNumber: 'CTRL-00002', sealNumber: 'SL-00002', liters: 15000, dispatchDate: daysAgo(8, 9), dischargeDate: daysAgo(8, 12),  truckPlate: 'DEF-456', tankPlate: 'TK-002', driverName: 'Héctor Ruiz',     driverIdNumber: 'V-87654321', fuelType: FuelKind.DIESEL, totalAmount: 1200, costPerLiter: 0.08, gasStationId: stNorteId, currencyId: usdId, status: 'PENDING',  createdAt: ts(), updatedAt: ts() },
       { id: inv3, invoiceNumber: 'FAC-2024-002001', controlNumber: 'CTRL-00003', sealNumber: 'SL-00003', liters: 12000, dispatchDate: daysAgo(9, 10), dischargeDate: daysAgo(9, 14), truckPlate: 'GHI-789', tankPlate: 'TK-003', driverName: 'Pedro Vásquez',   driverIdNumber: 'V-11223344', fuelType: FuelKind.G95,    totalAmount: 1440, costPerLiter: 0.12, gasStationId: stSurId,   currencyId: usdId, status: 'CLOSED',   createdAt: ts(), updatedAt: ts() },
@@ -556,7 +558,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 20. RECEPCIONES DE DESPACHO
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('dispatch_receptions', [
+    await insert('dispatch_receptions', [
       { id: uuidv4(), invoiceId: inv1, tankId: tkN95Id,  receivedLiters: 8000,  receptionDate: daysAgo(10, 11), initialTankReadingCm: 50,  finalTankReadingCm: 130, initialTankVolumeLiters: 1230, finalTankVolumeLiters: 9200,  createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), invoiceId: inv2, tankId: tkNDslId, receivedLiters: 15000, receptionDate: daysAgo(8, 12),  initialTankReadingCm: 80,  finalTankReadingCm: 200, initialTankVolumeLiters: 2000, finalTankVolumeLiters: 18200, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), invoiceId: inv3, tankId: tkS95Id,  receivedLiters: 12000, receptionDate: daysAgo(9, 14),  initialTankReadingCm: 70,  finalTankReadingCm: 175, initialTankVolumeLiters: 3500, finalTankVolumeLiters: 15700, createdAt: ts(), updatedAt: ts() },
@@ -566,7 +568,7 @@ module.exports = {
     // ═════════════════════════════════════════════════════════════════════════
     // 21. PAGOS DE FACTURAS
     // ═════════════════════════════════════════════════════════════════════════
-    await queryInterface.bulkInsert('invoice_payments', [
+    await insert('invoice_payments', [
       // FAC-001: pagada en 2 cuotas
       { id: uuidv4(), invoiceId: inv1, amount: 500.00, paymentDate: daysAgo(9), bankName: 'Banco Venezuela', paymentMethod: InvPayMethod.BANK_TRANSFER, referenceNumber: 'REF-001-A', notes: 'Primer abono',    recordedById: uAdmin, createdAt: ts(), updatedAt: ts() },
       { id: uuidv4(), invoiceId: inv1, amount: 460.00, paymentDate: daysAgo(8), bankName: 'Banco Venezuela', paymentMethod: InvPayMethod.BANK_TRANSFER, referenceNumber: 'REF-001-B', notes: 'Saldo restante',  recordedById: uAdmin, createdAt: ts(), updatedAt: ts() },
@@ -576,31 +578,32 @@ module.exports = {
       { id: uuidv4(), invoiceId: inv3, amount: 1440.00, paymentDate: daysAgo(8), bankName: 'BDV',           paymentMethod: InvPayMethod.BANK_TRANSFER, referenceNumber: 'REF-003-A', notes: 'Pago total',      recordedById: uAdmin, createdAt: ts(), updatedAt: ts() }
       // FAC-004: sin pago (pendiente)
     ]);
-  },
+  }),
 
   // ─────────────────────────────────────────────────────────────────────────
   // DOWN — elimina en orden inverso de FKs
   // ─────────────────────────────────────────────────────────────────────────
-  down: async (queryInterface) => {
-    await queryInterface.bulkDelete('invoice_payments',      null, {});
-    await queryInterface.bulkDelete('dispatch_receptions',   null, {});
-    await queryInterface.bulkDelete('tank_measurements',     null, {});
-    await queryInterface.bulkDelete('payments',              null, {});
-    await queryInterface.bulkDelete('sales_tickets',         null, {});
-    await queryInterface.bulkDelete('dispenser_readings',    null, {});
-    await queryInterface.bulkDelete('employee_shifts',       null, {});
-    await queryInterface.bulkDelete('dispenser_nozzles',     null, {});
-    await queryInterface.bulkDelete('dispensers',            null, {});
-    await queryInterface.bulkDelete('pump_islands',          null, {});
-    await queryInterface.bulkDelete('tank_calibration_entries', null, {});
-    await queryInterface.bulkDelete('tanks',                 null, {});
-    await queryInterface.bulkDelete('tank_models',           null, {});
-    await queryInterface.bulkDelete('sale_type_configs',     null, {});
-    await queryInterface.bulkDelete('employees',             null, {});
-    await queryInterface.bulkDelete('users',                 null, {});
-    await queryInterface.bulkDelete('currencies',            null, {});
-    await queryInterface.bulkDelete('fuel_types',            null, {});
-    await queryInterface.bulkDelete('gas_stations',          null, {});
-    await queryInterface.bulkDelete('companies',             null, {});
-  }
+  down: async (queryInterface) => queryInterface.sequelize.transaction(async (transaction) => {
+    const del = (table) => queryInterface.bulkDelete(table, null, { transaction });
+    await del('invoice_payments');
+    await del('dispatch_receptions');
+    await del('tank_measurements');
+    await del('payments');
+    await del('sales_tickets');
+    await del('dispenser_readings');
+    await del('employee_shifts');
+    await del('dispenser_nozzles');
+    await del('dispensers');
+    await del('pump_islands');
+    await del('tank_calibration_entries');
+    await del('tanks');
+    await del('tank_models');
+    await del('sale_type_configs');
+    await del('employees');
+    await del('users');
+    await del('currencies');
+    await del('fuel_types');
+    await del('gas_stations');
+    await del('companies');
+  })
 };
