@@ -19,6 +19,7 @@ export interface Context {
   models: AppModels;
   sequelize: Sequelize;
   offlineSource?: OfflineSource; // presente solo en mutations sincronizadas desde la cola offline
+  offlineMutationId?: string; // header x-offline-mutation-id: activa la idempotencia de mutations
 }
 
 //Interface to arguments
