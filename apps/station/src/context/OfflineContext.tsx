@@ -11,6 +11,7 @@ import {
 } from '@/lib/offline-db'
 import { syncQueue } from '@/lib/offline-sync'
 import { isNetworkDown, setMutationQueuedCallback } from '@/lib/apollo-client'
+import { ensureFreshAccessToken } from '@/lib/auth-session'
 import { useAuth } from '@/hooks/useAuth'
 
 const SYNC_LOCK = 'fueltrack-offline-sync'
@@ -131,6 +132,13 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     if (!localStorage.getItem('accessToken')) return
     syncing.current = true
     try {
+      // ADR-014: renueva antes de sincronizar. Si el servidor pide re-login, el callback de
+      // AuthContext cierra la sesión (sin tocar la cola) y esta corrida se aborta acá.
+      try {
+        await ensureFreshAccessToken(apolloClient)
+      } catch {
+        return
+      }
       // Una sola pestaña sincroniza a la vez; si otra tiene el lock, esta no envía nada.
       if (navigator.locks) {
         await navigator.locks.request(SYNC_LOCK, { ifAvailable: true }, async (lock) => {
