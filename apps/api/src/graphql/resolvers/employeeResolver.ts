@@ -7,9 +7,14 @@ import { Employee as EmployeeModel } from "../../models/employee"; // Importar e
 const employeeResolver: IResolvers<Context> = {
   Query: {
     // Obtener todos los empleados
-    employees: async (_parent, _args, context: Context) => {
+    employees: async (
+      _parent,
+      { gasStationId }: { gasStationId?: string },
+      context: Context
+    ) => {
       // Incluir relaciones para evitar N+1 si se piden a menudo
       return context.models.Employee.findAll({
+        where: gasStationId ? { gasStationId } : undefined,
         include: [
           { model: context.models.User, as: "user" },
           { model: context.models.GasStation, as: "gasStation" },

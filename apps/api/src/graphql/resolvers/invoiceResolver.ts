@@ -5,11 +5,21 @@ import { Invoice as InvoiceModel } from "../../models/invoice"; // Importar el t
 const invoiceResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las facturas
-    invoices: async (_parent, _args, context: Context) => {
+    invoices: async (
+      _parent,
+      { gasStationId, companyId }: { gasStationId?: string; companyId?: string },
+      context: Context
+    ) => {
       // Incluir relaciones para evitar N+1 si se piden a menudo
       return context.models.Invoice.findAll({
+        where: gasStationId ? { gasStationId } : undefined,
         include: [
-          { model: context.models.GasStation, as: "receivingGasStation" },
+          {
+            model: context.models.GasStation,
+            as: "receivingGasStation",
+            where: companyId ? { companyId } : undefined,
+            required: !!companyId,
+          },
           { model: context.models.Currency, as: "currency" },
           { model: context.models.DispatchReception, as: "dispatchReceptions" },
         ],

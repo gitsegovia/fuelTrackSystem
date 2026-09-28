@@ -40,7 +40,7 @@ input UpdateSaleTypeConfigInput {
 }
 
 extend type Query {
-  saleTypeConfigs: [SaleTypeConfig!]!
+  saleTypeConfigs(gasStationId: UUID): [SaleTypeConfig!]!
   saleTypeConfig(id: UUID!): SaleTypeConfig
   # Podrías querer consultas por combinación de campos
   saleTypeConfigByStationFuelTypeAndName(

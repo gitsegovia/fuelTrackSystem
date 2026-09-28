@@ -5,8 +5,13 @@ import { SaleTypeConfig as SaleTypeConfigModel } from "../../models/saleTypeConf
 const saleTypeConfigResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las configuraciones de tipo de venta
-    saleTypeConfigs: async (_parent, _args, context: Context) => {
+    saleTypeConfigs: async (
+      _parent,
+      { gasStationId }: { gasStationId?: string },
+      context: Context
+    ) => {
       return context.models.SaleTypeConfig.findAll({
+        where: gasStationId ? { gasStationId } : undefined,
         include: [
           { model: context.models.GasStation, as: "gasStation" },
           { model: context.models.FuelType, as: "fuelType" },

@@ -6,6 +6,11 @@ const tankResolver: IResolvers<Context> = {
   Query: {
     // Get all tanks
     tanks: async (_parent, _args, context: Context) => {
+      // H-021 (T-022, riesgo #7): measurements/dispatchReceptions (hasMany sin límite) fuera del
+      // include base. Si el cliente los pide anidados, los sirve el field resolver de abajo
+      // (parent.getX()), igual que hoy — no había ganancia real en incluirlos aquí porque
+      // graphql-js siempre invoca el field resolver explícito en vez de leer la propiedad ya
+      // cargada por Sequelize.
       return context.models.Tank.findAll({
         include: [
           { model: context.models.GasStation, as: "gasStation" },
@@ -13,8 +18,6 @@ const tankResolver: IResolvers<Context> = {
           { model: context.models.TankModel, as: "tankModel" },
           { model: context.models.TankAssignment, as: "tankAssignments" },
           { model: context.models.Dispenser, as: "connectedDispensers" },
-          { model: context.models.DispatchReception, as: "dispatchReceptions" },
-          { model: context.models.TankMeasurement, as: "measurements" },
         ],
       });
     },
@@ -27,8 +30,6 @@ const tankResolver: IResolvers<Context> = {
           { model: context.models.TankModel, as: "tankModel" },
           { model: context.models.TankAssignment, as: "tankAssignments" },
           { model: context.models.Dispenser, as: "connectedDispensers" },
-          { model: context.models.DispatchReception, as: "dispatchReceptions" },
-          { model: context.models.TankMeasurement, as: "measurements" },
         ],
       });
     },

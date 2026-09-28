@@ -2,7 +2,8 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { SalesTicket as SalesTicketModel } from "../../models/salesTicket";
 import { SalesTicketStatus } from "../../utils/types";
-import { Op } from "sequelize"; // Importar Op para operaciones de fecha
+import { Op, QueryTypes } from "sequelize"; // Importar Op para operaciones de fecha
+import { buildDateWhere } from "../helpers/auditHelpers";
 
 const salesTicketResolver: IResolvers<Context> = {
   Query: {
@@ -40,11 +41,17 @@ const salesTicketResolver: IResolvers<Context> = {
     },
     salesTicketsByGasStation: async (
       _parent,
-      { gasStationId, date }: { gasStationId: string; date?: Date },
+      {
+        gasStationId,
+        date,
+        startDate,
+        endDate,
+      }: { gasStationId: string; date?: Date; startDate?: Date; endDate?: Date },
       context: Context
     ) => {
       let whereClause: any = { gasStationId };
       if (date) {
+        // Retrocompatible: un solo día, tiene prioridad sobre startDate/endDate si ambos llegan.
         const queryDate = new Date(date);
         const startOfDay = new Date(
           queryDate.getFullYear(),
@@ -67,6 +74,8 @@ const salesTicketResolver: IResolvers<Context> = {
           [Op.gte]: startOfDay,
           [Op.lte]: endOfDay,
         };
+      } else if (startDate || endDate) {
+        whereClause = { ...whereClause, ...buildDateWhere("ticketIssueTime", startDate, endDate) };
       }
       return context.models.SalesTicket.findAll({
         where: whereClause,
@@ -130,6 +139,53 @@ const salesTicketResolver: IResolvers<Context> = {
           // Puedes decidir qué relaciones incluir aquí para optimizar la carga
         ],
       });
+    },
+    // T-022 (riesgo #1): agregado por día y combustible para el dashboard, en vez de traer
+    // todos los tickets crudos y sumar en el cliente. Mismos criterios que hoy usa
+    // admin/dashboard/page.tsx: solo tickets COMPLETED, litros = actualLitersDispatched ??
+    // requestedLiters, ingresos = totalAmountExpected convertido a moneda base (/ exchangeRate).
+    salesTicketDailyTotals: async (
+      _parent,
+      {
+        gasStationId,
+        startDate,
+        endDate,
+      }: { gasStationId?: string; startDate: Date; endDate: Date },
+      context: Context
+    ) => {
+      const rows: any[] = await context.sequelize.query(
+        `
+        SELECT
+          date_trunc('day', st."ticketIssueTime") AS "date",
+          st."fuelTypeId" AS "fuelTypeId",
+          ft.name AS "fuelTypeName",
+          SUM(COALESCE(st."actualLitersDispatched", st."requestedLiters")) AS "liters",
+          SUM(st."totalAmountExpected" / COALESCE(cur."exchangeRate", 1)) AS "revenue",
+          COUNT(*)::int AS "ticketCount"
+        FROM sales_tickets st
+        JOIN fuel_types ft ON ft.id = st."fuelTypeId"
+        JOIN sale_type_configs stc ON stc.id = st."assignedSaleTypeConfigId"
+        JOIN currencies cur ON cur.id = stc."currencyId"
+        WHERE st.status = 'COMPLETED'
+          AND st."ticketIssueTime" >= :startDate
+          AND st."ticketIssueTime" <= :endDate
+          ${gasStationId ? 'AND st."gasStationId" = :gasStationId' : ""}
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 3
+        `,
+        {
+          replacements: { startDate, endDate, gasStationId },
+          type: QueryTypes.SELECT,
+        }
+      );
+      return rows.map((r) => ({
+        date: r.date,
+        fuelTypeId: r.fuelTypeId,
+        fuelTypeName: r.fuelTypeName,
+        liters: parseFloat(r.liters),
+        revenue: parseFloat(r.revenue),
+        ticketCount: r.ticketCount,
+      }));
     },
   },
   Mutation: {
