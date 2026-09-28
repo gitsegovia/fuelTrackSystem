@@ -5,6 +5,7 @@ import { Transaction } from "sequelize";
 import config from "../config";
 import { Context } from "../interfaces";
 import { User } from "../models/user";
+import { RefreshToken } from "../models/refreshToken";
 
 // Sesión ADR-014: access token JWT corto + refresh token opaco rotativo.
 // Una AuthSession es la familia; cada RefreshToken emitido es un eslabón. El tope absoluto
@@ -80,19 +81,29 @@ export async function startSession(ctx: Context, user: User): Promise<AuthPayloa
   });
 }
 
+// Ventana de gracia (T-019): un refresh ya rotado se acepta una vez más si su sucesor nunca se
+// usó y la rotación fue hace ≤ REFRESH_GRACE_SECONDS (respuesta perdida por la red). Devuelve
+// el sucesor a invalidar, o null si es reuso real.
+async function graceSuccessor(ctx: Context, current: RefreshToken, t: Transaction) {
+  if (config.refreshGraceSeconds <= 0 || !current.rotatedAt || !current.replacedById) return null;
+  if (Date.now() - current.rotatedAt.getTime() > config.refreshGraceSeconds * 1000) return null;
+  const successor = await ctx.models.RefreshToken.findByPk(current.replacedById, { transaction: t });
+  if (!successor || successor.replacedById) return null;
+  return successor;
+}
+
 export async function rotateSession(ctx: Context, refreshToken: string): Promise<AuthPayload> {
   // La revocación por reuso debe quedar commiteada aunque la respuesta sea un error,
   // por eso el error se lanza fuera de la transacción.
   const outcome = await ctx.sequelize.transaction(
     async (t): Promise<AuthPayload | SessionErrorCode> => {
-      const current = await ctx.models.RefreshToken.findOne({
-        where: { tokenHash: hashToken(refreshToken) },
-        lock: t.LOCK.UPDATE,
-        transaction: t,
-      });
-      if (!current) return "INVALID_REFRESH_TOKEN";
+      const tokenHash = hashToken(refreshToken);
+      const found = await ctx.models.RefreshToken.findOne({ where: { tokenHash }, transaction: t });
+      if (!found) return "INVALID_REFRESH_TOKEN";
 
-      const session = await ctx.models.AuthSession.findByPk(current.sessionId, {
+      // El lock de la sesión serializa todas las rotaciones de la familia (evita deadlocks
+      // entre requests con tokens distintos de la misma sesión); luego se relee el token.
+      const session = await ctx.models.AuthSession.findByPk(found.sessionId, {
         lock: t.LOCK.UPDATE,
         transaction: t,
       });
@@ -100,22 +111,39 @@ export async function rotateSession(ctx: Context, refreshToken: string): Promise
       if (session.revokedAt) return "SESSION_REVOKED";
       if (session.expiresAt.getTime() <= Date.now()) return "SESSION_EXPIRED";
 
+      const current = await ctx.models.RefreshToken.findOne({ where: { tokenHash }, transaction: t });
+      if (!current) return "INVALID_REFRESH_TOKEN";
+
+      let successor = null;
       if (current.replacedById) {
-        await session.update(
-          { revokedAt: new Date(), revokedReason: "REUSE_DETECTED" },
-          { transaction: t }
-        );
-        return "REFRESH_TOKEN_REUSED";
+        successor = await graceSuccessor(ctx, current, t);
+        if (!successor) {
+          await session.update(
+            { revokedAt: new Date(), revokedReason: "REUSE_DETECTED" },
+            { transaction: t }
+          );
+          return "REFRESH_TOKEN_REUSED";
+        }
       }
 
       const user = await ctx.models.User.findByPk(session.userId, { transaction: t });
       if (!user) return "INVALID_REFRESH_TOKEN";
 
       const next = await issueRefreshToken(ctx, session.id, t);
-      await current.update(
-        { replacedById: next.row.id, rotatedAt: new Date() },
-        { transaction: t }
-      );
+      if (successor) {
+        // Gracia: el sucesor nunca usado se invalida y hereda el rotatedAt original, así la
+        // ventana de toda la cadena vence a los N s de la primera rotación (no se estira).
+        await successor.update(
+          { replacedById: next.row.id, rotatedAt: current.rotatedAt },
+          { transaction: t }
+        );
+        await current.update({ replacedById: next.row.id }, { transaction: t });
+      } else {
+        await current.update(
+          { replacedById: next.row.id, rotatedAt: new Date() },
+          { transaction: t }
+        );
+      }
       const access = signAccessToken(user, session.id, session.expiresAt);
       return {
         token: access.token,
