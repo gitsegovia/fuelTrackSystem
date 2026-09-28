@@ -12,6 +12,7 @@ import { typeDefs, resolvers } from "./graphql";
 import { verifyToken } from "./middleware/auth";
 import { AuthenticatedUser, Context } from "./interfaces";
 import { validateLicense } from "./utils/licenseValidator";
+import { createLoaders } from "./graphql/helpers/dataloaders";
 
 // Plugin que persiste un log por cada mutation que llega desde la cola offline.
 // Identifica requests offline por la presencia del header x-offline-created-by.
@@ -118,7 +119,7 @@ async function startApolloServer() {
           const mutationIdHeader = req.headers["x-offline-mutation-id"];
           const offlineMutationId = mutationIdHeader ? String(mutationIdHeader) : undefined;
 
-          return { user, models, sequelize, offlineSource, offlineMutationId };
+          return { user, models, sequelize, offlineSource, offlineMutationId, loaders: createLoaders(models) };
         },
       })
     );

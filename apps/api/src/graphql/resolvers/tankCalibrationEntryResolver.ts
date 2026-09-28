@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { TankCalibrationEntry as TankCalibrationEntryModel } from "../../models/tankCalibrationEntry";
+import { belongsTo } from "../helpers/dataloaders";
 
 const tankCalibrationEntryResolver: IResolvers<Context> = {
   Query: {
@@ -169,13 +170,7 @@ const tankCalibrationEntryResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   TankCalibrationEntry: {
-    tankModel: async (
-      parent: TankCalibrationEntryModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getTankModel();
-    },
+    tankModel: belongsTo("tankModel", "TankModel", "tankModelId"),
   },
 };
 

@@ -2,6 +2,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { TankMeasurement as TankMeasurementModel } from "../../models/tankMeasurement";
 import { Op } from "sequelize"; // Importar Op para operadores de Sequelize
+import { belongsTo } from "../helpers/dataloaders";
 
 const tankMeasurementResolver: IResolvers<Context> = {
   Query: {
@@ -377,23 +378,9 @@ const tankMeasurementResolver: IResolvers<Context> = {
     },
   },
   TankMeasurement: {
-    tank: async (parent: TankMeasurementModel, _args, _context: Context) => {
-      return parent.getTank();
-    },
-    employee: async (
-      parent: TankMeasurementModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getEmployee();
-    },
-    employeeShift: async (
-      parent: TankMeasurementModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getEmployeeShift();
-    },
+    tank: belongsTo("tank", "Tank", "tankId"),
+    employee: belongsTo("employee", "Employee", "employeeId"),
+    employeeShift: belongsTo("employeeShift", "EmployeeShift", "employeeShiftId"),
   },
 };
 

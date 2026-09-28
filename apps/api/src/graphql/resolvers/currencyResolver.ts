@@ -5,6 +5,7 @@ import { Context } from "../../interfaces";
 import { AppModels } from "../../interfaces/models";
 // Importar el tipo de modelo Currency para tipar el 'parent' en los resolvers de campo
 import { Currency as CurrencyModel } from "../../models/currency";
+import { hasMany } from "../helpers/dataloaders";
 
 const currencyResolver: IResolvers<Context> = {
   Query: {
@@ -111,26 +112,10 @@ const currencyResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones inversas ---
   Currency: {
-    saleTypeConfigs: async (
-      parent: CurrencyModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSaleTypeConfigs();
-    },
-    invoices: async (parent: CurrencyModel, _args, _context: Context) => {
-      return parent.getInvoices();
-    },
-    dispatchReceptions: async (
-      parent: CurrencyModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispatchReceptions();
-    },
-    payments: async (parent: CurrencyModel, _args, _context: Context) => {
-      return parent.getPayments();
-    },
+    saleTypeConfigs: hasMany("saleTypeConfigs", "SaleTypeConfig", "currencyId"),
+    invoices: hasMany("invoices", "Invoice", "currencyId"),
+    dispatchReceptions: hasMany("dispatchReceptions", "DispatchReception", "currencyId"),
+    payments: hasMany("payments", "Payment", "currencyId"),
   },
 };
 

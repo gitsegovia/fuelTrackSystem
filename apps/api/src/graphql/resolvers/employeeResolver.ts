@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { Context } from "../../interfaces";
 import { AppModels } from "../../interfaces/models";
 import { Employee as EmployeeModel } from "../../models/employee"; // Importar el tipo de modelo Employee
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const employeeResolver: IResolvers<Context> = {
   Query: {
@@ -164,32 +165,11 @@ const employeeResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   Employee: {
-    user: async (parent: EmployeeModel, _args, _context: Context) => {
-      return parent.getUser();
-    },
-    gasStation: async (parent: EmployeeModel, _args, _context: Context) => {
-      return parent.getGasStation();
-    },
-    shifts: async (parent: EmployeeModel, _args, _context: Context) => {
-      // Necesitarás EmployeeShift definido para esto
-      return parent.getShifts();
-    },
-    dispatchedSalesTickets: async (
-      parent: EmployeeModel,
-      _args,
-      _context: Context
-    ) => {
-      // Necesitarás SalesTicket definido para esto
-      return parent.getDispatchedSalesTickets();
-    },
-    tankMeasurementsPerformed: async (
-      parent: EmployeeModel,
-      _args,
-      _context: Context
-    ) => {
-      // Necesitarás TankMeasurement definido para esto
-      return parent.getTankMeasurementsPerformed();
-    },
+    user: belongsTo("user", "User", "userId"),
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    shifts: hasMany("shifts", "EmployeeShift", "employeeId"),
+    dispatchedSalesTickets: hasMany("dispatchedSalesTickets", "SalesTicket", "dispatcherEmployeeId"),
+    tankMeasurementsPerformed: hasMany("tankMeasurementsPerformed", "TankMeasurement", "employeeId"),
   },
 };
 

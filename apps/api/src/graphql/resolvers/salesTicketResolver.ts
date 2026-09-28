@@ -1,9 +1,9 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
-import { SalesTicket as SalesTicketModel } from "../../models/salesTicket";
 import { SalesTicketStatus } from "../../utils/types";
 import { Op, QueryTypes } from "sequelize"; // Importar Op para operaciones de fecha
 import { buildDateWhere } from "../helpers/auditHelpers";
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const salesTicketResolver: IResolvers<Context> = {
   Query: {
@@ -428,51 +428,17 @@ const salesTicketResolver: IResolvers<Context> = {
     },
   },
   // --- Resolvers de Campo para relaciones ---
+  // T-023 (H-021): antes cada campo volvía a consultar con parent.getX() sin importar si la
+  // query padre ya lo había traído con `include` — hasta 8 queries extra por ticket.
   SalesTicket: {
-    gasStation: async (parent: SalesTicketModel, _args, _context: Context) => {
-      return parent.getGasStation();
-    },
-    cashierShift: async (
-      parent: SalesTicketModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getCashierShift();
-    },
-    dispatcherEmployee: async (
-      parent: SalesTicketModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispatcherEmployee();
-    },
-    dispatcherShift: async (
-      parent: SalesTicketModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispatcherShift();
-    },
-    dispenserNozzle: async (
-      parent: SalesTicketModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserNozzle();
-    },
-    fuelType: async (parent: SalesTicketModel, _args, _context: Context) => {
-      return parent.getFuelType();
-    },
-    assignedSaleTypeConfig: async (
-      parent: SalesTicketModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getAssignedSaleTypeConfig();
-    },
-    payments: async (parent: SalesTicketModel, _args, _context: Context) => {
-      return parent.getPayments();
-    },
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    cashierShift: belongsTo("cashierShift", "EmployeeShift", "cashierShiftId"),
+    dispatcherEmployee: belongsTo("dispatcherEmployee", "Employee", "dispatcherEmployeeId"),
+    dispatcherShift: belongsTo("dispatcherShift", "EmployeeShift", "dispatcherShiftId"),
+    dispenserNozzle: belongsTo("dispenserNozzle", "DispenserNozzle", "dispenserNozzleId"),
+    fuelType: belongsTo("fuelType", "FuelType", "fuelTypeId"),
+    assignedSaleTypeConfig: belongsTo("assignedSaleTypeConfig", "SaleTypeConfig", "assignedSaleTypeConfigId"),
+    payments: hasMany("payments", "Payment", "salesTicketId"),
   },
 };
 

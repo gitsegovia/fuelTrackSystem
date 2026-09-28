@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { SaleTypeConfig as SaleTypeConfigModel } from "../../models/saleTypeConfig"; // Importar el tipo de modelo SaleTypeConfig
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const saleTypeConfigResolver: IResolvers<Context> = {
   Query: {
@@ -150,27 +151,10 @@ const saleTypeConfigResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   SaleTypeConfig: {
-    gasStation: async (
-      parent: SaleTypeConfigModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getGasStation();
-    },
-    fuelType: async (parent: SaleTypeConfigModel, _args, _context: Context) => {
-      return parent.getFuelType();
-    },
-    currency: async (parent: SaleTypeConfigModel, _args, _context: Context) => {
-      return parent.getCurrency();
-    },
-    associatedSalesTickets: async (
-      parent: SaleTypeConfigModel,
-      _args,
-      _context: Context
-    ) => {
-      // Necesitarás SalesTicket definido para esto
-      return parent.getAssociatedSalesTickets();
-    },
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    fuelType: belongsTo("fuelType", "FuelType", "fuelTypeId"),
+    currency: belongsTo("currency", "Currency", "currencyId"),
+    associatedSalesTickets: hasMany("associatedSalesTickets", "SalesTicket", "assignedSaleTypeConfigId"),
   },
 };
 

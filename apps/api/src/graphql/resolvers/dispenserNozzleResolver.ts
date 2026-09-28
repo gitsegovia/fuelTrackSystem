@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { DispenserNozzle as DispenserNozzleModel } from "../../models/dispenserNozzle";
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const dispenserNozzleResolver: IResolvers<Context> = {
   Query: {
@@ -144,27 +145,9 @@ const dispenserNozzleResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   DispenserNozzle: {
-    dispenser: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenser();
-    },
-    dispenserReadings: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserReadings();
-    },
-    salesTickets: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTickets();
-    },
+    dispenser: belongsTo("dispenser", "Dispenser", "dispenserId"),
+    dispenserReadings: hasMany("dispenserReadings", "DispenserReading", "dispenserNozzleId"),
+    salesTickets: hasMany("salesTickets", "SalesTicket", "dispenserNozzleId"),
   },
 };
 

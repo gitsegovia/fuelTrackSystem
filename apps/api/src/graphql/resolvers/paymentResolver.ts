@@ -2,6 +2,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { Payment as PaymentModel } from "../../models/payment";
 import { PaymentMethod, SalesTicketStatus } from "../../utils/types"; // Importar ENUMS
+import { belongsTo } from "../helpers/dataloaders";
 
 const paymentResolver: IResolvers<Context> = {
   Query: {
@@ -367,12 +368,8 @@ const paymentResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   Payment: {
-    salesTicket: async (parent: PaymentModel, _args, _context: Context) => {
-      return parent.getSalesTicket();
-    },
-    currency: async (parent: PaymentModel, _args, _context: Context) => {
-      return parent.getCurrency();
-    },
+    salesTicket: belongsTo("salesTicket", "SalesTicket", "salesTicketId"),
+    currency: belongsTo("currency", "Currency", "currencyId"),
   },
 };
 

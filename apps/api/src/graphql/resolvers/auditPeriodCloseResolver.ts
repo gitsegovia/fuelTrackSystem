@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { AuditPeriodClose as AuditPeriodCloseModel } from "../../models/auditPeriodClose";
+import { belongsTo } from "../helpers/dataloaders";
 import {
   computeInvoiceAudit,
   computeDriverAudit,
@@ -180,8 +181,8 @@ const auditPeriodCloseResolver: IResolvers<Context> = {
   },
 
   AuditPeriodClose: {
-    gasStation: (parent: AuditPeriodCloseModel) => parent.getGasStation(),
-    closedBy: (parent: AuditPeriodCloseModel) => parent.getClosedBy(),
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    closedBy: belongsTo("closedBy", "User", "closedById"),
     summary: (parent: AuditPeriodCloseModel) => buildSummary(parent),
   },
 };
