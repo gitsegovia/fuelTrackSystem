@@ -137,8 +137,7 @@ export function initialize(sequelize: Sequelize): ModelStatic<Tank> {
       },
       name: {
         type: DataTypes.STRING,
-        allowNull: false,
-        unique: true, // Cada tanque debe tener un nombre único
+        allowNull: false, // Único por estación vía el índice compuesto de abajo (H-015)
       },
       currentHeightCm: {
         type: DataTypes.DECIMAL(10, 2),
