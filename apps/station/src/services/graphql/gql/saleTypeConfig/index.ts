@@ -18,7 +18,9 @@ const SALE_TYPE_CONFIG_FRAGMENT = gql`
 
 export const QUERIES = {
   saleTypeConfigs: gql`
-    query SaleTypeConfigs { saleTypeConfigs { ...SaleTypeConfigFields } } ${SALE_TYPE_CONFIG_FRAGMENT}
+    query SaleTypeConfigs($gasStationId: UUID) {
+      saleTypeConfigs(gasStationId: $gasStationId) { ...SaleTypeConfigFields }
+    } ${SALE_TYPE_CONFIG_FRAGMENT}
   `,
   saleTypeConfig: gql`
     query SaleTypeConfig($id: UUID!) { saleTypeConfig(id: $id) { ...SaleTypeConfigFields } } ${SALE_TYPE_CONFIG_FRAGMENT}

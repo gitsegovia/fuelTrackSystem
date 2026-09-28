@@ -6,6 +6,7 @@ import { QUERIES, MUTATIONS } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
+import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -15,13 +16,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { format } from 'date-fns'
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pago recibido',
-  COMPLETED: 'Completado',
-  CANCELED: 'Cancelado',
-}
 
 const STATUS_VARIANT: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
   PENDING_PAYMENT_DISPATCH: 'secondary',
@@ -37,7 +31,10 @@ export default function ShiftDetailPage() {
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
-  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
+  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
   const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
   const { data, loading } = useQuery<{ employeeShift: any }>(QUERIES.employeeShift, { variables: { id }, skip: !id })
@@ -249,7 +246,7 @@ export default function ShiftDetailPage() {
                   </p>
                 </div>
                 <Badge variant={STATUS_VARIANT[t.status] ?? 'outline'}>
-                  {STATUS_LABELS[t.status] ?? t.status}
+                  {TICKET_STATUS_LABELS[t.status] ?? t.status}
                 </Badge>
               </div>
             </Link>

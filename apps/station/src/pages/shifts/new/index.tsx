@@ -37,7 +37,10 @@ export default function NewShiftPage() {
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
-  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
+  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
   const employee = empData?.employees?.find((e) => e.user.id === user?.id)
 
   const employeeRole = USERTYPE_TO_ROLE[user?.userType ?? ''] ?? 'CASHIER'

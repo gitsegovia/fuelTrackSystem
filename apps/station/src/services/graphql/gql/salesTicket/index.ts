@@ -28,8 +28,8 @@ const SALES_TICKET_FRAGMENT = gql`
 
 export const QUERIES = {
   salesTicketsByGasStation: gql`
-    query SalesTicketsByGasStation($gasStationId: UUID!) {
-      salesTicketsByGasStation(gasStationId: $gasStationId) { ...SalesTicketFields }
+    query SalesTicketsByGasStation($gasStationId: UUID!, $date: DateTime) {
+      salesTicketsByGasStation(gasStationId: $gasStationId, date: $date) { ...SalesTicketFields }
     } ${SALES_TICKET_FRAGMENT}
   `,
   salesTicketsByCashierShift: gql`
