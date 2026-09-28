@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import { Clock, Receipt, Plus, CheckCircle2, AlertCircle } from 'lucide-react'
@@ -5,18 +6,12 @@ import { useAuth } from '@/hooks/useAuth'
 import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
+import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pagado — pend. despacho',
-  COMPLETED: 'Completado',
-  CANCELED: 'Cancelado',
-}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -32,8 +27,11 @@ export default function DashboardPage() {
   })
   const activeShift = shiftData?.activeEmployeeShift
 
+  // Fijo por sesión de la página, no en cada render: si fuera `new Date()` en línea,
+  // useQuery vería variables nuevas en cada render y refetchearía sin parar.
+  const today = useMemo(() => new Date().toISOString(), [])
   const { data: ticketsData } = useQuery<{ salesTicketsByGasStation: any[] }>(TicketQueries.salesTicketsByGasStation, {
-    variables: { gasStationId },
+    variables: { gasStationId, date: today },
     skip: !gasStationId,
   })
   const tickets: any[] = ticketsData?.salesTicketsByGasStation ?? []
@@ -90,7 +88,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Receipt className="size-4" /> Tickets abiertos
+              <Receipt className="size-4" /> Tickets abiertos hoy
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -100,7 +98,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <CheckCircle2 className="size-4" /> Completados
+              <CheckCircle2 className="size-4" /> Completados hoy
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -113,7 +111,7 @@ export default function DashboardPage() {
 
       {openTickets.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium">Tickets pendientes</h3>
+          <h3 className="text-sm font-medium">Tickets pendientes de hoy</h3>
           {openTickets.slice(0, 5).map((t) => (
             <Link key={t.id} to={`/tickets/${t.id}`}>
               <div className="flex items-center justify-between rounded-lg border px-4 py-3 hover:bg-muted/50 transition-colors">
@@ -121,7 +119,7 @@ export default function DashboardPage() {
                   <p className="text-sm font-medium">#{t.ticketNumber} — {t.fuelType.name}</p>
                   <p className="text-xs text-muted-foreground">{parseFloat(t.requestedLiters).toLocaleString()} L</p>
                 </div>
-                <span className="text-xs text-muted-foreground">{STATUS_LABELS[t.status] ?? t.status}</span>
+                <span className="text-xs text-muted-foreground">{TICKET_STATUS_LABELS[t.status] ?? t.status}</span>
               </div>
             </Link>
           ))}

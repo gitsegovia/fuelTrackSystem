@@ -107,8 +107,13 @@ export default function ShiftReportPage() {
   const cancelled  = tickets.filter((t) => t.status === 'CANCELED')
   const pending    = tickets.filter((t) => t.status !== 'COMPLETED' && t.status !== 'CANCELED')
 
+  // Solo litros realmente despachados (no requestedLiters): un ticket completado sin pasar
+  // por despacho no tiene bombero ni boquilla que le atribuir, así que las filas de abajo
+  // (por bombero, por boquilla) no pueden incluirlo. Antes el Total sí lo sumaba vía este
+  // fallback y las filas no cuadraban con él (H-025). Mismo criterio en todas partes: solo
+  // actualLitersDispatched.
   const totalLitersFromTickets = completed.reduce(
-    (s, t) => s + parseFloat(t.actualLitersDispatched ?? t.requestedLiters ?? '0'), 0
+    (s, t) => s + parseFloat(t.actualLitersDispatched ?? '0'), 0
   )
   const variance = totalLitersFromMeters > 0 ? totalLitersFromMeters - totalLitersFromTickets : null
 
@@ -136,7 +141,7 @@ export default function ShiftReportPage() {
   const byFuel: Record<string, { name: string; liters: number; baseAmount: number }> = {}
   for (const t of completed) {
     const name  = t.fuelType.name
-    const liters = parseFloat(t.actualLitersDispatched ?? t.requestedLiters ?? '0')
+    const liters = parseFloat(t.actualLitersDispatched ?? '0')
     const base   = paymentBaseTotal(t.payments ?? [])
     if (!byFuel[name]) byFuel[name] = { name, liters: 0, baseAmount: 0 }
     byFuel[name].liters     += liters

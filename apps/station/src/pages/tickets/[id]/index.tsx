@@ -11,6 +11,7 @@ import { MUTATIONS as PaymentMutations, QUERIES as PaymentQueries } from '@/serv
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
+import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { upsertInCachedList } from '@/lib/offline-cache'
@@ -22,6 +23,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
@@ -30,13 +32,6 @@ const selectClass = cn(
   'transition-colors outline-none focus:border-ring focus:ring-3 focus:ring-ring/50',
   'disabled:cursor-not-allowed disabled:opacity-50'
 )
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente de pago y despacho',
-  PAID_PENDING_DISPATCH: 'Pagado — pendiente de despacho',
-  COMPLETED: 'Completado',
-  CANCELED: 'Cancelado',
-}
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CASH: 'Efectivo',
@@ -81,6 +76,7 @@ export default function TicketDetailPage() {
   const [showDispatch, setShowDispatch] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
   const [lockedCount, setLockedCount] = useState(0)
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   const { data, loading } = useQuery<{ salesTicket: any }>(QUERIES.salesTicket, {
     variables: { id },
@@ -92,7 +88,10 @@ export default function TicketDetailPage() {
     PaymentQueries.paymentsBySalesTicket,
     { variables: { salesTicketId: id }, skip: !id, fetchPolicy: 'cache-first' }
   )
-  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
+  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
   const { data: currenciesData } = useQuery<{ currencies: any[] }>(CurrencyQueries.currencies)
   const { data: dispensersData } = useQuery<{ dispensersByGasStation: any[] }>(
     DispenserQueries.dispensersByGasStation,
@@ -212,7 +211,7 @@ export default function TicketDetailPage() {
 
   const ticket = data?.salesTicket
   const payments: any[] = paymentsData?.paymentsBySalesTicket ?? []
-  const stationEmployees = empData?.employees?.filter((e: any) => e.gasStation?.id === gasStationId) ?? []
+  const stationEmployees = empData?.employees ?? []
 
   const allDispensers: any[] = dispensersData?.dispensersByGasStation ?? []
   const relevantDispensers = ticket
@@ -250,8 +249,10 @@ export default function TicketDetailPage() {
     if (!currency || isNaN(amount) || amount <= 0) return sum
     return sum + amount / parseFloat(currency.exchangeRate)
   }, 0)
-  const formRemainingInBase = totalExpectedInBase - totalEnteredInBase
-  const formIsCovered = totalEnteredInBase >= totalExpectedInBase
+  // Mismo criterio que pendingForActiveLine: descuenta lo ya pagado en rondas previas
+  // (remainingInBase), no el total del ticket completo.
+  const formRemainingInBase = Math.max(0, remainingInBase - totalEnteredInBase)
+  const formIsCovered = totalEnteredInBase > 0 && totalEnteredInBase >= remainingInBase
 
   const onDispatch = async (formData: DispatchForm) => {
     try {
@@ -390,7 +391,7 @@ export default function TicketDetailPage() {
         <CardContent className="pt-4 space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Estado</span>
-            <Badge variant="outline">{STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
+            <Badge variant="outline">{TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Tipo de venta</span>
@@ -510,7 +511,11 @@ export default function TicketDetailPage() {
                       const lineInBase = lineCurrency && !isNaN(lineAmount) && lineAmount > 0
                         ? lineAmount / parseFloat(lineCurrency.exchangeRate)
                         : null
-                      const showLineConversion = !isLocked && lineInBase !== null && lineCurrency?.id !== ticketCurrency?.id
+                      // lineInBase está en moneda base — convertir a la moneda del ticket,
+                      // que es la que se muestra y se etiqueta debajo (antes mostraba el
+                      // monto en base con la etiqueta de "moneda del ticket").
+                      const lineInTicketCurrency = lineInBase !== null ? lineInBase * ticketCurrencyRate : null
+                      const showLineConversion = !isLocked && lineInTicketCurrency !== null && lineCurrency?.id !== ticketCurrency?.id
 
                       return (
                         <div
@@ -564,7 +569,7 @@ export default function TicketDetailPage() {
                           {showLineConversion && (
                             <p className="text-xs text-amber-600">
                               ≈ {ticketCurrency?.symbol}{' '}
-                              {(lineInBase!).toLocaleString(undefined, { minimumFractionDigits: 2 })} en la moneda del ticket
+                              {(lineInTicketCurrency!).toLocaleString(undefined, { minimumFractionDigits: 2 })} en la moneda del ticket
                             </p>
                           )}
                           {!isLocked && (
@@ -584,10 +589,26 @@ export default function TicketDetailPage() {
 
                   <div className="rounded-lg bg-muted/30 border px-3 py-2 text-sm space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total a cobrar</span>
+                      <span className="text-muted-foreground">Total del ticket</span>
                       <span className="font-medium">
                         {ticketCurrency?.symbol}{' '}
                         {totalExpected.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {alreadyPaidInBase > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Ya pagado</span>
+                        <span>
+                          {ticketCurrency?.symbol}{' '}
+                          {(alreadyPaidInBase * ticketCurrencyRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Pendiente antes de este pago</span>
+                      <span className="font-medium">
+                        {ticketCurrency?.symbol}{' '}
+                        {(remainingInBase * ticketCurrencyRate).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -624,12 +645,25 @@ export default function TicketDetailPage() {
               {completing && <Loader2 className="size-4 animate-spin" />}
               Completar ticket
             </Button>
-            <Button variant="outline" onClick={onCancel} disabled={canceling}>
+            <Button variant="outline" onClick={() => setConfirmCancel(true)} disabled={canceling}>
               <XCircle className="size-4" /> Cancelar
             </Button>
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmCancel}
+        onOpenChange={setConfirmCancel}
+        title="¿Cancelar este ticket?"
+        description="El ticket quedará cancelado y no se podrá despachar ni cobrar. Esta acción no se puede deshacer."
+        confirmLabel="Cancelar ticket"
+        destructive
+        onConfirm={() => {
+          setConfirmCancel(false)
+          onCancel()
+        }}
+      />
     </div>
   )
 }

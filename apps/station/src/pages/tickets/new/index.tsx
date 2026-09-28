@@ -44,7 +44,10 @@ export default function NewTicketPage() {
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: fuelTypesData } = useQuery<{ fuelTypes: { id: string; name: string }[] }>(FuelTypeQueries.fuelTypes)
-  const { data: configsData } = useQuery<{ saleTypeConfigs: any[] }>(SaleTypeConfigQueries.saleTypeConfigs)
+  const { data: configsData } = useQuery<{ saleTypeConfigs: any[] }>(SaleTypeConfigQueries.saleTypeConfigs, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
 
   const [create, { loading }] = useOfflineMutation<
     { createSalesTicket: { id: string; ticketNumber: number } }
@@ -122,9 +125,7 @@ export default function NewTicketPage() {
   const selectedFuelTypeId = watch('fuelTypeId')
   const selectedConfigId = watch('assignedSaleTypeConfigId')
 
-  const stationConfigs = configsData?.saleTypeConfigs?.filter(
-    (c) => c.gasStation?.id === gasStationId
-  ) ?? []
+  const stationConfigs = configsData?.saleTypeConfigs ?? []
   const filteredConfigs = selectedFuelTypeId
     ? stationConfigs.filter((c) => c.fuelType?.id === selectedFuelTypeId)
     : stationConfigs

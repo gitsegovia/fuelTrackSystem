@@ -14,7 +14,9 @@ const EMPLOYEE_FRAGMENT = gql`
 
 export const QUERIES = {
   employees: gql`
-    query Employees { employees { ...EmployeeFields } } ${EMPLOYEE_FRAGMENT}
+    query Employees($gasStationId: UUID) {
+      employees(gasStationId: $gasStationId) { ...EmployeeFields }
+    } ${EMPLOYEE_FRAGMENT}
   `,
   employee: gql`
     query Employee($id: UUID!) { employee(id: $id) { ...EmployeeFields } } ${EMPLOYEE_FRAGMENT}
