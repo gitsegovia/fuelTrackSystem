@@ -22,6 +22,9 @@ export const MUTATIONS = {
     mutation Login($input: LoginInput!) {
       login(input: $input) {
         token
+        accessTokenExpiresAt
+        refreshToken
+        sessionExpiresAt
         user {
           ...UserFields
         }
