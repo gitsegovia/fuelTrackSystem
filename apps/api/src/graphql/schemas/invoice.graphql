@@ -73,7 +73,7 @@ input UpdateInvoiceInput {
 }
 
 extend type Query {
-  invoices: [Invoice!]!
+  invoices(gasStationId: UUID, companyId: UUID): [Invoice!]!
   invoice(id: UUID!): Invoice
 }
 

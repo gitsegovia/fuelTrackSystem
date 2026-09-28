@@ -64,12 +64,24 @@ input UpdateSalesTicketInput {
 extend type Query {
   salesTickets: [SalesTicket!]!
   salesTicket(id: UUID!): SalesTicket
-  salesTicketsByGasStation(gasStationId: UUID!, date: DateTime): [SalesTicket!]! # Filtrar por estación y opcionalmente por fecha
+  salesTicketsByGasStation(gasStationId: UUID!, date: DateTime, startDate: DateTime, endDate: DateTime): [SalesTicket!]! # date: un solo día (retrocompatible); startDate/endDate: rango
   salesTicketsByCashierShift(cashierShiftId: UUID!): [SalesTicket!]!
   salesTicketsByDispatcher(dispatcherEmployeeId: UUID!): [SalesTicket!]!
   salesTicketsByNozzle(dispenserNozzleId: UUID!): [SalesTicket!]!
   salesTicketsByFuelType(fuelTypeId: UUID!): [SalesTicket!]!
   salesTicketsByStatus(status: SalesTicketStatus!): [SalesTicket!]!
+  # Totales por día y combustible (litros e ingresos), agregados en SQL — para el dashboard,
+  # en vez de traer los tickets crudos y sumar en el cliente. Solo tickets COMPLETED.
+  salesTicketDailyTotals(gasStationId: UUID, startDate: DateTime!, endDate: DateTime!): [SalesTicketDailyTotal!]!
+}
+
+type SalesTicketDailyTotal {
+  date: Date!
+  fuelTypeId: UUID!
+  fuelTypeName: String!
+  liters: Decimal!
+  revenue: Decimal!
+  ticketCount: Int!
 }
 
 extend type Mutation {

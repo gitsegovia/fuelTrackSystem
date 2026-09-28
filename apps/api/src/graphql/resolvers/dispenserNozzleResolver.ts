@@ -5,13 +5,13 @@ import { DispenserNozzle as DispenserNozzleModel } from "../../models/dispenserN
 const dispenserNozzleResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las boquillas
+    // H-021 (T-022, riesgo #8): dispenserReadings/salesTickets (hasMany sin límite) fuera del
+    // include base; el field resolver de abajo (parent.getX()) los sigue sirviendo si se piden
+    // anidados, como ya hacía antes (graphql-js llama al resolver explícito, no lee la
+    // propiedad precargada por el include).
     dispenserNozzles: async (_parent, _args, context: Context) => {
       return context.models.DispenserNozzle.findAll({
-        include: [
-          { model: context.models.Dispenser, as: "dispenser" },
-          { model: context.models.DispenserReading, as: "dispenserReadings" },
-          { model: context.models.SalesTicket, as: "salesTickets" },
-        ],
+        include: [{ model: context.models.Dispenser, as: "dispenser" }],
       });
     },
     // Obtener una boquilla por ID
@@ -21,11 +21,7 @@ const dispenserNozzleResolver: IResolvers<Context> = {
       context: Context
     ) => {
       return context.models.DispenserNozzle.findByPk(id, {
-        include: [
-          { model: context.models.Dispenser, as: "dispenser" },
-          { model: context.models.DispenserReading, as: "dispenserReadings" },
-          { model: context.models.SalesTicket, as: "salesTickets" },
-        ],
+        include: [{ model: context.models.Dispenser, as: "dispenser" }],
       });
     },
     // Obtener boquillas por ID de surtidor
