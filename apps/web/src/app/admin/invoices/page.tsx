@@ -6,13 +6,22 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, PackagePlus, Lock, Eye } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/invoice'
+import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
+import { useAuth } from '@/hooks/useAuth'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
+import { cn } from '@/lib/utils'
+
+const selectClass = cn(
+  'h-8 min-w-[200px] rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm',
+  'transition-colors outline-none focus:border-ring focus:ring-3 focus:ring-ring/50'
+)
 
 const FUEL_KIND_LABELS: Record<string, string> = {
   GASOLINE_91: 'Gasolina 91',
@@ -36,15 +45,31 @@ type Invoice = {
 
 export default function InvoicesPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [closeId, setCloseId] = useState<string | null>(null)
+  const [selectedStationId, setSelectedStationId] = useState<string>('')
 
-  const { data, loading } = useQuery<{ invoices: Invoice[] }>(QUERIES.invoices)
+  const { data: stationsData } = useQuery<{
+    gasStations: { id: string; name: string; code: string; company: { id: string } }[]
+  }>(GasStationQueries.gasStations)
+  const stations = (stationsData?.gasStations ?? []).filter(
+    (s) => !user?.company?.id || s.company.id === user.company.id
+  )
+
+  const queryVariables = {
+    gasStationId: selectedStationId || null,
+    companyId: user?.company?.id || null,
+  }
+  const { data, loading } = useQuery<{ invoices: Invoice[] }>(QUERIES.invoices, {
+    variables: queryVariables,
+    skip: !user,
+  })
   const [deleteInvoice] = useMutation(MUTATIONS.deleteInvoice, {
-    refetchQueries: [{ query: QUERIES.invoices }],
+    refetchQueries: [{ query: QUERIES.invoices, variables: queryVariables }],
   })
   const [closeInvoice, { loading: closing }] = useMutation(MUTATIONS.closeInvoice, {
-    refetchQueries: [{ query: QUERIES.invoices }],
+    refetchQueries: [{ query: QUERIES.invoices, variables: queryVariables }],
   })
 
   const columns: ColumnDef<Invoice>[] = [
@@ -144,6 +169,21 @@ export default function InvoicesPage() {
           </Button>
         }
       />
+
+      <div className="flex items-end gap-2">
+        <Label className="text-xs text-muted-foreground mb-1.5">Estación</Label>
+        <select
+          className={selectClass}
+          value={selectedStationId}
+          onChange={(e) => setSelectedStationId(e.target.value)}
+        >
+          <option value="">Todas mis estaciones</option>
+          {stations.map((s) => (
+            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+          ))}
+        </select>
+      </div>
+
       <DataTable columns={columns} data={data?.invoices ?? []} loading={loading} />
 
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
