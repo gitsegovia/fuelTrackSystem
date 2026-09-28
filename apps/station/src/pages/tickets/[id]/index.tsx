@@ -13,6 +13,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { upsertInCachedList } from '@/lib/offline-cache'
 import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -101,9 +102,34 @@ export default function TicketDetailPage() {
   // Dispatch — el ticket (id) puede ser un localId si fue creado offline.
   // dependsOn: id captura eso: cuando el sync procese createSalesTicket primero
   // y obtenga el ID real, remapeará id → ID real en esta mutation también.
+  // Offline, cada operación refleja en el cache el efecto que tendrá en el servidor (optimista;
+  // el refetch posterior al sync lo reemplaza). Así la UI no ofrece repetirla.
+  const ticketCacheId = { __typename: 'SalesTicket', id }
+  const setTicketStatus = (cache: any, status: string) =>
+    cache.modify({ id: cache.identify(ticketCacheId), fields: { status: () => status } })
+
   const [processDispatch, { loading: dispatching }] = useOfflineMutation(
     MUTATIONS.processSalesTicketDispatch,
-    { refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }] }
+    {
+      refetchQueries: [{ query: QUERIES.salesTicket, variables: { id } }],
+      // Como el servidor: guarda el despacho, recalcula el total con los litros reales y
+      // pasa de PENDING_PAYMENT_DISPATCH a PAID_PENDING_DISPATCH.
+      writeToCache: (cache, { variables }) => {
+        if (!variables) return
+        const liters = Number(variables.actualLitersDispatched)
+        const price = parseFloat(ticket?.assignedSaleTypeConfig?.salePricePerLiter ?? 'NaN')
+        cache.modify({
+          id: cache.identify(ticketCacheId),
+          fields: {
+            actualLitersDispatched: () => String(liters),
+            dispatcherEmployeeId: () => variables.dispatcherEmployeeId,
+            dispenserNozzleId: () => variables.dispenserNozzleId,
+            totalAmountExpected: (prev: string) => (isNaN(price) ? prev : String(liters * price)),
+            status: (prev: string) => (prev === 'PENDING_PAYMENT_DISPATCH' ? 'PAID_PENDING_DISPATCH' : prev),
+          },
+        })
+      },
+    }
   )
 
   const [createPayments, { loading: paying }] = useOfflineMutation(
@@ -113,12 +139,48 @@ export default function TicketDetailPage() {
         { query: QUERIES.salesTicket, variables: { id } },
         { query: PaymentQueries.paymentsBySalesTicket, variables: { salesTicketId: id } },
       ],
+      // Como el servidor: cada línea toma la tasa actual de su moneda y, si el total pagado
+      // en base cubre el total del ticket, el ticket pasa a COMPLETED.
+      writeToCache: (cache, { variables }) => {
+        if (!variables) return
+        let paidInBase = alreadyPaidInBase
+        for (const line of variables.payments ?? []) {
+          const currency = currenciesData?.currencies.find((c: any) => c.id === line.currencyId)
+          const rate = currency?.exchangeRate ?? '1'
+          paidInBase += Number(line.amount) / parseFloat(rate)
+          upsertInCachedList(cache, {
+            query: PaymentQueries.paymentsBySalesTicket,
+            variables: { salesTicketId: variables.salesTicketId },
+            field: 'paymentsBySalesTicket',
+            position: 'end',
+            createIfMissing: true,
+            item: {
+              __typename: 'Payment',
+              id: crypto.randomUUID(),
+              salesTicketId: variables.salesTicketId,
+              paymentMethod: line.paymentMethod,
+              amount: String(line.amount),
+              paymentTime: variables.paymentTime,
+              transactionReference: line.transactionReference ?? null,
+              currencyId: line.currencyId,
+              exchangeRateAtPayment: String(rate),
+              createdAt: variables.paymentTime,
+              currency: {
+                __typename: 'Currency',
+                id: line.currencyId,
+                name: currency?.name ?? '',
+                symbol: currency?.symbol ?? '',
+              },
+            } as { id: string },
+          })
+        }
+        if (ticket && ticket.status !== 'CANCELED' && paidInBase >= totalExpectedInBase) {
+          setTicketStatus(cache, 'COMPLETED')
+        }
+      },
     }
   )
 
-  // Completar y cancelar: no hay dependencia de ID offline, usan useMutation normal.
-  // Si el ticket está en la cola offline, estas mutations también fallarán en red
-  // y se encolarán vía el OfflineLink (sin metadatos de ID — aceptable para estas ops).
   const [completeTicket, { loading: completing }] = useOfflineMutation(
     MUTATIONS.completeSalesTicketPayment,
     {
@@ -126,6 +188,7 @@ export default function TicketDetailPage() {
         { query: QUERIES.salesTicket, variables: { id } },
         { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
       ],
+      writeToCache: (cache) => setTicketStatus(cache, 'COMPLETED'),
     }
   )
   const [cancelTicket, { loading: canceling }] = useOfflineMutation(
@@ -135,6 +198,7 @@ export default function TicketDetailPage() {
         { query: QUERIES.salesTicket, variables: { id } },
         { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
       ],
+      writeToCache: (cache) => setTicketStatus(cache, 'CANCELED'),
     }
   )
 

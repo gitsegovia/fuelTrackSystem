@@ -58,6 +58,21 @@ export default function ShiftDetailPage() {
         { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
         { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
       ],
+      // Offline: igual que el refetch online, el turno queda cerrado y el empleado sin turno activo.
+      writeToCache: (cache, { variables }) => {
+        if (!variables?.id) return
+        cache.modify({
+          id: cache.identify({ __typename: 'EmployeeShift', id: variables.id }),
+          fields: { shiftEndTime: () => variables.shiftEndTime },
+        })
+        if (employee?.id) {
+          cache.writeQuery({
+            query: QUERIES.activeEmployeeShift,
+            variables: { employeeId: employee.id },
+            data: { activeEmployeeShift: null },
+          })
+        }
+      },
     }
   )
 

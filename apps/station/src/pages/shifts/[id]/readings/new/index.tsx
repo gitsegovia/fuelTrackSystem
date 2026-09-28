@@ -7,6 +7,7 @@ import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { QUERIES as ReadingQueries, MUTATIONS as ReadingMutations } from '@/services/graphql/gql/dispenserReading'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
+import { upsertInCachedList } from '@/lib/offline-cache'
 import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,30 @@ export default function NewReadingsPage() {
       refetchQueries: [
         { query: ReadingQueries.dispenserReadingsByShift, variables: { employeeShiftId: shiftId } },
       ],
+      // Offline: la lectura aparece en el turno (habilita las FINAL y evita repetir las INITIAL).
+      writeToCache: (cache, { variables, localId }) => {
+        const input = variables?.input
+        if (!localId || !input) return
+        const nozzle = nozzles.find((n) => n.id === input.dispenserNozzleId)
+        upsertInCachedList(cache, {
+          query: ReadingQueries.dispenserReadingsByShift,
+          variables: { employeeShiftId: input.employeeShiftId },
+          field: 'dispenserReadingsByShift',
+          position: 'end',
+          createIfMissing: true,
+          item: {
+            __typename: 'DispenserReading',
+            id: localId,
+            dispenserNozzleId: input.dispenserNozzleId,
+            employeeShiftId: input.employeeShiftId,
+            readingTime: input.readingTime,
+            meterReading: String(input.meterReading),
+            readingType: input.readingType,
+            createdAt: input.readingTime,
+            dispenserNozzle: { __typename: 'DispenserNozzle', id: input.dispenserNozzleId, name: nozzle?.name ?? '' },
+          } as { id: string },
+        })
+      },
     }
   )
 
@@ -103,6 +128,7 @@ export default function NewReadingsPage() {
             },
           },
           dependsOn: shiftId,
+          localId: crypto.randomUUID(),
         })
         if (wasQueued) anyQueued = true
       }
