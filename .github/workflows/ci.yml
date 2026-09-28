@@ -26,6 +26,8 @@ jobs:
         working-directory: apps/api
     steps:
       - uses: actions/checkout@v4
+      # apps/api usa npm (no pnpm), igual que su Dockerfile (node:20-alpine) —
+      # el requisito de Node >= 22.13 de pnpm 11 (T-026) no aplica a este job.
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -103,9 +105,11 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.5.1
+      # pnpm 11 exige Node >= 22.13 (engines.node en su package.json) — usar
+      # Node 20 aquí rompe el propio "pnpm install" (H-019, T-025/T-026).
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --filter web... --ignore-scripts
@@ -126,9 +130,10 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 11.5.1
+      # Mismo motivo que en lint-typecheck-web: pnpm 11 exige Node >= 22.13.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile --filter station... --ignore-scripts
