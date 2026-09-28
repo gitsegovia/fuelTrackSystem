@@ -3,12 +3,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useQuery } from '@apollo/client/react'
-import { gql } from '@apollo/client'
 import { toast } from 'sonner'
 import { ArrowLeft, Loader2, WifiOff } from 'lucide-react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as FuelTypeQueries } from '@/services/graphql/gql/fuelType'
 import { QUERIES as SaleTypeConfigQueries } from '@/services/graphql/gql/saleTypeConfig'
+import { QUERIES as PaymentQueries } from '@/services/graphql/gql/payment'
+import { ensureEmptyList, upsertInCachedList } from '@/lib/offline-cache'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -18,21 +19,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-
-// Fragmento mínimo para escribir el ticket en cache offline
-const SALES_TICKET_CACHE_FRAGMENT = gql`
-  fragment NewTicketOffline on SalesTicket {
-    id ticketNumber status requestedLiters totalAmountExpected
-    ticketIssueTime fuelTypeId cashierShiftId gasStationId
-    actualLitersDispatched dispenserNozzleId dispatcherEmployeeId
-    fuelType { id name }
-    assignedSaleTypeConfig {
-      id saleTypeName
-      salePricePerLiter
-      currency { id symbol exchangeRate }
-    }
-  }
-`
 
 const selectClass = cn(
   'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm',
@@ -67,45 +53,61 @@ export default function NewTicketPage() {
       { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
       ...(shiftId ? [{ query: QUERIES.salesTicketsByCashierShift, variables: { cashierShiftId: shiftId } }] : []),
     ],
-    // Escribe el ticket en cache Apollo para que el detalle lo encuentre offline
+    // Offline: el ticket queda en cache con todos los campos de SalesTicketFields, así lo
+    // encuentran el detalle (/tickets/:localId, vía salesTicket(id)) y las listas.
     writeToCache: (cache, { variables, localId }) => {
       if (!localId || !variables) return
       const input = (variables as any).input
       const selectedConfig = configsData?.saleTypeConfigs?.find((c: any) => c.id === input?.assignedSaleTypeConfigId)
       const fuelType = fuelTypesData?.fuelTypes?.find((f) => f.id === input?.fuelTypeId)
       if (!selectedConfig || !fuelType) return
-      try {
-        cache.writeFragment({
-          id: `SalesTicket:${localId}`,
-          fragment: SALES_TICKET_CACHE_FRAGMENT,
-          data: {
-            id: localId,
-            ticketNumber: 0,
-            status: 'PENDING_PAYMENT_DISPATCH',
-            requestedLiters: String(input.requestedLiters),
-            totalAmountExpected: String(input.totalAmountExpected),
-            ticketIssueTime: input.ticketIssueTime,
-            fuelTypeId: input.fuelTypeId,
-            cashierShiftId: input.cashierShiftId,
-            gasStationId: input.gasStationId,
-            actualLitersDispatched: null,
-            dispenserNozzleId: null,
-            dispatcherEmployeeId: null,
-            fuelType: { __typename: 'FuelType', id: fuelType.id, name: fuelType.name },
-            assignedSaleTypeConfig: {
-              __typename: 'SaleTypeConfig',
-              id: selectedConfig.id,
-              saleTypeName: selectedConfig.saleTypeName,
-              salePricePerLiter: selectedConfig.salePricePerLiter,
-              currency: {
-                __typename: 'Currency',
-                id: selectedConfig.currency.id,
-                symbol: selectedConfig.currency.symbol,
-                exchangeRate: selectedConfig.currency.exchangeRate,
-              },
-            },
-            __typename: 'SalesTicket',
+      const ticket = {
+        __typename: 'SalesTicket',
+        id: localId,
+        ticketNumber: 0,
+        gasStationId: input.gasStationId,
+        cashierShiftId: input.cashierShiftId,
+        dispatcherEmployeeId: null,
+        dispenserNozzleId: null,
+        fuelTypeId: input.fuelTypeId,
+        requestedLiters: String(input.requestedLiters),
+        actualLitersDispatched: null,
+        assignedSaleTypeConfigId: input.assignedSaleTypeConfigId,
+        ticketIssueTime: input.ticketIssueTime,
+        totalAmountExpected: String(input.totalAmountExpected),
+        status: 'PENDING_PAYMENT_DISPATCH',
+        createdAt: input.ticketIssueTime,
+        fuelType: { __typename: 'FuelType', id: fuelType.id, name: fuelType.name },
+        assignedSaleTypeConfig: {
+          __typename: 'SaleTypeConfig',
+          id: selectedConfig.id,
+          saleTypeName: selectedConfig.saleTypeName,
+          salePricePerLiter: selectedConfig.salePricePerLiter,
+          currency: {
+            __typename: 'Currency',
+            id: selectedConfig.currency.id,
+            symbol: selectedConfig.currency.symbol,
+            exchangeRate: selectedConfig.currency.exchangeRate,
           },
+        },
+      }
+      try {
+        cache.writeQuery({ query: QUERIES.salesTicket, variables: { id: localId }, data: { salesTicket: ticket } })
+        // Un ticket nuevo todavía no tiene pagos en el servidor.
+        ensureEmptyList(cache, PaymentQueries.paymentsBySalesTicket, { salesTicketId: localId }, 'paymentsBySalesTicket')
+        upsertInCachedList(cache, {
+          query: QUERIES.salesTicketsByGasStation,
+          variables: { gasStationId: input.gasStationId },
+          field: 'salesTicketsByGasStation',
+          item: ticket,
+        })
+        upsertInCachedList(cache, {
+          query: QUERIES.salesTicketsByCashierShift,
+          variables: { cashierShiftId: input.cashierShiftId },
+          field: 'salesTicketsByCashierShift',
+          item: ticket,
+          position: 'end',
+          createIfMissing: true,
         })
       } catch (e) {
         console.warn('[FuelTrack] writeToCache ticket failed:', e)

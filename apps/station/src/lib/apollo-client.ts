@@ -1,4 +1,5 @@
 import { ApolloClient, ApolloLink, InMemoryCache, Observable, from } from '@apollo/client'
+import type { FieldPolicy } from '@apollo/client'
 import { createHttpLink } from '@apollo/client/link/http'
 import { setContext } from '@apollo/client/link/context'
 import { persistCache, LocalStorageWrapper } from 'apollo3-cache-persist'
@@ -72,12 +73,34 @@ function buildOfflineLink(): ApolloLink {
   })
 }
 
+// Cache redirect: una query de detalle por id resuelve a la entidad ya normalizada
+// (p. ej. un ticket o turno creado offline con su localId, o uno cargado por una lista).
+function redirectById(__typename: string): FieldPolicy {
+  return {
+    read(existing, { args, toReference }) {
+      return existing ?? (args?.id ? toReference({ __typename, id: args.id }) : undefined)
+    },
+  }
+}
+
+/** Se resuelve cuando el cache persistido ya se restauró (o falló la restauración). */
+export let cacheRestored: Promise<void> = Promise.resolve()
+
 // Inicialización síncrona: persistCache restaura el cache en segundo plano
 // sobre la misma instancia de InMemoryCache sin bloquear el render inicial.
 export function makeApolloClient() {
-  const cache = new InMemoryCache()
+  const cache = new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          salesTicket: redirectById('SalesTicket'),
+          employeeShift: redirectById('EmployeeShift'),
+        },
+      },
+    },
+  })
 
-  persistCache({
+  cacheRestored = persistCache({
     cache,
     storage: new LocalStorageWrapper(window.localStorage),
     maxSize: 1048576 * 5,
@@ -110,7 +133,8 @@ export function makeApolloClient() {
       watchQuery: {
         fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
-        ...({ errorPolicy: 'all' } as object),
+        // Sin errorPolicy 'all': en Apollo v4 un error de red con 'all' vacía `data` aunque el
+        // cache la tenga, y offline ninguna página vería sus datos. El default ('none') la conserva.
       },
     },
   })

@@ -11,6 +11,7 @@ import {
 } from '@/lib/offline-db'
 import { syncQueue } from '@/lib/offline-sync'
 import { isNetworkDown, setMutationQueuedCallback } from '@/lib/apollo-client'
+import { useAuth } from '@/hooks/useAuth'
 
 const SYNC_LOCK = 'fueltrack-offline-sync'
 
@@ -43,6 +44,7 @@ function plural(n: number, singular: string, pluralForm: string) {
 
 export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const apolloClient = useApolloClient()
+  const hasSession = !!useAuth().user
   const [isOnline, setIsOnline] = useState(navigator.onLine)
   const [pendingCount, setPendingCount] = useState(0)
   const [failedCount, setFailedCount] = useState(0)
@@ -125,6 +127,8 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
   const processQueue = useCallback(async () => {
     if (syncing.current) return
+    // Sin sesión (pantalla de login) no se envía nada: se sincroniza al iniciar sesión.
+    if (!localStorage.getItem('accessToken')) return
     syncing.current = true
     try {
       // Una sola pestaña sincroniza a la vez; si otra tiene el lock, esta no envía nada.
@@ -144,6 +148,12 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, [runSync])
 
   processQueueRef.current = processQueue
+
+  // Al arrancar la app (sesión restaurada) o al iniciar sesión, con red: sincroniza sin
+  // esperar a un evento online/focus/visibilitychange.
+  useEffect(() => {
+    if (hasSession && navigator.onLine) processQueue()
+  }, [hasSession, processQueue])
 
   const checkAndSync = useCallback(() => {
     const online = navigator.onLine

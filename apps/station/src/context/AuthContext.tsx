@@ -4,6 +4,7 @@ import { useMutation, useApolloClient } from '@apollo/client/react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/login'
 import type { AuthContextValue, AuthUser, LoginParams, ErrCallbackType } from '@/types/auth'
 import { setStoredUserId, clearStoredUserId } from '@/lib/device-fingerprint'
+import { cacheRestored, isNetworkDown } from '@/lib/apollo-client'
 
 const defaultContext: AuthContextValue = {
   user: null,
@@ -28,6 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false)
         return
       }
+      // El restore reemplaza el cache completo: si terminara después, borraría el `me` recién leído.
+      await cacheRestored
       try {
         const { data } = await apolloClient.query<{ me: AuthUser | null }>({
           query: QUERIES.me,
@@ -36,13 +39,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (data?.me) {
           setUser(data.me)
         } else {
+          // Con red, el servidor dice que no hay usuario: la sesión terminó.
           localStorage.removeItem('accessToken')
         }
-      } catch {
-        // Si falla (sin conexión), intentar con cache
-        const cached = apolloClient.readQuery<{ me: AuthUser | null }>({ query: QUERIES.me })
-        if (cached?.me) {
-          setUser(cached.me)
+      } catch (err) {
+        const status = (err as any)?.statusCode
+        if (isNetworkDown(err) || (typeof status === 'number' && status >= 500)) {
+          // Sin red o servidor caído: nunca cerrar la sesión. Se usa el `me` persistido (lo escribe el login).
+          const cached = apolloClient.readQuery<{ me: AuthUser | null }>({ query: QUERIES.me })
+          if (cached?.me) setUser(cached.me)
         } else {
           localStorage.removeItem('accessToken')
         }
@@ -63,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStoredUserId(data.login.user.username)
         setUser(data.login.user)
         if (data.login.user.assignedGasStation) {
+          // Deja `me` en el cache persistido: una recarga sin red conserva la sesión.
+          apolloClient.writeQuery({ query: QUERIES.me, data: { me: data.login.user } })
           navigate('/dashboard', { replace: true })
         } else {
           // Usuario sin estación asignada no puede usar el panel de estación
