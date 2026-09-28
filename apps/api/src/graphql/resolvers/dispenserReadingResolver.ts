@@ -3,6 +3,7 @@ import { Op } from "sequelize";
 import { Context } from "../../interfaces";
 import { DispenserReading as DispenserReadingModel } from "../../models/dispenserReading";
 import { ReadingType } from "../../utils/types";
+import { belongsTo } from "../helpers/dataloaders";
 
 // Sequelize devuelve DECIMAL como string (H-022): normalizar antes de comparar.
 function toNum(v: any): number {
@@ -283,20 +284,8 @@ const dispenserReadingResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   DispenserReading: {
-    dispenserNozzle: async (
-      parent: DispenserReadingModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserNozzle();
-    },
-    employeeShift: async (
-      parent: DispenserReadingModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getEmployeeShift();
-    },
+    dispenserNozzle: belongsTo("dispenserNozzle", "DispenserNozzle", "dispenserNozzleId"),
+    employeeShift: belongsTo("employeeShift", "EmployeeShift", "employeeShiftId"),
   },
 };
 

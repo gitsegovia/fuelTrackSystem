@@ -11,6 +11,7 @@ import {
 import { ArgsType, ParentType, UserRole } from "../../utils/types";
 import { hasRole, isAuthenticated } from "../../middleware/authorization";
 import { User as UserModel } from "src/models/user";
+import { belongsTo, hasOne } from "../helpers/dataloaders";
 
 const userResolver: IResolvers<Context> = {
   Query: {
@@ -227,15 +228,9 @@ const userResolver: IResolvers<Context> = {
     ) => endSession(context, refreshToken),
   },
   User: {
-    company: async (parent: UserModel, _args, _context: Context) => {
-      return parent.getCompany();
-    },
-    assignedGasStation: async (parent: UserModel, _args, _context: Context) => {
-      return parent.getAssignedGasStation();
-    },
-    employeeProfile: async (parent: UserModel, _args, _context: Context) => {
-      return parent.getEmployeeProfile();
-    },
+    company: belongsTo("company", "Company", "companyId"),
+    assignedGasStation: belongsTo("assignedGasStation", "GasStation", "gasStationId"),
+    employeeProfile: hasOne("employeeProfile", "Employee", "userId"),
   },
 };
 

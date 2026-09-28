@@ -2,6 +2,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { EmployeeShift as EmployeeShiftModel } from "../../models/employeeShift";
 import { Op } from "sequelize"; // Importar Op para operadores de Sequelize
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const employeeShiftResolver: IResolvers<Context> = {
   Query: {
@@ -258,44 +259,12 @@ const employeeShiftResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   EmployeeShift: {
-    employee: async (parent: EmployeeShiftModel, _args, _context: Context) => {
-      return parent.getEmployee();
-    },
-    gasStation: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getGasStation();
-    },
-    dispenserReadings: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserReadings();
-    },
-    salesTicketsProcessed: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTicketsProcessed();
-    },
-    salesTicketsDispatched: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTicketsDispatched();
-    },
-    tankMeasurements: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getTankMeasurements();
-    },
+    employee: belongsTo("employee", "Employee", "employeeId"),
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    dispenserReadings: hasMany("dispenserReadings", "DispenserReading", "employeeShiftId"),
+    salesTicketsProcessed: hasMany("salesTicketsProcessed", "SalesTicket", "cashierShiftId"),
+    salesTicketsDispatched: hasMany("salesTicketsDispatched", "SalesTicket", "dispatcherShiftId"),
+    tankMeasurements: hasMany("tankMeasurements", "TankMeasurement", "employeeShiftId"),
   },
 };
 

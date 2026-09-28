@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { DispatchReception as DispatchReceptionModel } from "../../models/dispatchReception"; // Importar el tipo de modelo
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const dispatchReceptionResolver: IResolvers<Context> = {
   Query: {
@@ -171,23 +172,9 @@ const dispatchReceptionResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   DispatchReception: {
-    invoice: async (
-      parent: DispatchReceptionModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getInvoice();
-    },
-    tank: async (parent: DispatchReceptionModel, _args, _context: Context) => {
-      return parent.getTank();
-    },
-    tankAssignments: async (
-      parent: DispatchReceptionModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getTankAssignments();
-    },
+    invoice: belongsTo("invoice", "Invoice", "invoiceId"),
+    tank: belongsTo("tank", "Tank", "tankId"),
+    tankAssignments: hasMany("tankAssignments", "TankAssignment", "dispatchReceptionId"),
   },
 };
 

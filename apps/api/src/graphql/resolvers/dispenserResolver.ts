@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { Dispenser as DispenserModel } from "../../models/dispenser"; // Importar el tipo de modelo
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const dispenserResolver: IResolvers<Context> = {
   Query: {
@@ -214,24 +215,13 @@ const dispenserResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   Dispenser: {
-    gasStation: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getGasStation();
-    },
-    pumpIsland: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getPumpIsland();
-    },
-    tank: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getTank();
-    },
-    fuelType: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getFuelType();
-    },
-    nozzles: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getNozzles();
-    },
-    salesTickets: async (parent: DispenserModel, _args, _context: Context) => {
-      return parent.getSalesTickets();
-    },
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    pumpIsland: belongsTo("pumpIsland", "PumpIsland", "pumpIslandId"),
+    tank: belongsTo("tank", "Tank", "tankId"),
+    fuelType: belongsTo("fuelType", "FuelType", "fuelTypeId"),
+    nozzles: hasMany("nozzles", "DispenserNozzle", "dispenserId"),
+    // dispenserId en sales_tickets es una columna fantasma (H-016): nadie la setea, siempre []
+    salesTickets: hasMany("salesTickets", "SalesTicket", "dispenserId"),
   },
 };
 
