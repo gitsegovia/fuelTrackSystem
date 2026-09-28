@@ -4,6 +4,11 @@ import { Context } from "../../interfaces";
 import { DispenserReading as DispenserReadingModel } from "../../models/dispenserReading";
 import { ReadingType } from "../../utils/types";
 
+// Sequelize devuelve DECIMAL como string (H-022): normalizar antes de comparar.
+function toNum(v: any): number {
+  return parseFloat(String(v ?? 0)) || 0;
+}
+
 const dispenserReadingResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las lecturas de surtidores
@@ -107,7 +112,7 @@ const dispenserReadingResolver: IResolvers<Context> = {
                 "Cannot create a FINAL reading without an existing INITIAL reading for this nozzle and shift."
               );
             }
-            if (input.meterReading < initialReading.meterReading) {
+            if (toNum(input.meterReading) < toNum(initialReading.meterReading)) {
               throw new Error(
                 "Final meter reading cannot be less than initial meter reading."
               );
@@ -210,7 +215,7 @@ const dispenserReadingResolver: IResolvers<Context> = {
             if (
               currentReadingType === ReadingType.INITIAL &&
               finalReading &&
-              currentMeterReading > finalReading.meterReading
+              toNum(currentMeterReading) > toNum(finalReading.meterReading)
             ) {
               throw new Error(
                 "Initial meter reading cannot be greater than the existing final meter reading."
@@ -219,7 +224,7 @@ const dispenserReadingResolver: IResolvers<Context> = {
             if (
               currentReadingType === ReadingType.FINAL &&
               initialReading &&
-              currentMeterReading < initialReading.meterReading
+              toNum(currentMeterReading) < toNum(initialReading.meterReading)
             ) {
               throw new Error(
                 "Final meter reading cannot be less than the existing initial meter reading."
