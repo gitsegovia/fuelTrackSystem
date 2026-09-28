@@ -1,0 +1,123 @@
+# Stack de verificación liviano — API real + PostgreSQL + stub de licencia +
+# seed demo, para que cualquier agente pueda probar contra la API sin levantar
+# web/station y sin depender de secretos del repo (T-028, H-019).
+#
+# Es un compose AUTOCONTENIDO (no se combina con docker-compose.yml): red,
+# nombres de servicio y proyecto propios, así no choca con el stack de
+# demo/producción si corren al mismo tiempo. Sin volúmenes persistentes
+# (Postgres vive en tmpfs) y con mem_limit conservador en los 3 servicios.
+#
+# Uso:
+#   docker compose -f docker-compose.verify.yml up -d --build
+#   docker compose -f docker-compose.verify.yml logs -f verify-api
+#   docker compose -f docker-compose.verify.yml down -v
+#
+# Variables sobreescribibles (todas opcionales, con default):
+#   VERIFY_API_PORT=4500          puerto del host hacia la API
+#   ACCESS_TOKEN_MINUTES=15       vida del access token (ADR-014)
+#   SESSION_MAX_HOURS=24          tope absoluto de la sesión (ADR-014)
+#   REFRESH_GRACE_SECONDS=60      ventana de gracia del refresh (T-019, ADR-014)
+#
+# Ejemplo con accessToken de 1 minuto:
+#   ACCESS_TOKEN_MINUTES=1 docker compose -f docker-compose.verify.yml up -d --build
+#
+# Usuario demo tras el seed (apps/api/sequelize/seeders/20250709033908-initial-data.cjs):
+#   admin.petronorte / Demo1234!
+#
+# El fingerprint del stub es el fixture de dev ya versionado en
+# apps/api/dev-machine-id.md + dev-mac-address.md (el mismo que usa el demo
+# docker-compose.demo.yml) — no es un secreto real, solo identifica la máquina
+# de desarrollo ante el CCILicenseServer de prueba.
+
+services:
+  verify-db:
+    image: postgres:15-alpine
+    mem_limit: 256m
+    # fsync=off y shared_buffers bajo: la BD es descartable (tmpfs), no hace
+    # falta durabilidad ni un buffer grande para una corrida de verificación.
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=20", "-c", "fsync=off"]
+    tmpfs:
+      - /var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: verify
+      POSTGRES_PASSWORD: verify
+      POSTGRES_DB: fueltrack_verify
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verify -d fueltrack_verify"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [verify-net]
+
+  verify-license-stub:
+    # Sin build ni archivos propios: un stub de una línea sobre node:22-alpine
+    # que siempre responde el fingerprint del fixture de dev.
+    image: node:22-alpine
+    mem_limit: 64m
+    environment:
+      STUB_FINGERPRINT: ead4940f77dacd63b34342249f66ed228c7f4692d84ea455548bc9692de88281
+    command:
+      - node
+      - -e
+      - |
+        const http = require('http');
+        const fingerprint = process.env.STUB_FINGERPRINT;
+        http.createServer((req, res) => {
+          req.on('data', () => {});
+          req.on('end', () => {
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ fingerprintHash: fingerprint }));
+          });
+        }).listen(4100, () => console.log('[verify-license-stub] escuchando en :4100'));
+    networks: [verify-net]
+
+  verify-api:
+    # target: development a propósito, NO production. Verificado en T-028: el
+    # target "production" tiene dos bugs reales, independientes de este stack
+    # (ver el reporte de la tarea y el hallazgo nuevo para ft-api/ft-core):
+    #   1. "npm start" (node dist/app.js) revienta con ERR_UNSUPPORTED_DIR_IMPORT
+    #      en los "import './config'" sin extensión — Node ESM estricto no lo
+    #      resuelve; el fix real es de tsconfig/imports en apps/api/src.
+    #   2. sequelize/config/config.js exige SSL cuando NODE_ENV=production
+    #      (para "sequelize-cli db:migrate"), y ningún Postgres descartable de
+    #      verificación lo tiene.
+    # El target "development" (nodemon + ts-node/esm) es el mismo que ya usa
+    # docker-compose.demo.yml y sí funciona de punta a punta.
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+      target: development
+    mem_limit: 768m
+    depends_on:
+      verify-db:
+        condition: service_healthy
+      verify-license-stub:
+        condition: service_started
+    environment:
+      PORT: 3000
+      DB_DATABASE: fueltrack_verify
+      DB_USER: verify
+      DB_PASS: verify
+      DB_HOST: verify-db
+      DB_PORT: 5432
+      DB_CONNECTOR: postgres
+      # Secreto de un solo uso para este stack descartable, no reutilizado en
+      # ningún .env real del repo — no hace falta generarlo con randomBytes.
+      JWT_SECRET: verify-stack-only-not-a-real-secret
+      SEED_DB: "true"
+      LICENSE_KEY: DEV-LICENSE-KEY-12345
+      LICENSE_SERVER_URL: http://verify-license-stub:4100
+      FINGERPRINT_PATH: /etc/fueltrack/fingerprint
+      SESSION_MAX_HOURS: ${SESSION_MAX_HOURS:-24}
+      ACCESS_TOKEN_MINUTES: ${ACCESS_TOKEN_MINUTES:-15}
+      REFRESH_GRACE_SECONDS: ${REFRESH_GRACE_SECONDS:-60}
+    volumes:
+      - ./apps/api/dev-machine-id.md:/run/secrets/machine-id:ro
+      - ./apps/api/dev-mac-address.md:/run/secrets/mac-address:ro
+    ports:
+      - "${VERIFY_API_PORT:-4500}:3000"
+    networks: [verify-net]
+
+networks:
+  verify-net:
+    driver: bridge
