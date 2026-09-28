@@ -23,11 +23,18 @@ interface Config {
   jwtSecret: string;
   sessionMaxHours: number;
   accessTokenMinutes: number;
+  refreshGraceSeconds: number;
 }
 
 function positiveNumber(value: string | undefined, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+function nonNegativeNumber(value: string | undefined, fallback: number): number {
+  if (value === undefined || value === "") return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
 const config_db: ConfigDb = {
@@ -46,6 +53,8 @@ const config: Config = {
   // ADR-014: tope absoluto de la sesión desde el login, y vida del access token.
   sessionMaxHours: positiveNumber(process.env.SESSION_MAX_HOURS, 24),
   accessTokenMinutes: positiveNumber(process.env.ACCESS_TOKEN_MINUTES, 15),
+  // T-019: 0 desactiva la gracia (todo reuso revoca la sesión).
+  refreshGraceSeconds: nonNegativeNumber(process.env.REFRESH_GRACE_SECONDS, 60),
 };
 
 export default config;
