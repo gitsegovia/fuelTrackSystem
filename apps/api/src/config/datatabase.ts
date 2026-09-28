@@ -8,6 +8,10 @@ const sequelize = new Sequelize({
   password: config.databaseUrl.password,
   port: config.databaseUrl.port,
   dialect: "postgres",
+  // H-026: SSL solo si DB_SSL=true (config/index.ts). Sin eso, igual que siempre: sin SSL.
+  dialectOptions: config.databaseUrl.ssl
+    ? { ssl: { require: true, rejectUnauthorized: config.databaseUrl.sslRejectUnauthorized } }
+    : {},
   logging: false,
 });
 

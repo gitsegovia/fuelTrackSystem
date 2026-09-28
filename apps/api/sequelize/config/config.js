@@ -41,14 +41,15 @@ export default {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT ||  5432,
     dialect: 'postgres',
-    dialectOptions: {
+    // H-026: SSL configurable, no forzado — el Postgres de docker-compose no lo tiene.
+    // DB_SSL=true lo habilita; DB_SSL_REJECT_UNAUTHORIZED=false permite un certificado no
+    // validado (por defecto se valida).
+    dialectOptions: process.env.DB_SSL === 'true' ? {
       ssl: {
-        require: true, // Requerir SSL
-        rejectUnauthorized: false, // ¡Cuidado! Deshabilita la validación del certificado SSL.
-                                  // Solo úsalo si tu proveedor de base de datos no tiene un certificado validado
-                                  // o si no quieres configurar uno. Para producción, busca una validación más estricta.
+        require: true,
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
       },
-    },
+    } : {},
     // Si usas un URL de conexión completo (como en Heroku, Railway, etc.)
     // use_env_variable: 'DATABASE_URL', // El nombre de tu variable de entorno
   },
