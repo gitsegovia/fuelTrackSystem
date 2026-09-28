@@ -19,7 +19,14 @@ COPY --from=appsrc package.json apps/web/package.json
 RUN pnpm install --frozen-lockfile --filter web... --ignore-scripts
 
 # ---- Builder Stage ----
+# NEXT_PUBLIC_GRAPHQL_URI se hornea en el bundle en tiempo de build (Next inlinea
+# las vars NEXT_PUBLIC_* con webpack DefinePlugin) — una var de entorno en runtime
+# no tiene ningún efecto una vez construida la imagen. Pásalo como build-arg:
+# --build-arg NEXT_PUBLIC_GRAPHQL_URI=https://api.tudominio.com/graphql
 FROM deps AS builder
+ARG NEXT_PUBLIC_GRAPHQL_URI=http://localhost:4000/graphql
+ENV NEXT_PUBLIC_GRAPHQL_URI=$NEXT_PUBLIC_GRAPHQL_URI
+
 COPY --from=appsrc . apps/web/
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm --filter web build
