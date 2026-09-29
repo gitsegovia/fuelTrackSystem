@@ -96,6 +96,41 @@ jobs:
       - run: npx sequelize-cli db:migrate:undo:all
         name: db:migrate:undo:all (verifica los down)
 
+  smoke-test-api-production:
+    name: "API — smoke test target production (H-026)"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    # Reutiliza docker-compose.verify.yml (T-028) con VERIFY_API_TARGET=production
+    # (T-029/T-032): así el CI detecta si la imagen de producción de la API deja
+    # de arrancar, algo que antes de H-026 nadie probaba de punta a punta.
+    # Proyecto de compose propio para no chocar con otro `docker compose` que
+    # pudiera correr en el mismo runner.
+    env:
+      VERIFY_API_TARGET: production
+      VERIFY_API_PORT: 4599
+      COMPOSE_PROJECT: ci-verify-prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Levantar API + Postgres + stub de licencia (target production)
+        run: docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" up -d --build
+      - name: Esperar la API y hacer login real contra el usuario sembrado
+        run: |
+          set -e
+          for i in $(seq 1 60); do
+            RESP=$(curl -s -m 3 -X POST "http://localhost:${VERIFY_API_PORT}/graphql" --json '{"query":"mutation { login(input: {username: \"admin.petronorte\", password: \"Demo1234!\"}) { token } }"}' || true)
+            if printf '%s' "$RESP" | grep -q '"token"'; then
+              echo "Login OK: $RESP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::La imagen production de la API no respondio login a tiempo (H-026)"
+          docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" logs verify-api
+          exit 1
+      - name: Bajar el stack (siempre, incluso si el paso anterior fallo)
+        if: always()
+        run: docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" down -v
+
   lint-typecheck-web:
     name: "Web — lint + typecheck"
     if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'web' }}

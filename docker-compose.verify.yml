@@ -13,13 +13,25 @@
 #   docker compose -f docker-compose.verify.yml down -v
 #
 # Variables sobreescribibles (todas opcionales, con default):
-#   VERIFY_API_PORT=4500          puerto del host hacia la API
-#   ACCESS_TOKEN_MINUTES=15       vida del access token (ADR-014)
-#   SESSION_MAX_HOURS=24          tope absoluto de la sesión (ADR-014)
-#   REFRESH_GRACE_SECONDS=60      ventana de gracia del refresh (T-019, ADR-014)
+#   VERIFY_API_PORT=4500           puerto del host hacia la API
+#   VERIFY_API_TARGET=development  target del build de apps/api/Dockerfile
+#                                  ("development" o "production", T-032)
+#   ACCESS_TOKEN_MINUTES=15        vida del access token (ADR-014)
+#   SESSION_MAX_HOURS=24           tope absoluto de la sesión (ADR-014)
+#   REFRESH_GRACE_SECONDS=60       ventana de gracia del refresh (T-019, ADR-014)
 #
 # Ejemplo con accessToken de 1 minuto:
 #   ACCESS_TOKEN_MINUTES=1 docker compose -f docker-compose.verify.yml up -d --build
+#
+# Ejemplo probando el build real de producción (H-026, esbuild+SSL opcional):
+#   VERIFY_API_TARGET=production VERIFY_API_PORT=4599 \
+#     docker compose -f docker-compose.verify.yml -p verify-prod up -d --build
+#   # ... probar ...
+#   docker compose -f docker-compose.verify.yml -p verify-prod down -v
+#
+# Corriendo varias veces a la vez (varios worktrees/agentes): usar -p <nombre>
+# y VERIFY_API_PORT distintos por corrida — el proyecto y la red ya son propios
+# de este archivo, pero el puerto del host sí puede chocar.
 #
 # Usuario demo tras el seed (apps/api/sequelize/seeders/20250709033908-initial-data.cjs):
 #   admin.petronorte / Demo1234!
@@ -72,21 +84,15 @@ services:
     networks: [verify-net]
 
   verify-api:
-    # target: development a propósito, NO production. Verificado en T-028: el
-    # target "production" tiene dos bugs reales, independientes de este stack
-    # (ver el reporte de la tarea y el hallazgo nuevo para ft-api/ft-core):
-    #   1. "npm start" (node dist/app.js) revienta con ERR_UNSUPPORTED_DIR_IMPORT
-    #      en los "import './config'" sin extensión — Node ESM estricto no lo
-    #      resuelve; el fix real es de tsconfig/imports en apps/api/src.
-    #   2. sequelize/config/config.js exige SSL cuando NODE_ENV=production
-    #      (para "sequelize-cli db:migrate"), y ningún Postgres descartable de
-    #      verificación lo tiene.
-    # El target "development" (nodemon + ts-node/esm) es el mismo que ya usa
-    # docker-compose.demo.yml y sí funciona de punta a punta.
+    # target: development por default (más liviano para uso diario), pero
+    # VERIFY_API_TARGET=production funciona desde T-029 (H-026: build con
+    # esbuild + SSL opcional vía DB_SSL, apagado por defecto — compatible con
+    # este Postgres descartable, que no tiene SSL configurado). El smoke test
+    # de ci.yml (T-032) levanta este mismo archivo con target=production.
     build:
       context: ./apps/api
       dockerfile: Dockerfile
-      target: development
+      target: ${VERIFY_API_TARGET:-development}
     mem_limit: 768m
     depends_on:
       verify-db:
