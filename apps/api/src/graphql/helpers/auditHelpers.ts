@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, QueryTypes } from "sequelize";
 import { Context } from "../../interfaces";
 import { MeasurementReason, SalesTicketStatus, PaymentMethod } from "../../utils/types";
 
@@ -115,63 +115,101 @@ export async function computeDriverAudit(
   })).sort((a, b) => a.totalDifferential - b.totalDifferential);
 }
 
-// ─── 3. Auditoría de turno (row) ──────────────────────────────────────────────
+// ─── 3. Auditoría de turno ─────────────────────────────────────────────────────
+// T-033 (H-021 riesgo #9): antes, 3 queries POR TURNO (computeShiftAuditRow). Ahora, 3 queries
+// TOTALES sin importar cuántos turnos entren, agregadas en SQL y repartidas por shiftId en JS.
+// Mismas reglas exactas que antes — ver el detalle de cada campo en los comentarios de abajo.
+
+async function computeShiftAuditRows(shifts: any[], ctx: Context) {
+  if (shifts.length === 0) return [];
+  const shiftIds = shifts.map((s) => s.id);
+
+  // meterDeltaLiters: Σ(final − initial) de boquillas con AMBAS lecturas en el turno. Si
+  // ninguna boquilla tiene las dos, el turno no aparece en el resultado → queda null (no 0).
+  // unique_reading_per_nozzle_shift_type garantiza como mucho una fila por (turno, boquilla,
+  // tipo), así que MAX() por tipo equivale a "la" lectura de ese tipo, sin ambigüedad.
+  const meterRows = await ctx.sequelize.query<{ employeeShiftId: string; meterDeltaLiters: string }>(
+    `
+    SELECT "employeeShiftId", SUM(final_reading - initial_reading) AS "meterDeltaLiters"
+    FROM (
+      SELECT "employeeShiftId", "dispenserNozzleId",
+        MAX(CASE WHEN "readingType" = 'INITIAL' THEN "meterReading" END) AS initial_reading,
+        MAX(CASE WHEN "readingType" = 'FINAL' THEN "meterReading" END) AS final_reading
+      FROM dispenser_readings
+      WHERE "employeeShiftId" IN (:shiftIds)
+      GROUP BY "employeeShiftId", "dispenserNozzleId"
+    ) nozzle_pairs
+    WHERE initial_reading IS NOT NULL AND final_reading IS NOT NULL
+    GROUP BY "employeeShiftId"
+    `,
+    { replacements: { shiftIds }, type: QueryTypes.SELECT }
+  );
+  const meterMap = new Map(meterRows.map((r) => [r.employeeShiftId, round(toNum(r.meterDeltaLiters))]));
+
+  // cashierTicketLiters/totalTickets/canceledTickets: totalTickets cuenta TODOS los tickets del
+  // turno (incluidos CANCELED); cashierTicketLiters suma actualLitersDispatched solo de los NO
+  // cancelados y no nulos — si no hay ninguno que cumpla, SUM(...) FILTER(...) da NULL (mismo
+  // null que el bucle original cuando nunca entra al if).
+  const ticketRows = await ctx.sequelize.query<{
+    shiftId: string; totalTickets: number; canceledTickets: number; cashierTicketLiters: string | null;
+  }>(
+    `
+    SELECT "cashierShiftId" AS "shiftId",
+      COUNT(*)::int AS "totalTickets",
+      COUNT(*) FILTER (WHERE status = 'CANCELED')::int AS "canceledTickets",
+      SUM("actualLitersDispatched") FILTER (WHERE status <> 'CANCELED' AND "actualLitersDispatched" IS NOT NULL) AS "cashierTicketLiters"
+    FROM sales_tickets
+    WHERE "cashierShiftId" IN (:shiftIds)
+    GROUP BY "cashierShiftId"
+    `,
+    { replacements: { shiftIds }, type: QueryTypes.SELECT }
+  );
+  const ticketMap = new Map(ticketRows.map((r) => [r.shiftId, r]));
+
+  // tankMeasurementLiters: dispensedVolumeSinceLastMeasurement de la última medición
+  // SHIFT_CLOSURE del turno (o null si no hay ninguna) — DISTINCT ON hace lo mismo que
+  // findOne({order: measurementTime DESC}) pero para todos los turnos en una sola consulta.
+  const tankRows = await ctx.sequelize.query<{
+    employeeShiftId: string; dispensedVolumeSinceLastMeasurement: string | null;
+  }>(
+    `
+    SELECT DISTINCT ON ("employeeShiftId") "employeeShiftId", "dispensedVolumeSinceLastMeasurement"
+    FROM tank_measurements
+    WHERE "employeeShiftId" IN (:shiftIds) AND "measurementReason" = :reason
+    ORDER BY "employeeShiftId", "measurementTime" DESC
+    `,
+    { replacements: { shiftIds, reason: MeasurementReason.SHIFT_CLOSURE }, type: QueryTypes.SELECT }
+  );
+  const tankMap = new Map(tankRows.map((r) => [r.employeeShiftId, r]));
+
+  return shifts.map((shift) => {
+    const shiftId = shift.id;
+    const meterDeltaLiters = meterMap.get(shiftId) ?? null;
+
+    const t = ticketMap.get(shiftId);
+    const totalTickets = t?.totalTickets ?? 0;
+    const canceledTickets = t?.canceledTickets ?? 0;
+    const cashierTicketLiters = t?.cashierTicketLiters != null ? round(toNum(t.cashierTicketLiters)) : null;
+
+    const tankRow = tankMap.get(shiftId);
+    const tankMeasurementLiters = tankRow ? toNum(tankRow.dispensedVolumeSinceLastMeasurement) : null;
+
+    const meterVsCashierDiff = meterDeltaLiters !== null && cashierTicketLiters !== null
+      ? round(meterDeltaLiters - cashierTicketLiters) : null;
+    const cashierVsTankDiff = cashierTicketLiters !== null && tankMeasurementLiters !== null
+      ? round(cashierTicketLiters - tankMeasurementLiters) : null;
+    const meterVsTankDiff = meterDeltaLiters !== null && tankMeasurementLiters !== null
+      ? round(meterDeltaLiters - tankMeasurementLiters) : null;
+
+    return {
+      shift, meterDeltaLiters, cashierTicketLiters, tankMeasurementLiters,
+      meterVsCashierDiff, cashierVsTankDiff, meterVsTankDiff, totalTickets, canceledTickets,
+    };
+  });
+}
 
 export async function computeShiftAuditRow(shift: any, ctx: Context) {
-  const shiftId = shift.id;
-
-  const readings = await ctx.models.DispenserReading.findAll({
-    where: { employeeShiftId: shiftId },
-  });
-  const nozzleMap = new Map<string, { initial?: number; final?: number }>();
-  for (const r of readings as any[]) {
-    if (!nozzleMap.has(r.dispenserNozzleId)) nozzleMap.set(r.dispenserNozzleId, {});
-    const entry = nozzleMap.get(r.dispenserNozzleId)!;
-    if (r.readingType === "INITIAL") entry.initial = toNum(r.meterReading);
-    else entry.final = toNum(r.meterReading);
-  }
-  let meterDeltaLiters: number | null = null;
-  for (const { initial, final } of nozzleMap.values()) {
-    if (initial !== undefined && final !== undefined) {
-      if (meterDeltaLiters === null) meterDeltaLiters = 0;
-      meterDeltaLiters += final - initial;
-    }
-  }
-  if (meterDeltaLiters !== null) meterDeltaLiters = round(meterDeltaLiters);
-
-  const tickets = await ctx.models.SalesTicket.findAll({ where: { cashierShiftId: shiftId } });
-  let cashierTicketLiters: number | null = null;
-  let totalTickets = 0;
-  let canceledTickets = 0;
-  for (const t of tickets as any[]) {
-    totalTickets++;
-    if (t.status === SalesTicketStatus.CANCELED) { canceledTickets++; continue; }
-    if (t.actualLitersDispatched != null) {
-      if (cashierTicketLiters === null) cashierTicketLiters = 0;
-      cashierTicketLiters += toNum(t.actualLitersDispatched);
-    }
-  }
-  if (cashierTicketLiters !== null) cashierTicketLiters = round(cashierTicketLiters);
-
-  const tankMeasurement = await ctx.models.TankMeasurement.findOne({
-    where: { employeeShiftId: shiftId, measurementReason: MeasurementReason.SHIFT_CLOSURE },
-    order: [["measurementTime", "DESC"]],
-  });
-  const tankMeasurementLiters = tankMeasurement
-    ? toNum((tankMeasurement as any).dispensedVolumeSinceLastMeasurement)
-    : null;
-
-  const meterVsCashierDiff = meterDeltaLiters !== null && cashierTicketLiters !== null
-    ? round(meterDeltaLiters - cashierTicketLiters) : null;
-  const cashierVsTankDiff = cashierTicketLiters !== null && tankMeasurementLiters !== null
-    ? round(cashierTicketLiters - tankMeasurementLiters) : null;
-  const meterVsTankDiff = meterDeltaLiters !== null && tankMeasurementLiters !== null
-    ? round(meterDeltaLiters - tankMeasurementLiters) : null;
-
-  return {
-    shift, meterDeltaLiters, cashierTicketLiters, tankMeasurementLiters,
-    meterVsCashierDiff, cashierVsTankDiff, meterVsTankDiff, totalTickets, canceledTickets,
-  };
+  return (await computeShiftAuditRows([shift], ctx))[0];
 }
 
 export async function computeShiftAudit(
@@ -190,7 +228,7 @@ export async function computeShiftAudit(
     ],
     order: [["shiftStartTime", "DESC"]],
   });
-  return Promise.all((shifts as any[]).map((s) => computeShiftAuditRow(s, ctx)));
+  return computeShiftAuditRows(shifts as any[], ctx);
 }
 
 // ─── 4. Rendimiento por bombero ───────────────────────────────────────────────
@@ -245,6 +283,87 @@ export async function computeDispatcherAudit(
 }
 
 // ─── 5. Balance de tanque ─────────────────────────────────────────────────────
+// T-033 (H-021 riesgo #9): antes, hasta 6 queries POR TANQUE. Ahora, 4 queries TOTALES sin
+// importar cuántos tanques entren (más el findAll de tanques, que ya existía en
+// computeTankBalanceByStation, o el findByPk de un tanque suelto). Mismas reglas exactas.
+
+async function computeTankBalances(tanks: any[], startDate: Date, endDate: Date, ctx: Context) {
+  if (tanks.length === 0) return [];
+  const tankIds = tanks.map((t) => t.id);
+
+  // opening/closing: volumen de la última medición con measurementTime ≤ start/end. Si un
+  // tanque no tiene ninguna medición hasta esa fecha, no aparece en el mapa → fallback a
+  // Tank.currentVolumeLiters (idéntico al findOne(...) ?? tank.currentVolumeLiters original).
+  const [openingRows, closingRows] = await Promise.all(
+    [startDate, endDate].map((date) =>
+      ctx.sequelize.query<{ tankId: string; volumeInLiters: string | null }>(
+        `
+        SELECT DISTINCT ON ("tankId") "tankId", "volumeInLiters"
+        FROM tank_measurements
+        WHERE "tankId" IN (:tankIds) AND "measurementTime" <= :date
+        ORDER BY "tankId", "measurementTime" DESC
+        `,
+        { replacements: { tankIds, date }, type: QueryTypes.SELECT }
+      )
+    )
+  );
+  const openingMap = new Map(openingRows.map((r) => [r.tankId, r.volumeInLiters]));
+  const closingMap = new Map(closingRows.map((r) => [r.tankId, r.volumeInLiters]));
+
+  const receptionRows = await ctx.sequelize.query<{ tankId: string; totalReceivedLiters: string }>(
+    `
+    SELECT "tankId", SUM("receivedLiters") AS "totalReceivedLiters"
+    FROM dispatch_receptions
+    WHERE "tankId" IN (:tankIds) AND "receptionDate" BETWEEN :startDate AND :endDate
+    GROUP BY "tankId"
+    `,
+    { replacements: { tankIds, startDate, endDate }, type: QueryTypes.SELECT }
+  );
+  const receivedMap = new Map(receptionRows.map((r) => [r.tankId, toNum(r.totalReceivedLiters)]));
+
+  // dispatched: Σ actualLitersDispatched de tickets COMPLETED del período, despachados por
+  // boquillas cuyo dispensador apunta al tanque — el mismo camino tanque→dispensador→boquilla→
+  // ticket del original, en un solo JOIN. Un tanque sin dispensadores/boquillas/tickets que
+  // califiquen simplemente no sale en el mapa → default 0, igual que el original.
+  const dispatchedRows = await ctx.sequelize.query<{ tankId: string; totalDispatchedLiters: string }>(
+    `
+    SELECT d."tankId", SUM(st."actualLitersDispatched") AS "totalDispatchedLiters"
+    FROM dispensers d
+    JOIN dispenser_nozzles dn ON dn."dispenserId" = d.id
+    JOIN sales_tickets st ON st."dispenserNozzleId" = dn.id
+    WHERE d."tankId" IN (:tankIds)
+      AND st."ticketIssueTime" BETWEEN :startDate AND :endDate
+      AND st.status = :completed
+      AND st."actualLitersDispatched" IS NOT NULL
+    GROUP BY d."tankId"
+    `,
+    {
+      replacements: { tankIds, startDate, endDate, completed: SalesTicketStatus.COMPLETED },
+      type: QueryTypes.SELECT,
+    }
+  );
+  const dispatchedMap = new Map(dispatchedRows.map((r) => [r.tankId, toNum(r.totalDispatchedLiters)]));
+
+  return tanks.map((tank) => {
+    const openingVolumeLiters = toNum(openingMap.get(tank.id) ?? (tank as any).currentVolumeLiters ?? 0);
+    const actualClosingVolume = toNum(closingMap.get(tank.id) ?? (tank as any).currentVolumeLiters ?? 0);
+    const totalReceivedLiters = round(receivedMap.get(tank.id) ?? 0);
+    const totalDispatchedLiters = round(dispatchedMap.get(tank.id) ?? 0);
+
+    const expectedClosingVolume = round(openingVolumeLiters + totalReceivedLiters - totalDispatchedLiters);
+    const varianceLiters = round(actualClosingVolume - expectedClosingVolume);
+    const variancePercent = expectedClosingVolume !== 0
+      ? round((varianceLiters / expectedClosingVolume) * 100) : 0;
+
+    return {
+      tank, periodStart: startDate, periodEnd: endDate,
+      openingVolumeLiters: round(openingVolumeLiters),
+      totalReceivedLiters, totalDispatchedLiters,
+      expectedClosingVolume, actualClosingVolume: round(actualClosingVolume),
+      varianceLiters, variancePercent,
+    };
+  });
+}
 
 export async function computeTankBalance(
   tankId: string,
@@ -260,61 +379,7 @@ export async function computeTankBalance(
     ],
   });
   if (!tank) return null;
-
-  const openingMeasurement = await ctx.models.TankMeasurement.findOne({
-    where: { tankId, measurementTime: { [Op.lte]: startDate } },
-    order: [["measurementTime", "DESC"]],
-  });
-  const closingMeasurement = await ctx.models.TankMeasurement.findOne({
-    where: { tankId, measurementTime: { [Op.lte]: endDate } },
-    order: [["measurementTime", "DESC"]],
-  });
-
-  const openingVolumeLiters = toNum((openingMeasurement as any)?.volumeInLiters ?? (tank as any).currentVolumeLiters ?? 0);
-  const actualClosingVolume = toNum((closingMeasurement as any)?.volumeInLiters ?? (tank as any).currentVolumeLiters ?? 0);
-
-  const receptions = await ctx.models.DispatchReception.findAll({
-    where: { tankId, receptionDate: { [Op.between]: [startDate, endDate] } },
-  });
-  const totalReceivedLiters = round(
-    (receptions as any[]).reduce((s, r) => s + toNum(r.receivedLiters), 0)
-  );
-
-  const dispensers = await ctx.models.Dispenser.findAll({ where: { tankId } });
-  const dispenserIds = (dispensers as any[]).map((d) => d.id);
-  let totalDispatchedLiters = 0;
-  if (dispenserIds.length > 0) {
-    const nozzles = await ctx.models.DispenserNozzle.findAll({
-      where: { dispenserId: { [Op.in]: dispenserIds } },
-    });
-    const nozzleIds = (nozzles as any[]).map((n) => n.id);
-    if (nozzleIds.length > 0) {
-      const tickets = await ctx.models.SalesTicket.findAll({
-        where: {
-          dispenserNozzleId: { [Op.in]: nozzleIds },
-          ticketIssueTime: { [Op.between]: [startDate, endDate] },
-          status: SalesTicketStatus.COMPLETED,
-          actualLitersDispatched: { [Op.not]: null },
-        } as any,
-      });
-      totalDispatchedLiters = round(
-        (tickets as any[]).reduce((s, t) => s + toNum(t.actualLitersDispatched), 0)
-      );
-    }
-  }
-
-  const expectedClosingVolume = round(openingVolumeLiters + totalReceivedLiters - totalDispatchedLiters);
-  const varianceLiters = round(actualClosingVolume - expectedClosingVolume);
-  const variancePercent = expectedClosingVolume !== 0
-    ? round((varianceLiters / expectedClosingVolume) * 100) : 0;
-
-  return {
-    tank, periodStart: startDate, periodEnd: endDate,
-    openingVolumeLiters: round(openingVolumeLiters),
-    totalReceivedLiters, totalDispatchedLiters,
-    expectedClosingVolume, actualClosingVolume: round(actualClosingVolume),
-    varianceLiters, variancePercent,
-  };
+  return (await computeTankBalances([tank], startDate, endDate, ctx))[0];
 }
 
 export async function computeTankBalanceByStation(
@@ -330,10 +395,13 @@ export async function computeTankBalanceByStation(
       { model: ctx.models.TankModel, as: "tankModel" },
     ],
   });
-  return Promise.all((tanks as any[]).map((t) => computeTankBalance(t.id, startDate, endDate, ctx, t)));
+  return computeTankBalances(tanks as any[], startDate, endDate, ctx);
 }
 
 // ─── 6. Cuadre financiero por turno ──────────────────────────────────────────
+// T-033 (H-021 riesgo #9): antes, 1 query POR TURNO (tickets + pagos vía include). Ahora, 2
+// queries TOTALES agregadas en SQL. Mismas reglas exactas, incluido el hallazgo H-006 (suma
+// montos de distintas monedas sin convertir) — no se toca, solo se cambia cómo se suma.
 
 export async function computeShiftFinancialAudit(
   gasStationId: string,
@@ -352,42 +420,75 @@ export async function computeShiftFinancialAudit(
     ],
     order: [["shiftStartTime", "DESC"]],
   });
+  if (shifts.length === 0) return [];
+  const shiftIds = (shifts as any[]).map((s) => s.id);
 
-  return Promise.all((shifts as any[]).map(async (shift) => {
-    const tickets = await ctx.models.SalesTicket.findAll({
-      where: { cashierShiftId: shift.id },
-      include: [{ model: ctx.models.Payment, as: "payments" }],
-    });
-
-    let totalExpectedAmount = 0, totalCollectedAmount = 0;
-    let cashAmount = 0, electronicAmount = 0;
-    let completedTickets = 0, canceledTickets = 0, pendingTickets = 0;
-
-    for (const t of tickets as any[]) {
-      totalExpectedAmount += toNum(t.totalAmountExpected);
-      if (t.status === SalesTicketStatus.COMPLETED) completedTickets++;
-      else if (t.status === SalesTicketStatus.CANCELED) canceledTickets++;
-      else pendingTickets++;
-
-      for (const p of t.payments ?? []) {
-        const amount = toNum(p.amount);
-        totalCollectedAmount += amount;
-        if (p.paymentMethod === PaymentMethod.CASH) cashAmount += amount;
-        else electronicAmount += amount;
-      }
+  const ticketRows = await ctx.sequelize.query<{
+    shiftId: string; totalTickets: number; completedTickets: number; canceledTickets: number;
+    totalExpectedAmount: string | null;
+  }>(
+    `
+    SELECT "cashierShiftId" AS "shiftId",
+      COUNT(*)::int AS "totalTickets",
+      COUNT(*) FILTER (WHERE status = :completed)::int AS "completedTickets",
+      COUNT(*) FILTER (WHERE status = :canceled)::int AS "canceledTickets",
+      SUM("totalAmountExpected") AS "totalExpectedAmount"
+    FROM sales_tickets
+    WHERE "cashierShiftId" IN (:shiftIds)
+    GROUP BY "cashierShiftId"
+    `,
+    {
+      replacements: {
+        shiftIds,
+        completed: SalesTicketStatus.COMPLETED,
+        canceled: SalesTicketStatus.CANCELED,
+      },
+      type: QueryTypes.SELECT,
     }
+  );
+  const ticketMap = new Map(ticketRows.map((r) => [r.shiftId, r]));
+
+  const paymentRows = await ctx.sequelize.query<{
+    shiftId: string; totalCollectedAmount: string; cashAmount: string; electronicAmount: string;
+  }>(
+    `
+    SELECT st."cashierShiftId" AS "shiftId",
+      SUM(p.amount) AS "totalCollectedAmount",
+      SUM(p.amount) FILTER (WHERE p."paymentMethod" = :cash) AS "cashAmount",
+      SUM(p.amount) FILTER (WHERE p."paymentMethod" <> :cash) AS "electronicAmount"
+    FROM payments p
+    JOIN sales_tickets st ON st.id = p."salesTicketId"
+    WHERE st."cashierShiftId" IN (:shiftIds)
+    GROUP BY st."cashierShiftId"
+    `,
+    { replacements: { shiftIds, cash: PaymentMethod.CASH }, type: QueryTypes.SELECT }
+  );
+  const paymentMap = new Map(paymentRows.map((r) => [r.shiftId, r]));
+
+  return (shifts as any[]).map((shift) => {
+    const t = ticketMap.get(shift.id);
+    const totalTickets = t?.totalTickets ?? 0;
+    const completedTickets = t?.completedTickets ?? 0;
+    const canceledTickets = t?.canceledTickets ?? 0;
+    const pendingTickets = totalTickets - completedTickets - canceledTickets;
+    const totalExpectedAmount = round(toNum(t?.totalExpectedAmount));
+
+    const p = paymentMap.get(shift.id);
+    const totalCollectedAmount = round(toNum(p?.totalCollectedAmount));
+    const cashAmount = round(toNum(p?.cashAmount));
+    const electronicAmount = round(toNum(p?.electronicAmount));
 
     return {
       shift,
-      totalExpectedAmount: round(totalExpectedAmount),
-      totalCollectedAmount: round(totalCollectedAmount),
+      totalExpectedAmount,
+      totalCollectedAmount,
       financialDifferential: round(totalCollectedAmount - totalExpectedAmount),
-      cashAmount: round(cashAmount),
-      electronicAmount: round(electronicAmount),
-      totalTickets: tickets.length,
+      cashAmount,
+      electronicAmount,
+      totalTickets,
       completedTickets, canceledTickets, pendingTickets,
     };
-  }));
+  });
 }
 
 // ─── 7. Margen de ganancia (para snapshot) ────────────────────────────────────
