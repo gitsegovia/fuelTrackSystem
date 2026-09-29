@@ -20,9 +20,16 @@ import { cpSync, rmSync } from "fs";
 
 rmSync("dist", { recursive: true, force: true });
 
+// T-031: bootstrap-admin.ts es la única forma de crear el primer usuario en una instalación
+// nueva (producción no siembra datos demo) — necesita su propio bundle, no solo app.ts.
+// Con varios entryPoints, esbuild usa el ancestro común (src/) como base y espeja la
+// estructura bajo outdir: src/app.ts → dist/app.js, src/scripts/bootstrap-admin.ts →
+// dist/scripts/bootstrap-admin.js. Sin "splitting" (no hace falta: son dos procesos
+// separados, cada uno con su propio bundle completo, sin código compartido en tiempo de
+// ejecución — duplicar el grafo de módulos entre los dos es aceptable a este tamaño).
 await build({
-  entryPoints: ["src/app.ts"],
-  outfile: "dist/app.js",
+  entryPoints: ["src/app.ts", "src/scripts/bootstrap-admin.ts"],
+  outdir: "dist",
   bundle: true,
   platform: "node",
   format: "esm",
@@ -38,4 +45,4 @@ await build({
 // schemas se copian a dist/schemas, no a dist/graphql/schemas.
 cpSync("src/graphql/schemas", "dist/schemas", { recursive: true });
 
-console.log("Build de producción listo: dist/app.js + dist/schemas/");
+console.log("Build de producción listo: dist/app.js, dist/scripts/bootstrap-admin.js + dist/schemas/");
