@@ -15,6 +15,8 @@ interface ConfigDb {
   host: string;
   port: number;
   dialect: string;
+  ssl: boolean;
+  sslRejectUnauthorized: boolean;
 }
 
 interface Config {
@@ -87,6 +89,14 @@ function nonNegativeNumber(name: string, fallback: number): number {
   return fallback;
 }
 
+// H-026: SSL de Postgres configurable, no forzado. Sin DB_SSL, el runtime de la app se conecta
+// igual que hoy (sin SSL) — compatible con el Postgres de docker-compose y con dev local.
+function readBoolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  return raw.toLowerCase() === "true";
+}
+
 const config_db: ConfigDb = {
   database: readRequired("DB_DATABASE"),
   username: readRequired("DB_USER"),
@@ -94,6 +104,10 @@ const config_db: ConfigDb = {
   host: readRequired("DB_HOST"),
   port: readRequiredPort("DB_PORT"),
   dialect: readRequired("DB_CONNECTOR"),
+  // DB_SSL=true habilita SSL (por defecto apagado); DB_SSL_REJECT_UNAUTHORIZED=false permite un
+  // certificado no validado (por defecto true: rechaza certificados inválidos).
+  ssl: readBoolean("DB_SSL", false),
+  sslRejectUnauthorized: readBoolean("DB_SSL_REJECT_UNAUTHORIZED", true),
 };
 
 const config: Config = {
