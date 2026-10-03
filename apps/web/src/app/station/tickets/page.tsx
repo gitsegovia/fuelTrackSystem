@@ -12,8 +12,9 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pago recibido',
+  ISSUED: 'Emitido',
+  PAID: 'Pago recibido',
+  DISPATCHED: 'Despachado',
   COMPLETED: 'Completado',
   CANCELED: 'Cancelado',
 }

@@ -138,6 +138,22 @@ export const QUERIES = {
     ${EMPLOYEE_BRIEF}
   `,
 
+  // Diferencial por bombero (ADR-015). Montos en moneda base; sin comisiones (D-17).
+  dispatcherDifferentialSummary: gql`
+    query DispatcherDifferentialSummary($gasStationId: UUID, $startDate: DateTime, $endDate: DateTime) {
+      dispatcherDifferentialSummary(gasStationId: $gasStationId, startDate: $startDate, endDate: $endDate) {
+        dispatcherEmployeeId
+        ticketCount
+        grossDifferentialLiters
+        grossDifferentialAmount
+        refundedLiters
+        refundedAmount
+        netDifferentialLiters
+        netDifferentialAmount
+      }
+    }
+  `,
+
   // ─── 4. Tanques ─────────────────────────────────────────────────────────────
 
   tankBalanceAuditByStation: gql`
