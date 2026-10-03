@@ -25,7 +25,7 @@ export const psql = (sql) =>
     { encoding: 'utf8' }
   ).trim()
 
-export const proxyControl = (state) => execFileSync('curl', ['-s', `${PROXY_CONTROL}/${state}`], { encoding: 'utf8' })
+export const proxyControl = async (state) => (await fetch(`${PROXY_CONTROL}/${state}`)).text()
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 

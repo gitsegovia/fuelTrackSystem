@@ -2,7 +2,7 @@ import { ApolloClient, ApolloLink, InMemoryCache, Observable, from } from '@apol
 import type { FieldPolicy } from '@apollo/client'
 import { createHttpLink } from '@apollo/client/link/http'
 import { setContext } from '@apollo/client/link/context'
-import { persistCache, LocalStorageWrapper } from 'apollo3-cache-persist'
+import { CachePersistor, LocalStorageWrapper } from 'apollo3-cache-persist'
 import { print } from 'graphql'
 import { enqueue } from './offline-db'
 import { getDeviceFingerprint, getStoredUserId } from './device-fingerprint'
@@ -86,6 +86,11 @@ function redirectById(__typename: string): FieldPolicy {
 /** Se resuelve cuando el cache persistido ya se restauró (o falló la restauración). */
 export let cacheRestored: Promise<void> = Promise.resolve()
 
+let persistor: { persist(): Promise<void> } | null = null
+function flushCache() {
+  persistor?.persist().catch(() => {})
+}
+
 // Inicialización síncrona: persistCache restaura el cache en segundo plano
 // sobre la misma instancia de InMemoryCache sin bloquear el render inicial.
 export function makeApolloClient() {
@@ -100,17 +105,31 @@ export function makeApolloClient() {
     },
   })
 
-  cacheRestored = persistCache({
+  // persistCache(opts) es exactamente new CachePersistor(opts).restore(); se usa la clase para
+  // conservar la referencia y poder forzar la escritura al ocultarse la página.
+  const cachePersistor = new CachePersistor({
     cache,
     storage: new LocalStorageWrapper(window.localStorage),
     maxSize: 1048576 * 5,
     debounce: 2000,
   })
-    .then(() => console.debug('[FuelTrack] Apollo cache restored'))
+  cacheRestored = cachePersistor.restore()
+    .then(() => {
+      persistor = cachePersistor
+      console.debug('[FuelTrack] Apollo cache restored')
+    })
     .catch((e) => {
       console.warn('[FuelTrack] Cache restore failed, starting fresh:', e)
       try { window.localStorage.removeItem('apollo-cache-persist') } catch {}
     })
+
+  // El debounce de persistCache puede perder la última escritura si la página se descarga
+  // antes de que dispare. Persistir al ocultarse; persistor solo existe tras restaurar, así
+  // que nunca sobrescribe el cache guardado con uno vacío.
+  window.addEventListener('pagehide', flushCache)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushCache()
+  })
 
   const httpLink = createHttpLink({
     uri: import.meta.env.VITE_GRAPHQL_URI || 'http://localhost:4000/graphql',

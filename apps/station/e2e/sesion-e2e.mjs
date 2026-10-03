@@ -47,7 +47,7 @@ await step('Operar > 2 min sin re-login y ver renovaciones de sesión (T-010 cri
 const measurementsBefore = Number(psql(`select count(*) from tank_measurements`))
 
 await step('Offline: medición de tanque encolada', async () => {
-  proxyControl('down')
+  await proxyControl('down')
   await context.setOffline(true)
   await page.getByRole('button', { name: 'Registrar medición' }).first().click()
   const inputs = page.locator('form input[type=number]')
@@ -65,7 +65,7 @@ await step('Esperar que venza la sesión sin red', async () => {
 })
 
 await step('Al volver la red: sesión vencida → login con aviso, cola intacta (T-010 criterio 2)', async () => {
-  proxyControl('up')
+  await proxyControl('up')
   await context.setOffline(false)
   await page.waitForURL('**/login', { timeout: 60_000 })
   await page.getByText('Tu sesión venció').first().waitFor({ state: 'visible', timeout: 15_000 })

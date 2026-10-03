@@ -16,8 +16,8 @@ const { step } = runner
 let page, context
 
 const expectVisible = (locator, timeout = 8000) => locator.first().waitFor({ state: 'visible', timeout })
-async function goOffline() { proxyControl('down'); await context.setOffline(true) }
-async function goOnline() { proxyControl('up'); await context.setOffline(false) }
+async function goOffline() { await proxyControl('down'); await context.setOffline(true) }
+async function goOnline() { await proxyControl('up'); await context.setOffline(false) }
 
 async function waitQueueEmpty(timeout = 30000) {
   const t0 = Date.now()
@@ -65,17 +65,10 @@ await step('Calentar cache online (listas, catálogos)', async () => {
     `join users u on u.id=e."userId" where u.username='${USER}' limit 1`
   )
   const routes = ['/shifts', '/shifts/new', '/tanks', '/tickets', ...(anyTicket ? [`/tickets/${anyTicket}`] : [])]
-  for (const p of routes) {
+  for (const p of [...routes, '/tickets/new?shiftId=warmup', '/dashboard']) {
     await page.goto(APP + p)
     await page.waitForLoadState('networkidle')
-    await page.waitForTimeout(2500)
   }
-  await page.goto(`${APP}/tickets/new?shiftId=warmup`)
-  await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(2500)
-  await page.goto(`${APP}/dashboard`)
-  await page.waitForLoadState('networkidle')
-  await page.waitForTimeout(2500)
 })
 
 // ── Offline (paso 1 del guion) ──────────────────────────────────────────────
@@ -191,7 +184,6 @@ await step('Cobro — el resumen del pago 2 descuenta el pago 1 (H-025 #2)', asy
 })
 
 await step('Lecturas FINAL offline', async () => {
-  await page.waitForTimeout(2500) // debounce de persistCache antes del primer reload
   await page.goto(`${APP}/shifts/${shiftLocalId}`)
   await page.getByRole('button', { name: 'Lecturas finales' }).click()
   const inputs = page.locator('input[type=number]')
@@ -204,22 +196,26 @@ await step('Lecturas FINAL offline', async () => {
 })
 
 await step('Medición de tanque offline (turno local)', async () => {
-  await page.waitForTimeout(2500)
   await page.goto(`${APP}/tanks`)
   await page.getByRole('button', { name: 'Registrar medición' }).first().click()
   const inputs = page.locator('form input[type=number]')
   await inputs.nth(0).fill('120')
   await inputs.nth(1).fill('5000')
   await page.getByRole('button', { name: 'Guardar offline' }).click()
-  await page.waitForTimeout(500)
+  await expectVisible(page.getByText('Medición guardada').first()) // la cola escribió antes de navegar
 })
 
-await step('Cerrar turno offline: queda sin turno activo', async () => {
-  await page.waitForTimeout(2500)
+// Criterio T-035: la última escritura sobrevive a una recarga dentro de 1 s. Tras "Cerrar turno"
+// se navega (recarga completa) en cuanto la app vuelve a /shifts; el flush en pagehide debe
+// haber guardado la escritura, así que el dashboard tiene que mostrar "Sin turno activo".
+await step('Cerrar turno offline: recarga < 1 s conserva la escritura (flush pagehide)', async () => {
   await page.goto(`${APP}/shifts/${shiftLocalId}`)
   await page.getByRole('button', { name: 'Cerrar turno' }).click()
+  const tWrite = Date.now()
   await page.waitForURL('**/shifts')
-  await page.waitForTimeout(2500)
+  const gap = Date.now() - tWrite
+  console.log(`  recarga a ${gap} ms de la escritura`)
+  if (gap >= 1000) throw new Error(`la navegación tardó ${gap} ms (el criterio exige < 1 s)`)
   await page.goto(`${APP}/dashboard`)
   await expectVisible(page.getByText('Sin turno activo'))
 })
@@ -297,7 +293,6 @@ await step('Error de negocio → queda en /sync con el error; Descartar funciona
   if (!target) throw new Error('no hay ticket pendiente en el seed')
   await page.goto(`${APP}/tickets/${target}`)
   await expectVisible(page.getByRole('button', { name: 'Registrar despacho' }))
-  await page.waitForTimeout(2500)
   await goOffline()
   await page.getByRole('button', { name: 'Registrar despacho' }).click()
   const selects = page.locator('form select')
@@ -305,7 +300,7 @@ await step('Error de negocio → queda en /sync con el error; Descartar funciona
   await selectFirstReal(selects.nth(1))
   await page.locator('form input[type=number]').fill('5')
   await page.getByRole('button', { name: 'Guardar offline' }).click()
-  await page.waitForTimeout(500)
+  await expectVisible(page.getByText('Despacho guardado offline').first())
   // Cambio en el servidor mientras el despacho está encolado: el sync lo recibirá como error de negocio.
   psql(`update sales_tickets set status='CANCELED' where id='${target}'`)
   await goOnline()
