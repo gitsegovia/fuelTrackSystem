@@ -7,7 +7,9 @@
     "dev": "vite --port 3001",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 3001",
-    "lint": "eslint"
+    "lint": "eslint",
+    "e2e": "node e2e/offline-e2e.mjs",
+    "e2e:sesion": "node e2e/sesion-e2e.mjs"
   },
   "dependencies": {
     "@apollo/client": "4.2.0",
@@ -34,6 +36,7 @@
     "@types/react": "19.2.16",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "4.7.0",
+    "playwright-core": "1.63.0",
     "tailwindcss": "4.3.0",
     "typescript": "5.9.3",
     "vite": "6.4.3",
