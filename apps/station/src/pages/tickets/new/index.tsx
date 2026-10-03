@@ -10,6 +10,7 @@ import { QUERIES as FuelTypeQueries } from '@/services/graphql/gql/fuelType'
 import { QUERIES as SaleTypeConfigQueries } from '@/services/graphql/gql/saleTypeConfig'
 import { QUERIES as PaymentQueries } from '@/services/graphql/gql/payment'
 import { ensureEmptyList, upsertInCachedList } from '@/lib/offline-cache'
+import { PAYMENT_MODE_LABELS } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -27,6 +28,7 @@ const selectClass = cn(
 )
 
 const schema = z.object({
+  paymentMode: z.enum(['PREPAID', 'POSTPAID']),
   fuelTypeId: z.string().min(1, 'Selecciona un combustible'),
   assignedSaleTypeConfigId: z.string().min(1, 'Selecciona el tipo de venta'),
   requestedLiters: z.string().min(1, 'Requerido').refine(
@@ -57,13 +59,15 @@ export default function NewTicketPage() {
       ...(shiftId ? [{ query: QUERIES.salesTicketsByCashierShift, variables: { cashierShiftId: shiftId } }] : []),
     ],
     // Offline: el ticket queda en cache con todos los campos de SalesTicketFields, así lo
-    // encuentran el detalle (/tickets/:localId, vía salesTicket(id)) y las listas.
+    // encuentran el detalle (/tickets/:localId) y las listas. El total y el estado son una
+    // estimación local: el servidor los recalcula al sincronizar.
     writeToCache: (cache, { variables, localId }) => {
       if (!localId || !variables) return
       const input = (variables as any).input
       const selectedConfig = configsData?.saleTypeConfigs?.find((c: any) => c.id === input?.assignedSaleTypeConfigId)
       const fuelType = fuelTypesData?.fuelTypes?.find((f) => f.id === input?.fuelTypeId)
       if (!selectedConfig || !fuelType) return
+      const price = parseFloat(selectedConfig.salePricePerLiter)
       const ticket = {
         __typename: 'SalesTicket',
         id: localId,
@@ -71,14 +75,17 @@ export default function NewTicketPage() {
         gasStationId: input.gasStationId,
         cashierShiftId: input.cashierShiftId,
         dispatcherEmployeeId: null,
+        dispatcherShiftId: null,
         dispenserNozzleId: null,
         fuelTypeId: input.fuelTypeId,
         requestedLiters: String(input.requestedLiters),
         actualLitersDispatched: null,
         assignedSaleTypeConfigId: input.assignedSaleTypeConfigId,
         ticketIssueTime: input.ticketIssueTime,
-        totalAmountExpected: String(input.totalAmountExpected),
-        status: 'PENDING_PAYMENT_DISPATCH',
+        paymentMode: input.paymentMode ?? 'PREPAID',
+        pricePerLiter: selectedConfig.salePricePerLiter,
+        totalAmountExpected: String(Math.round(input.requestedLiters * price * 100) / 100),
+        status: 'ISSUED',
         createdAt: input.ticketIssueTime,
         fuelType: { __typename: 'FuelType', id: fuelType.id, name: fuelType.name },
         assignedSaleTypeConfig: {
@@ -120,10 +127,12 @@ export default function NewTicketPage() {
 
   const { register, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { paymentMode: 'PREPAID' },
   })
 
   const selectedFuelTypeId = watch('fuelTypeId')
   const selectedConfigId = watch('assignedSaleTypeConfigId')
+  const paymentMode = watch('paymentMode')
 
   const stationConfigs = configsData?.saleTypeConfigs ?? []
   const filteredConfigs = selectedFuelTypeId
@@ -133,7 +142,7 @@ export default function NewTicketPage() {
 
   const requestedLiters = parseFloat(watch('requestedLiters') || '0')
   const pricePerLiter = selectedConfig ? parseFloat(selectedConfig.salePricePerLiter) : 0
-  const totalAmount = isNaN(requestedLiters) ? 0 : requestedLiters * pricePerLiter
+  const referenceTotal = isNaN(requestedLiters) ? 0 : requestedLiters * pricePerLiter
 
   const onSubmit = async (data: FormData) => {
     if (!shiftId) {
@@ -155,7 +164,7 @@ export default function NewTicketPage() {
             assignedSaleTypeConfigId: data.assignedSaleTypeConfigId,
             requestedLiters: parseFloat(data.requestedLiters),
             ticketIssueTime: new Date().toISOString(),
-            totalAmountExpected: totalAmount,
+            paymentMode: data.paymentMode,
           },
         },
         localId,
@@ -213,6 +222,17 @@ export default function NewTicketPage() {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div className="space-y-1.5">
+              <Label>Modo de pago *</Label>
+              <select {...register('paymentMode')} className={selectClass}>
+                {Object.entries(PAYMENT_MODE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label} — {value === 'PREPAID' ? 'cobrar antes de despachar' : 'despachar antes de cobrar'}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
               <Label>Combustible *</Label>
               <select {...register('fuelTypeId')} className={selectClass}>
                 <option value="">Seleccionar...</option>
@@ -248,10 +268,15 @@ export default function NewTicketPage() {
                   <span className="text-muted-foreground">Precio/litro</span>
                   <span>{selectedConfig.currency?.symbol} {pricePerLiter.toFixed(4)}</span>
                 </div>
-                <div className="flex justify-between font-medium">
-                  <span>Total esperado</span>
-                  <span>{selectedConfig.currency?.symbol} {totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total estimado (referencia)</span>
+                  <span>{selectedConfig.currency?.symbol} {referenceTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
+                <p className="text-xs text-muted-foreground pt-1">
+                  {paymentMode === 'PREPAID'
+                    ? 'Prepago: el total lo calcula el servidor. Se cobra y luego se despacha.'
+                    : 'Postpago: el total se recalcula al despachar. Se despacha y luego se cobra.'}
+                </p>
               </div>
             )}
 
