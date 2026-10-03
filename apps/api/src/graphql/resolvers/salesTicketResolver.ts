@@ -337,7 +337,7 @@ const salesTicketResolver: IResolvers<Context> = {
         );
       }
     },
-    updateSalesTicket: async (_parent, { id, input }, context: Context) => {
+    updateSalesTicket: async (_parent, { id, input: rawInput }, context: Context) => {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(id, {
@@ -348,6 +348,15 @@ const salesTicketResolver: IResolvers<Context> = {
             throw new Error("Sales ticket not found.");
           }
 
+          // Los campos legados (status, total, despacho) se ignoran: solo estos cuatro aplican.
+          const input = Object.fromEntries(
+            Object.entries({
+              fuelTypeId: rawInput.fuelTypeId,
+              requestedLiters: rawInput.requestedLiters,
+              assignedSaleTypeConfigId: rawInput.assignedSaleTypeConfigId,
+              ticketIssueTime: rawInput.ticketIssueTime,
+            }).filter(([, v]) => v !== undefined)
+          );
           const pricingChanged =
             input.requestedLiters !== undefined ||
             input.assignedSaleTypeConfigId !== undefined ||

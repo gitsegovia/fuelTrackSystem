@@ -62,6 +62,10 @@ type DispatcherDifferentialSummary {
   netDifferentialAmount: Decimal!
 }
 
+# Campos legados (totalAmountExpected, status, actualLitersDispatched, dispatcherEmployeeId,
+# dispenserNozzleId) se aceptan por compatibilidad con clientes y colas offline ya guardadas, y el
+# servidor los IGNORA. Obsoletos: el total lo calcula el servidor y el estado y despacho los
+# cambian sus mutations. Se retiran cuando station y web dejen de enviarlos.
 input CreateSalesTicketInput {
   gasStationId: UUID!
   cashierShiftId: UUID!
@@ -70,16 +74,35 @@ input CreateSalesTicketInput {
   assignedSaleTypeConfigId: UUID!
   ticketIssueTime: DateTime!
   paymentMode: PaymentMode # Default: PREPAID
+  # Obsoleto, ignorado por el servidor
+  totalAmountExpected: Decimal
+  # Obsoleto, ignorado por el servidor
+  status: SalesTicketStatus
+  # Obsoleto, ignorado por el servidor
+  actualLitersDispatched: Decimal
+  # Obsoleto, ignorado por el servidor
+  dispatcherEmployeeId: UUID
+  # Obsoleto, ignorado por el servidor
+  dispenserNozzleId: UUID
 }
 
-# El total, el precio y el estado no son editables: los calcula el servidor y los cambian las
-# mutations de cobro y despacho. Cambiar litros, tipo de venta o combustible solo se permite
-# mientras el ticket está en ISSUED y recalcula el total.
+# Cambiar litros, tipo de venta o combustible solo se permite mientras el ticket está en ISSUED y
+# recalcula el total. Los campos legados de estado, total y despacho se ignoran (ver CreateSalesTicketInput).
 input UpdateSalesTicketInput {
   fuelTypeId: UUID
   requestedLiters: Decimal
   assignedSaleTypeConfigId: UUID
   ticketIssueTime: DateTime
+  # Obsoleto, ignorado por el servidor
+  totalAmountExpected: Decimal
+  # Obsoleto, ignorado por el servidor
+  status: SalesTicketStatus
+  # Obsoleto, ignorado por el servidor
+  actualLitersDispatched: Decimal
+  # Obsoleto, ignorado por el servidor
+  dispatcherEmployeeId: UUID
+  # Obsoleto, ignorado por el servidor
+  dispenserNozzleId: UUID
 }
 
 extend type Query {
