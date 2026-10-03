@@ -84,7 +84,7 @@ export default function NewTicketPage() {
             assignedSaleTypeConfigId: data.assignedSaleTypeConfigId,
             requestedLiters: parseFloat(data.requestedLiters),
             ticketIssueTime: new Date().toISOString(),
-            totalAmountExpected: totalAmount,
+            paymentMode: 'POSTPAID',
           },
         },
       })

@@ -15,8 +15,9 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pagado — pend. despacho',
+  ISSUED: 'Emitido',
+  PAID: 'Pagado — pend. despacho',
+  DISPATCHED: 'Despachado — pend. cobro',
   COMPLETED: 'Completado',
   CANCELED: 'Cancelado',
 }

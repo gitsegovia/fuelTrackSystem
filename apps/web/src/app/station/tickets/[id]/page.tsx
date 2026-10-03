@@ -31,8 +31,9 @@ const selectClass = cn(
 )
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente de pago y despacho',
-  PAID_PENDING_DISPATCH: 'Pagado — pendiente de despacho',
+  ISSUED: 'Emitido',
+  PAID: 'Pagado — pendiente de despacho',
+  DISPATCHED: 'Despachado — pendiente de cobro',
   COMPLETED: 'Completado',
   CANCELED: 'Cancelado',
 }
@@ -98,12 +99,6 @@ export default function TicketDetailPage() {
     refetchQueries: [
       { query: QUERIES.salesTicket, variables: { id } },
       { query: PaymentQueries.paymentsBySalesTicket, variables: { salesTicketId: id } },
-    ],
-  })
-  const [completeTicket, { loading: completing }] = useMutation(MUTATIONS.completeSalesTicketPayment, {
-    refetchQueries: [
-      { query: QUERIES.salesTicket, variables: { id } },
-      { query: QUERIES.salesTicketsByGasStation, variables: { gasStationId } },
     ],
   })
   const [cancelTicket, { loading: canceling }] = useMutation(MUTATIONS.cancelSalesTicket, {
@@ -222,16 +217,6 @@ export default function TicketDetailPage() {
     }
     setLockedCount((n) => n + 1)
     append(EMPTY_LINE)
-  }
-
-  const onComplete = async () => {
-    try {
-      await completeTicket({ variables: { id } })
-      toast.success('Ticket completado.')
-      router.push(`/station/shifts/${ticket?.cashierShiftId}`)
-    } catch (err: any) {
-      toast.error(`Error: ${err.message ?? ''}`)
-    }
   }
 
   const onCancel = async () => {
@@ -529,13 +514,9 @@ export default function TicketDetailPage() {
             </Card>
           )}
 
-          {/* Completar / Cancelar */}
+          {/* Cancelar (el ticket se completa solo al pasar el segundo paso: despacho en prepago, cobro en postpago) */}
           <div className="flex gap-3 pt-2">
-            <Button className="flex-1" onClick={onComplete} disabled={completing}>
-              {completing && <Loader2 className="size-4 animate-spin" />}
-              Completar ticket
-            </Button>
-            <Button variant="outline" onClick={onCancel} disabled={canceling}>
+            <Button variant="outline" className="flex-1" onClick={onCancel} disabled={canceling}>
               <XCircle className="size-4" /> Cancelar
             </Button>
           </div>
