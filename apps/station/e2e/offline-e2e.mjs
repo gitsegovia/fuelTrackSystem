@@ -43,6 +43,7 @@ runner.page = page
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message))
 
 let shiftLocalId, ticketTotalStr, ticketCurrencySymbol, nozzleCount = 0, employeeId
+let prepaidShiftId, prepaidTicketId
 
 await step('Login online y SW activo', async () => {
   await page.goto(`${APP}/login`)
@@ -103,7 +104,10 @@ await step('Lecturas INITIAL offline: lista boquillas operativas', async () => {
 
 await step('Ticket offline: se crea y abre el detalle (H-023)', async () => {
   await page.getByRole('button', { name: 'Nuevo ticket' }).click()
-  const [fuel, config] = [page.locator('select').nth(0), page.locator('select').nth(1)]
+  // Postpago para este flujo principal: preserva el orden despacho→cobro ya probado abajo.
+  // El modo prepago tiene su propio caso más adelante (despacho menor + devolución).
+  await page.locator('select').nth(0).selectOption('POSTPAID')
+  const [fuel, config] = [page.locator('select').nth(1), page.locator('select').nth(2)]
   const fuels = await fuel.locator('option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean))
   let ok = false
   for (const f of fuels) {
@@ -125,7 +129,8 @@ await step('Despacho offline: refleja el despacho y no ofrece repetirlo', async 
   await page.locator('form input[type=number]').fill('10')
   await page.getByRole('button', { name: 'Guardar offline' }).click()
   await expectVisible(page.getByText('Litros despachados'))
-  await expectVisible(page.getByText('Pagado — pendiente de despacho'))
+  // Postpago: ISSUED → DISPATCHED tras el despacho (ADR-015); PAID es el estado de prepago.
+  await expectVisible(page.getByText('Despachado — pendiente de cobro'))
   if (await page.getByRole('button', { name: 'Registrar despacho' }).count()) throw new Error('sigue ofreciendo despachar')
   // "Total a cobrar" está en el resumen superior, siempre visible.
   const totalText = await page.getByText('Total a cobrar').locator('xpath=following-sibling::span').first().textContent()
@@ -287,8 +292,9 @@ await step('/tanks muestra la última medición (latestTankMeasurement, H-025 #6
 
 // ── Error de negocio → /sync (paso 4) ───────────────────────────────────────
 await step('Error de negocio → queda en /sync con el error; Descartar funciona', async () => {
+  // Tickets del seed son todos POSTPAID (ADR-015) — ISSUED en postpago ya ofrece despachar.
   const target = psql(
-    `select id from sales_tickets where status='PENDING_PAYMENT_DISPATCH' and "gasStationId"=(select "gasStationId" from employees where id='${employeeId}') limit 1`
+    `select id from sales_tickets where status='ISSUED' and "gasStationId"=(select "gasStationId" from employees where id='${employeeId}') limit 1`
   )
   if (!target) throw new Error('no hay ticket pendiente en el seed')
   await page.goto(`${APP}/tickets/${target}`)
@@ -313,6 +319,110 @@ await step('Error de negocio → queda en /sync con el error; Descartar funciona
   await page.getByRole('button', { name: 'Descartar' }).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Descartar' }).click()
   await expectVisible(page.getByText('Todo está sincronizado.'))
+})
+
+// ── T-036: prepago con despacho menor y devolución (online) ────────────────
+await step('Prepago — abrir turno online para los casos nuevos', async () => {
+  await page.goto(`${APP}/shifts/new`)
+  await page.getByRole('button', { name: 'Iniciar turno' }).click()
+  await page.waitForURL(/\/shifts\/[0-9a-f-]{36}$/)
+  prepaidShiftId = page.url().split('/').pop()
+})
+
+async function createTicket(mode, liters) {
+  await page.goto(`${APP}/tickets/new?shiftId=${prepaidShiftId}`)
+  await page.locator('select').nth(0).selectOption(mode)
+  const [fuel, config] = [page.locator('select').nth(1), page.locator('select').nth(2)]
+  const fuels = await fuel.locator('option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean))
+  let ok = false
+  for (const f of fuels) {
+    await fuel.selectOption(f)
+    if ((await config.locator('option').count()) > 1) { await selectFirstReal(config); ok = true; break }
+  }
+  if (!ok) throw new Error('ningún combustible con configuración de venta')
+  await page.locator('input[type=number]').fill(String(liters))
+  await page.getByRole('button', { name: 'Crear ticket' }).click()
+  await page.waitForURL(/\/tickets\/[0-9a-f-]{36}$/)
+  return page.url().split('/').pop()
+}
+
+async function payFullOnline() {
+  await page.getByRole('button', { name: 'Registrar pago' }).click()
+  const totalText = await page.getByText('Total a cobrar').locator('xpath=following-sibling::span').first().textContent()
+  const total = parseMoney(totalText ?? '')
+  const symbol = (totalText ?? '').trim().split(/\s/)[0]
+  const currencySelect = page.locator('select[name="lines.0.currencyId"]')
+  const options = await currencySelect.locator('option').evaluateAll((os) =>
+    os.map((o) => ({ value: o.value, text: o.textContent })).filter((o) => o.value)
+  )
+  await currencySelect.selectOption(options.find((o) => o.text.startsWith(symbol)).value)
+  return total
+}
+
+await step('Prepago — crear ticket y cobrar antes de despachar (ISSUED → PAID)', async () => {
+  prepaidTicketId = await createTicket('PREPAID', 10)
+  await expectVisible(page.getByRole('button', { name: 'Registrar pago' }))
+  if (await page.getByRole('button', { name: 'Registrar despacho' }).count()) {
+    throw new Error('prepago no debería ofrecer despacho antes de pagar')
+  }
+  const total = await payFullOnline()
+  await page.locator('input[name="lines.0.amount"]').fill(String(total))
+  await page.getByRole('button', { name: 'Confirmar pago' }).click()
+  await expectVisible(page.getByText('Pagado — pendiente de despacho'))
+})
+
+await step('Prepago — despacho menor a lo pagado → COMPLETED con diferencial', async () => {
+  await page.getByRole('button', { name: 'Registrar despacho' }).click()
+  const selects = page.locator('form select')
+  await selectFirstReal(selects.nth(0))
+  await selectFirstReal(selects.nth(1))
+  await page.locator('form input[type=number]').fill('6') // menos que los 10 pagados
+  await page.getByRole('button', { name: 'Confirmar despacho' }).click()
+  await expectVisible(page.getByText('Completado'))
+  await expectVisible(page.getByText('Diferencial a favor de la estación'))
+  // El span trae "<monto> base (<litros> L)" junto — aislar el monto antes de " base".
+  const pendingText = await page.getByText('Diferencial pendiente').locator('xpath=following-sibling::span').first().textContent()
+  const pendingBase = parseMoney((pendingText ?? '').split(' base')[0])
+  if (!(pendingBase > 0)) throw new Error(`diferencial pendiente no es positivo: "${pendingText}"`)
+})
+
+await step('Prepago — registrar devolución parcial del diferencial', async () => {
+  await page.getByRole('button', { name: 'Registrar devolución' }).first().click()
+  const amountInput = page.locator('form input[type=number]')
+  await expectVisible(amountInput)
+  await amountInput.first().fill('1') // parcial: el diferencial de 4 L es bastante mayor a 1 unidad
+  await page.locator('form button[type=submit]').click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Registrar devolución' }).click()
+  await expectVisible(page.getByText(/Devolución (registrada|guardada)/))
+})
+
+await step('Prepago — BD: la devolución llegó con el monto correcto', async () => {
+  const [count, amount] = psql(
+    `select count(*)||'|'||coalesce(sum(amount)::text,'0') from ticket_refunds where "salesTicketId"='${prepaidTicketId}'`
+  ).split('|')
+  if (count !== '1') throw new Error(`devoluciones en BD: ${count}, esperado 1`)
+  if (Math.abs(Number(amount) - 1) > 0.01) throw new Error(`monto devuelto en BD: ${amount}, esperado 1`)
+})
+
+// ── T-036: postpago con redondeo (pago de más tras despachar), online ──────
+await step('Postpago — redondeo: pagar de más tras despachar → COMPLETED con diferencial', async () => {
+  await createTicket('POSTPAID', 5)
+  await expectVisible(page.getByRole('button', { name: 'Registrar despacho' }))
+
+  await page.getByRole('button', { name: 'Registrar despacho' }).click()
+  const selects = page.locator('form select')
+  await selectFirstReal(selects.nth(0))
+  await selectFirstReal(selects.nth(1))
+  await page.locator('form input[type=number]').fill('5')
+  await page.getByRole('button', { name: 'Confirmar despacho' }).click()
+  await expectVisible(page.getByText('Despachado — pendiente de cobro'))
+
+  const total = await payFullOnline()
+  await page.locator('input[name="lines.0.amount"]').fill(String((total * 1.1).toFixed(2))) // 10% de más
+  await page.getByRole('button', { name: /Confirmar pago/ }).click()
+  await expectVisible(page.getByText('Completado'))
+  await expectVisible(page.getByText('Diferencial a favor de la estación'))
+  await expectVisible(page.getByRole('button', { name: 'Registrar devolución' }))
 })
 
 await step('Token inválido con red → cierra la sesión', async () => {

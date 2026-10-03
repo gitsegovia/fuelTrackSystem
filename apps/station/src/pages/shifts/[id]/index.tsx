@@ -18,8 +18,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { format } from 'date-fns'
 
 const STATUS_VARIANT: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
-  PENDING_PAYMENT_DISPATCH: 'secondary',
-  PAID_PENDING_DISPATCH: 'default',
+  ISSUED: 'secondary',
+  PAID: 'default',
+  DISPATCHED: 'default',
   COMPLETED: 'outline',
   CANCELED: 'destructive',
 }

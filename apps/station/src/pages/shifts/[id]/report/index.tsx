@@ -4,6 +4,7 @@ import { gql } from '@apollo/client'
 import { ArrowLeft } from 'lucide-react'
 import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
+import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -78,8 +79,23 @@ export default function ShiftReportPage() {
   const { data: readingsData, loading: loadingReadings } = useQuery<{ dispenserReadingsByShift: any[] }>(
     ReadingQueries.dispenserReadingsByShift, { variables: { employeeShiftId: id }, skip: !id }
   )
+  // Diferencial por bombero (ADR-015): no hay un dispatcherShiftId único para este turno de
+  // caja (varios bomberos pudieron despachar durante esta ventana), así que se agrega por
+  // estación + rango de fechas del propio turno, igual que el resto de este reporte.
+  const shiftForQuery = shiftData?.employeeShift
+  const { data: diffData, loading: loadingDiff } = useQuery<{ dispatcherDifferentialSummary: any[] }>(
+    TicketQueries.dispatcherDifferentialSummary,
+    {
+      variables: {
+        gasStationId: shiftForQuery?.gasStationId,
+        startDate: shiftForQuery?.shiftStartTime,
+        endDate: shiftForQuery?.shiftEndTime ?? new Date().toISOString(),
+      },
+      skip: !shiftForQuery?.gasStationId,
+    }
+  )
 
-  const loading = loadingShift || loadingTickets || loadingReadings
+  const loading = loadingShift || loadingTickets || loadingReadings || loadingDiff
   if (loading) return <Skeleton className="h-96 w-full max-w-2xl" />
 
   const shift = shiftData?.employeeShift
@@ -171,6 +187,15 @@ export default function ShiftReportPage() {
     byNozzle[key].tickets += 1
     byNozzle[key].liters  += liters
   }
+
+  // Nombre del bombero: lo que ya sabemos por los tickets de este turno. Un bombero del mismo
+  // rango de fechas/estación sin tickets en ESTE turno (límite entre dos turnos) se muestra con
+  // su id — caso raro, no justifica una consulta aparte solo para el nombre.
+  const dispatcherNames: Record<string, string> = {}
+  for (const t of tickets) {
+    if (t.dispatcherEmployee) dispatcherNames[t.dispatcherEmployee.id] = `${t.dispatcherEmployee.firstName} ${t.dispatcherEmployee.lastName}`
+  }
+  const differentials: any[] = diffData?.dispatcherDifferentialSummary ?? []
 
   const baseSymbol = completed[0]?.assignedSaleTypeConfig?.currency?.symbol
     ?? Object.values(byCurrency)[0]?.symbol
@@ -362,6 +387,44 @@ export default function ShiftReportPage() {
                 <span className="text-right">{fmt(totalLitersFromTickets)} L</span>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {differentials.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
+              Diferencial a favor de la estación (por bombero)
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm space-y-3">
+            <p className="text-xs text-muted-foreground">
+              Pagado menos despachado menos devuelto, en tickets completados de esta estación en el
+              rango de este turno. Sin comisiones.
+            </p>
+            {differentials.map((d) => (
+              <div key={d.dispatcherEmployeeId} className="rounded-lg border p-3 space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">{dispatcherNames[d.dispatcherEmployeeId] ?? d.dispatcherEmployeeId}</span>
+                  <span className="text-xs text-muted-foreground">{d.ticketCount} ticket{d.ticketCount !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Bruto</p>
+                    <p className="font-medium">{fmt(parseFloat(d.grossDifferentialAmount))} base · {fmt(parseFloat(d.grossDifferentialLiters))} L</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Devuelto</p>
+                    <p className="font-medium">{fmt(parseFloat(d.refundedAmount))} base · {fmt(parseFloat(d.refundedLiters))} L</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Neto</p>
+                    <p className="font-medium">{fmt(parseFloat(d.netDifferentialAmount))} base · {fmt(parseFloat(d.netDifferentialLiters))} L</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       )}
