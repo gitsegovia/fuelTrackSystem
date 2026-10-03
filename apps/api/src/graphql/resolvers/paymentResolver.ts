@@ -1,8 +1,52 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
-import { Payment as PaymentModel } from "../../models/payment";
-import { PaymentMethod, SalesTicketStatus } from "../../utils/types"; // Importar ENUMS
+import { PaymentMethod, PaymentMode, SalesTicketStatus } from "../../utils/types"; // Importar ENUMS
 import { belongsTo } from "../helpers/dataloaders";
+import {
+  MONEY_EPSILON,
+  ticketPaymentCoverage,
+} from "../helpers/ticketFinancials";
+
+const assertPaymentAllowed = (salesTicket: { status: string; paymentMode: string }) => {
+  if (salesTicket.status === SalesTicketStatus.CANCELED) {
+    throw new Error(`Cannot add payment to a ticket with status: ${salesTicket.status}.`);
+  }
+  if (salesTicket.paymentMode === PaymentMode.PREPAID && salesTicket.status !== SalesTicketStatus.ISSUED) {
+    throw new Error(
+      `Prepaid sales ticket accepts payment only while ISSUED (current status: ${salesTicket.status}).`
+    );
+  }
+  if (salesTicket.paymentMode === PaymentMode.POSTPAID && salesTicket.status !== SalesTicketStatus.DISPATCHED) {
+    throw new Error(
+      `Postpaid sales ticket accepts payment only after dispatch (current status: ${salesTicket.status}).`
+    );
+  }
+};
+
+const settleIfCovered = async (
+  context: Context,
+  salesTicket: { id: string; paymentMode: string; update: (values: object, options: object) => Promise<unknown> },
+  transaction: any
+) => {
+  const { paidBase, dueBase } = await ticketPaymentCoverage(context, salesTicket.id, transaction);
+  if (paidBase + MONEY_EPSILON < dueBase) return;
+  const status =
+    salesTicket.paymentMode === PaymentMode.PREPAID
+      ? SalesTicketStatus.PAID
+      : SalesTicketStatus.COMPLETED;
+  await salesTicket.update({ status }, { transaction });
+};
+
+const assertPaymentsEditable = (salesTicket: { status: string } | null) => {
+  if (
+    salesTicket &&
+    (salesTicket.status === SalesTicketStatus.PAID || salesTicket.status === SalesTicketStatus.COMPLETED)
+  ) {
+    throw new Error(
+      `Cannot modify payments of a sales ticket with status: ${salesTicket.status}.`
+    );
+  }
+};
 
 const paymentResolver: IResolvers<Context> = {
   Query: {
@@ -69,18 +113,12 @@ const paymentResolver: IResolvers<Context> = {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(
             input.salesTicketId,
-            { transaction: t }
+            { transaction: t, lock: t.LOCK.UPDATE }
           );
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-
-          // Validación adicional: no permitir pagos si el ticket está cancelado o reembolsado
-          if (salesTicket.status === SalesTicketStatus.CANCELED) {
-            throw new Error(
-              `Cannot add payment to a ticket with status: ${salesTicket.status}.`
-            );
-          }
+          assertPaymentAllowed(salesTicket);
 
           const paymentCurrency = await context.models.Currency.findByPk(
             input.currencyId,
@@ -95,52 +133,7 @@ const paymentResolver: IResolvers<Context> = {
             { transaction: t }
           );
 
-          // Opcional: Actualizar el estado del SalesTicket a COMPLETED si la suma de pagos cubre el total esperado.
-          // Esto se podría hacer también en una mutación separada `completeSalesTicketPayment`.
-          // Si se prefiere hacer aquí, se necesita obtener todos los pagos del ticket y sumarlos.
-          const paymentsForTicket = await context.models.Payment.findAll({
-            where: { salesTicketId: input.salesTicketId },
-            transaction: t,
-          });
-
-          // Obtener la moneda del SaleTypeConfig para saber en qué moneda está totalAmountExpected
-          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
-            salesTicket.assignedSaleTypeConfigId,
-            { transaction: t }
-          );
-          if (!saleTypeConfig) {
-            throw new Error("Sale type config not found for this ticket.");
-          }
-          const ticketCurrency = await saleTypeConfig.getCurrency({
-            transaction: t,
-          });
-          if (!ticketCurrency) {
-            throw new Error("Currency not found for sale type config.");
-          }
-
-          // Convertir totalAmountExpected a moneda base: amount / exchangeRate = monto base
-          const totalExpectedInBase =
-            parseFloat(String(salesTicket.totalAmountExpected)) /
-            ticketCurrency.exchangeRate;
-
-          // Calcular el total pagado en moneda base sumando cada pago con su propia tasa
-          let totalPaidInBaseCurrency = 0;
-          for (const p of paymentsForTicket) {
-            const currencyOfPayment = await p.getCurrency({ transaction: t });
-            if (!currencyOfPayment) {
-              throw new Error(`Currency not found for payment ${p.id}`);
-            }
-            totalPaidInBaseCurrency +=
-              parseFloat(String(p.amount)) / currencyOfPayment.exchangeRate;
-          }
-
-          if (totalPaidInBaseCurrency >= totalExpectedInBase) {
-            await salesTicket.update(
-              { status: SalesTicketStatus.COMPLETED },
-              { transaction: t }
-            );
-          }
-
+          await settleIfCovered(context, salesTicket, t);
           return payment;
         });
         return result;
@@ -178,15 +171,14 @@ const paymentResolver: IResolvers<Context> = {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(
             salesTicketId,
-            { transaction: t }
+            { transaction: t, lock: t.LOCK.UPDATE }
           );
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-          if (salesTicket.status === SalesTicketStatus.CANCELED) {
-            throw new Error(
-              `Cannot add payments to a ticket with status: ${salesTicket.status}.`
-            );
+          assertPaymentAllowed(salesTicket);
+          if (payments.length === 0) {
+            throw new Error("At least one payment line is required.");
           }
 
           // Crear cada línea de pago capturando el snapshot de la tasa
@@ -214,45 +206,7 @@ const paymentResolver: IResolvers<Context> = {
             createdPayments.push(payment);
           }
 
-          // Verificar si el total pagado cubre el monto esperado del ticket
-          const allPayments = await context.models.Payment.findAll({
-            where: { salesTicketId },
-            transaction: t,
-          });
-
-          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
-            salesTicket.assignedSaleTypeConfigId,
-            { transaction: t }
-          );
-          if (!saleTypeConfig) {
-            throw new Error("Sale type config not found for this ticket.");
-          }
-          const ticketCurrency = await saleTypeConfig.getCurrency({
-            transaction: t,
-          });
-          if (!ticketCurrency) {
-            throw new Error("Currency not found for sale type config.");
-          }
-
-          const totalExpectedInBase =
-            parseFloat(String(salesTicket.totalAmountExpected)) /
-            ticketCurrency.exchangeRate;
-
-          // Usar el snapshot guardado en cada pago para la suma (no la tasa actual)
-          let totalPaidInBase = 0;
-          for (const p of allPayments) {
-            totalPaidInBase +=
-              parseFloat(String(p.amount)) /
-              parseFloat(String(p.exchangeRateAtPayment));
-          }
-
-          if (totalPaidInBase >= totalExpectedInBase) {
-            await salesTicket.update(
-              { status: SalesTicketStatus.COMPLETED },
-              { transaction: t }
-            );
-          }
-
+          await settleIfCovered(context, salesTicket, t);
           return createdPayments;
         });
         return result;
@@ -278,17 +232,7 @@ const paymentResolver: IResolvers<Context> = {
             throw new Error("Payment not found.");
           }
 
-          // Aquí se podría añadir lógica para verificar si el SalesTicket asociado
-          // ya está en estado 'COMPLETED' o 'REFUNDED' y no debería permitirse actualizar el pago.
-          const salesTicket = await payment.getSalesTicket({ transaction: t });
-          if (
-            salesTicket &&
-            salesTicket.status === SalesTicketStatus.COMPLETED
-          ) {
-            throw new Error(
-              "Cannot update payment for a completed or refunded sales ticket."
-            );
-          }
+          assertPaymentsEditable(await payment.getSalesTicket({ transaction: t }));
 
           await payment.update(input, { transaction: t });
           return payment;
@@ -320,36 +264,12 @@ const paymentResolver: IResolvers<Context> = {
             throw new Error("Payment not found.");
           }
 
-          const salesTicket = await payment.getSalesTicket({ transaction: t });
-          if (
-            salesTicket &&
-            salesTicket.status === SalesTicketStatus.COMPLETED
-          ) {
-            throw new Error(
-              "Cannot delete payment for a completed or refunded sales ticket."
-            );
-          }
+          assertPaymentsEditable(await payment.getSalesTicket({ transaction: t }));
 
           const deleted = await context.models.Payment.destroy({
             where: { id },
             transaction: t,
           });
-
-          // Opcional: Revertir el estado del SalesTicket si la suma de pagos ya no cubre el total
-          // Esto requeriría volver a calcular el total de pagos para el salesTicketId de `payment`
-          // y actualizar su estado si es necesario.
-          // Por ejemplo:
-          // if (salesTicket) {
-          //   const remainingPayments = await context.models.Payment.findAll({
-          //     where: { salesTicketId: salesTicket.id },
-          //     transaction: t,
-          //   });
-          //   const totalRemainingPaid = remainingPayments.reduce((sum, p) => sum + p.amount, 0);
-          //   if (totalRemainingPaid < salesTicket.totalAmountExpected && salesTicket.status === SalesTicketStatus.COMPLETED) {
-          //     await salesTicket.update({ status: SalesTicketStatus.DISPATCHED_PENDING_PAYMENT }, { transaction: t });
-          //   }
-          // }
-
           return deleted > 0;
         });
         return result;
