@@ -41,10 +41,16 @@ export enum ReadingType {
 }
 
 export enum SalesTicketStatus {
-  PENDING_PAYMENT_DISPATCH = "PENDING_PAYMENT_DISPATCH",
-  PAID_PENDING_DISPATCH = "PAID_PENDING_DISPATCH",
+  ISSUED = "ISSUED",
+  PAID = "PAID",
+  DISPATCHED = "DISPATCHED",
   COMPLETED = "COMPLETED",
   CANCELED = "CANCELED",
+}
+
+export enum PaymentMode {
+  PREPAID = "PREPAID",
+  POSTPAID = "POSTPAID",
 }
 
 export enum PaymentMethod {

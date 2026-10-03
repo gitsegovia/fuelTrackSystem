@@ -1,0 +1,35 @@
+type TicketRefund {
+  id: UUID!
+  salesTicketId: UUID!
+  amount: Decimal!
+  currencyId: UUID!
+  exchangeRateAtRefund: Decimal!
+  paymentMethod: PaymentMethod!
+  recordedById: UUID!
+  refundedAt: DateTime!
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  salesTicket: SalesTicket!
+  currency: Currency!
+  recordedBy: User!
+}
+
+input CreateTicketRefundInput {
+  salesTicketId: UUID!
+  amount: Decimal!
+  currencyId: UUID!
+  paymentMethod: PaymentMethod!
+  refundedAt: DateTime!
+  recordedById: UUID!
+  notes: String
+}
+
+extend type Query {
+  ticketRefundsBySalesTicket(salesTicketId: UUID!): [TicketRefund!]!
+}
+
+extend type Mutation {
+  # Devolución total o parcial del diferencial a favor de un ticket COMPLETED.
+  createTicketRefund(input: CreateTicketRefundInput!): TicketRefund!
+}

@@ -24,7 +24,7 @@ const UserRole       = { ADMIN: 'ADMIN', MANAGER: 'MANAGER', EMPLOYEE: 'EMPLOYEE
 const UserType       = { ADMINISTRATOR: 'Administrator', SUPERVISOR: 'Supervisor', CASHIER: 'Cashier', FUEL_ATTENDANT: 'FuelAttendant' };
 const EmployeeRole   = { CASHIER: 'CASHIER', DISPATCHER: 'DISPATCHER', MANAGER: 'MANAGER' };
 const ReadingType    = { INITIAL: 'INITIAL', FINAL: 'FINAL' };
-const TicketStatus   = { PENDING: 'PENDING_PAYMENT_DISPATCH', PAID_PENDING: 'PAID_PENDING_DISPATCH', COMPLETED: 'COMPLETED', CANCELED: 'CANCELED' };
+const TicketStatus   = { PENDING: 'ISSUED', PAID_PENDING: 'DISPATCHED', COMPLETED: 'COMPLETED', CANCELED: 'CANCELED' };
 const PaymentMethod  = { CASH: 'CASH', DEBIT_CARD: 'DEBIT_CARD', MOBILE_PAYMENT: 'MOBILE_PAYMENT', BANK_TRANSFER: 'BANK_TRANSFER' };
 const MeasureReason  = { SHIFT_CLOSURE: 'SHIFT_CLOSURE', AFTER_RECEPTION: 'AFTER_RECEPTION' };
 const FuelKind       = { G91: 'GASOLINE_91', G95: 'GASOLINE_95', DIESEL: 'DIESEL' };
@@ -435,6 +435,8 @@ module.exports = {
           actualLitersDispatched: liters,
           assignedSaleTypeConfigId: n.stcId,
           ticketIssueTime: issueTime,
+          paymentMode: 'POSTPAID',
+          pricePerLiter: n.price,
           totalAmountExpected: total,
           status: TicketStatus.COMPLETED,
           createdAt: ts(), updatedAt: ts()
@@ -515,6 +517,8 @@ module.exports = {
           actualLitersDispatched: t.status !== TicketStatus.PENDING ? t.liters : null,
           assignedSaleTypeConfigId: t.stcId,
           ticketIssueTime: issueTime,
+          paymentMode: 'POSTPAID',
+          pricePerLiter: t.price,
           totalAmountExpected: total,
           status: t.status,
           createdAt: ts(), updatedAt: ts()

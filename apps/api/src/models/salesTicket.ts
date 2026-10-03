@@ -9,7 +9,7 @@ import {
   HasManyGetAssociationsMixin,
 } from "sequelize";
 import type { AppModels } from "../interfaces/models"; // Ruta ajustada
-import { SalesTicketStatus } from "../utils/types";
+import { PaymentMode, SalesTicketStatus } from "../utils/types";
 import { GasStation } from "./gasStation";
 import { EmployeeShift } from "./employeeShift";
 import { Employee } from "./employee";
@@ -33,6 +33,8 @@ export interface SalesTicketAttributes {
   actualLitersDispatched?: number;
   assignedSaleTypeConfigId: string;
   ticketIssueTime: Date;
+  paymentMode: PaymentMode;
+  pricePerLiter: number;
   totalAmountExpected: number;
   status: SalesTicketStatus;
   createdAt: Date;
@@ -47,7 +49,10 @@ interface SalesTicketCreationAttributes
     | "dispatcherShiftId"
     | "dispenserNozzleId"
     | "actualLitersDispatched"
+    | "paymentMode"
     | "status"
+    | "createdAt"
+    | "updatedAt"
   > {}
 
 export class SalesTicket
@@ -66,6 +71,8 @@ export class SalesTicket
   public actualLitersDispatched?: number;
   public assignedSaleTypeConfigId!: string;
   public ticketIssueTime!: Date;
+  public paymentMode!: PaymentMode;
+  public pricePerLiter!: number;
   public totalAmountExpected!: number;
   public status!: SalesTicketStatus;
 
@@ -210,6 +217,15 @@ export function initialize(sequelize: Sequelize): ModelStatic<SalesTicket> {
         type: DataTypes.DATE,
         allowNull: false,
       },
+      paymentMode: {
+        type: DataTypes.ENUM(...Object.values(PaymentMode)),
+        allowNull: false,
+        defaultValue: PaymentMode.PREPAID,
+      },
+      pricePerLiter: {
+        type: DataTypes.DECIMAL(18, 4), // Precio por litro con el que se calculó el total
+        allowNull: false,
+      },
       totalAmountExpected: {
         type: DataTypes.DECIMAL(18, 2), // Monto total calculado esperado
         allowNull: false,
@@ -217,7 +233,7 @@ export function initialize(sequelize: Sequelize): ModelStatic<SalesTicket> {
       status: {
         type: DataTypes.ENUM(...Object.values(SalesTicketStatus)),
         allowNull: false,
-        defaultValue: SalesTicketStatus.PENDING_PAYMENT_DISPATCH,
+        defaultValue: SalesTicketStatus.ISSUED,
       },
       createdAt: {
         type: DataTypes.DATE,

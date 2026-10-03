@@ -29,6 +29,7 @@ import tankMeasurementResolver from "./resolvers/tankMeasurementResolver";
 import auditResolver from "./resolvers/auditResolver";
 import invoicePaymentResolver from "./resolvers/invoicePaymentResolver";
 import auditPeriodCloseResolver from "./resolvers/auditPeriodCloseResolver";
+import ticketRefundResolver from "./resolvers/ticketRefundResolver";
 import { applyOfflineIdempotency } from "./helpers/offlineIdempotency";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -67,4 +68,5 @@ export const resolvers: IResolvers<any>[] = applyOfflineIdempotency([
   auditResolver,
   invoicePaymentResolver,
   auditPeriodCloseResolver,
+  ticketRefundResolver,
 ]);

@@ -1,8 +1,12 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
-import { SalesTicketStatus } from "../../utils/types";
+import { PaymentMode, SalesTicketStatus } from "../../utils/types";
 import { Op, QueryTypes } from "sequelize"; // Importar Op para operaciones de fecha
-import { buildDateWhere } from "../helpers/auditHelpers";
+import { buildDateWhere, round, toNum } from "../helpers/auditHelpers";
+import {
+  computeTicketFinancials,
+  loadTicketFinancialRows,
+} from "../helpers/ticketFinancials";
 import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const salesTicketResolver: IResolvers<Context> = {
@@ -187,11 +191,114 @@ const salesTicketResolver: IResolvers<Context> = {
         ticketCount: r.ticketCount,
       }));
     },
+    salesTicketDifferential: async (
+      _parent,
+      { id }: { id: string },
+      context: Context
+    ) => {
+      const [row] = await loadTicketFinancialRows(context, `st.id = :id`, { id });
+      if (!row) return null;
+      const f = computeTicketFinancials(row);
+      return {
+        paidAmount: f.paidAmount,
+        dispatchedAmount: f.dispatchedAmount,
+        refundedAmount: f.refundedAmount,
+        differentialAmount: f.differentialAmount,
+        differentialLiters: f.differentialLiters,
+      };
+    },
+    dispatcherDifferentialSummary: async (
+      _parent,
+      {
+        gasStationId,
+        startDate,
+        endDate,
+        dispatcherShiftId,
+      }: {
+        gasStationId?: string;
+        startDate?: Date;
+        endDate?: Date;
+        dispatcherShiftId?: string;
+      },
+      context: Context
+    ) => {
+      const conditions = [`st.status = 'COMPLETED'`, `st."dispatcherEmployeeId" IS NOT NULL`];
+      const replacements: Record<string, unknown> = {};
+      if (gasStationId) {
+        conditions.push(`st."gasStationId" = :gasStationId`);
+        replacements.gasStationId = gasStationId;
+      }
+      if (startDate) {
+        conditions.push(`st."ticketIssueTime" >= :startDate`);
+        replacements.startDate = startDate;
+      }
+      if (endDate) {
+        conditions.push(`st."ticketIssueTime" <= :endDate`);
+        replacements.endDate = endDate;
+      }
+      if (dispatcherShiftId) {
+        conditions.push(`st."dispatcherShiftId" = :dispatcherShiftId`);
+        replacements.dispatcherShiftId = dispatcherShiftId;
+      }
+
+      const rows = await loadTicketFinancialRows(
+        context,
+        conditions.join(" AND "),
+        replacements
+      );
+
+      const byDispatcher = new Map<
+        string,
+        {
+          ticketCount: number;
+          grossLiters: number;
+          grossAmount: number;
+          refundedLiters: number;
+          refundedAmount: number;
+        }
+      >();
+      for (const row of rows) {
+        const f = computeTicketFinancials(row);
+        const acc = byDispatcher.get(row.dispatcherEmployeeId!) ?? {
+          ticketCount: 0,
+          grossLiters: 0,
+          grossAmount: 0,
+          refundedLiters: 0,
+          refundedAmount: 0,
+        };
+        acc.ticketCount += 1;
+        acc.grossLiters += f.grossLiters;
+        acc.grossAmount += f.grossAmount;
+        acc.refundedLiters += f.refundedLiters;
+        acc.refundedAmount += f.refundedAmount;
+        byDispatcher.set(row.dispatcherEmployeeId!, acc);
+      }
+
+      return [...byDispatcher.entries()].map(([dispatcherEmployeeId, a]) => ({
+        dispatcherEmployeeId,
+        ticketCount: a.ticketCount,
+        grossDifferentialLiters: round(a.grossLiters, 3),
+        grossDifferentialAmount: round(a.grossAmount, 2),
+        refundedLiters: round(a.refundedLiters, 3),
+        refundedAmount: round(a.refundedAmount, 2),
+        netDifferentialLiters: round(a.grossLiters - a.refundedLiters, 3),
+        netDifferentialAmount: round(a.grossAmount - a.refundedAmount, 2),
+      }));
+    },
   },
   Mutation: {
     createSalesTicket: async (_parent, { input }, context: Context) => {
       try {
         const result = await context.sequelize.transaction(async (t: any) => {
+          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
+            input.assignedSaleTypeConfigId,
+            { transaction: t }
+          );
+          if (!saleTypeConfig) {
+            throw new Error("Sale type config not found for this ticket.");
+          }
+          const pricePerLiter = toNum(saleTypeConfig.salePricePerLiter);
+
           const last = await context.models.SalesTicket.findOne({
             where: { gasStationId: input.gasStationId },
             order: [["ticketNumber", "DESC"]],
@@ -200,7 +307,19 @@ const salesTicketResolver: IResolvers<Context> = {
           });
           const ticketNumber = (last?.ticketNumber ?? 0) + 1;
           const salesTicket = await context.models.SalesTicket.create(
-            { ...input, ticketNumber },
+            {
+              gasStationId: input.gasStationId,
+              cashierShiftId: input.cashierShiftId,
+              fuelTypeId: input.fuelTypeId,
+              requestedLiters: input.requestedLiters,
+              assignedSaleTypeConfigId: input.assignedSaleTypeConfigId,
+              ticketIssueTime: input.ticketIssueTime,
+              paymentMode: input.paymentMode ?? PaymentMode.PREPAID,
+              status: SalesTicketStatus.ISSUED,
+              pricePerLiter,
+              totalAmountExpected: round(toNum(input.requestedLiters) * pricePerLiter, 2),
+              ticketNumber,
+            },
             { transaction: t }
           );
           return salesTicket;
@@ -223,11 +342,44 @@ const salesTicketResolver: IResolvers<Context> = {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(id, {
             transaction: t,
+            lock: t.LOCK.UPDATE,
           });
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-          await salesTicket.update(input, { transaction: t });
+
+          const pricingChanged =
+            input.requestedLiters !== undefined ||
+            input.assignedSaleTypeConfigId !== undefined ||
+            input.fuelTypeId !== undefined;
+          if (!pricingChanged) {
+            await salesTicket.update(input, { transaction: t });
+            return salesTicket;
+          }
+
+          if (salesTicket.status !== SalesTicketStatus.ISSUED) {
+            throw new Error(
+              `Sales ticket pricing can only change while ISSUED (current status: ${salesTicket.status}).`
+            );
+          }
+          const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
+            input.assignedSaleTypeConfigId ?? salesTicket.assignedSaleTypeConfigId,
+            { transaction: t }
+          );
+          if (!saleTypeConfig) {
+            throw new Error("Sale type config not found for this ticket.");
+          }
+          const pricePerLiter = toNum(saleTypeConfig.salePricePerLiter);
+          const requestedLiters = toNum(input.requestedLiters ?? salesTicket.requestedLiters);
+
+          await salesTicket.update(
+            {
+              ...input,
+              pricePerLiter,
+              totalAmountExpected: round(requestedLiters * pricePerLiter, 2),
+            },
+            { transaction: t }
+          );
           return salesTicket;
         });
         return result;
@@ -288,18 +440,57 @@ const salesTicketResolver: IResolvers<Context> = {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(id, {
             transaction: t,
+            lock: t.LOCK.UPDATE,
           });
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-          if (
-            salesTicket.status !== SalesTicketStatus.PENDING_PAYMENT_DISPATCH
-          ) {
-            throw new Error(
-              `Sales ticket cannot be dispatched from its current status: ${salesTicket.status}`
-            );
+          const liters = toNum(actualLitersDispatched);
+          if (!(liters > 0)) {
+            throw new Error("Dispatched liters must be greater than zero.");
           }
 
+          const activeShift = await context.models.EmployeeShift.findOne({
+            where: {
+              employeeId: dispatcherEmployeeId,
+              gasStationId: salesTicket.gasStationId,
+              shiftEndTime: null,
+            },
+            order: [["shiftStartTime", "DESC"]],
+            transaction: t,
+          });
+          const dispatch = {
+            dispatcherEmployeeId,
+            dispatcherShiftId: activeShift?.id,
+            dispenserNozzleId,
+            actualLitersDispatched: liters,
+          };
+
+          if (salesTicket.paymentMode === PaymentMode.PREPAID) {
+            if (salesTicket.status !== SalesTicketStatus.PAID) {
+              throw new Error(
+                `Prepaid sales ticket must be PAID before dispatch (current status: ${salesTicket.status}).`
+              );
+            }
+            const requestedLiters = toNum(salesTicket.requestedLiters);
+            if (liters > requestedLiters) {
+              throw new Error(
+                `Prepaid sales ticket cannot dispatch more liters than paid: ${liters} > ${requestedLiters}.`
+              );
+            }
+            // El cobro ya cubre el total: no se recalcula y el despacho completa el ticket.
+            await salesTicket.update(
+              { ...dispatch, status: SalesTicketStatus.COMPLETED },
+              { transaction: t }
+            );
+            return salesTicket;
+          }
+
+          if (salesTicket.status !== SalesTicketStatus.ISSUED) {
+            throw new Error(
+              `Postpaid sales ticket can only be dispatched from ISSUED (current status: ${salesTicket.status}).`
+            );
+          }
           const saleTypeConfig = await context.models.SaleTypeConfig.findByPk(
             salesTicket.assignedSaleTypeConfigId,
             { transaction: t }
@@ -307,18 +498,13 @@ const salesTicketResolver: IResolvers<Context> = {
           if (!saleTypeConfig) {
             throw new Error("Sale type config not found for this ticket.");
           }
-
-          const recalculatedTotal =
-            parseFloat(String(actualLitersDispatched)) *
-            parseFloat(String(saleTypeConfig.salePricePerLiter));
-
+          const pricePerLiter = toNum(saleTypeConfig.salePricePerLiter);
           await salesTicket.update(
             {
-              dispatcherEmployeeId,
-              dispenserNozzleId,
-              actualLitersDispatched,
-              totalAmountExpected: recalculatedTotal,
-              status: SalesTicketStatus.PAID_PENDING_DISPATCH,
+              ...dispatch,
+              pricePerLiter,
+              totalAmountExpected: round(liters * pricePerLiter, 2),
+              status: SalesTicketStatus.DISPATCHED,
             },
             { transaction: t }
           );
@@ -350,30 +536,12 @@ const salesTicketResolver: IResolvers<Context> = {
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-          if (
-            salesTicket.status !== SalesTicketStatus.PENDING_PAYMENT_DISPATCH &&
-            salesTicket.status !== SalesTicketStatus.PAID_PENDING_DISPATCH
-          ) {
-            throw new Error(
-              `Sales ticket cannot be completed from its current status: ${salesTicket.status}`
-            );
+          if (salesTicket.status === SalesTicketStatus.COMPLETED) {
+            return salesTicket;
           }
-
-          // Aquí se podría añadir lógica para verificar que la suma de los pagos asociados
-          // sea igual o mayor al totalAmountExpected.
-          // const payments = await salesTicket.getPayments({ transaction: t });
-          // const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-          // if (totalPaid < salesTicket.totalAmountExpected) {
-          //   throw new Error("Total amount paid is less than the expected total amount.");
-          // }
-
-          await salesTicket.update(
-            {
-              status: SalesTicketStatus.COMPLETED,
-            },
-            { transaction: t }
+          throw new Error(
+            `Sales ticket completes automatically once payment and dispatch are both recorded (paymentMode: ${salesTicket.paymentMode}, status: ${salesTicket.status}).`
           );
-          return salesTicket;
         });
         return result;
       } catch (error: any) {
@@ -397,11 +565,11 @@ const salesTicketResolver: IResolvers<Context> = {
         const result = await context.sequelize.transaction(async (t: any) => {
           const salesTicket = await context.models.SalesTicket.findByPk(id, {
             transaction: t,
+            lock: t.LOCK.UPDATE,
           });
           if (!salesTicket) {
             throw new Error("Sales ticket not found.");
           }
-          // Permitir cancelar si no está ya completado o reembolsado
           if (salesTicket.status === SalesTicketStatus.COMPLETED) {
             throw new Error(
               `Sales ticket cannot be cancelled from its current status: ${salesTicket.status}`
