@@ -188,6 +188,53 @@ await step('Cobro — el resumen del pago 2 descuenta el pago 1 (H-025 #2)', asy
   await expectVisible(page.getByText('Completado'))
 })
 
+// ── T-040: prepago completo offline (emitir, cobrar y despachar sin red) ───
+let prepaidOfflineTicketLocalId
+await step('Prepago offline: emitir, cobrar y despachar sin red (T-040)', async () => {
+  await page.goto(`${APP}/tickets/new?shiftId=${shiftLocalId}`)
+  await page.locator('select').nth(0).selectOption('PREPAID')
+  const [fuel, config] = [page.locator('select').nth(1), page.locator('select').nth(2)]
+  const fuels = await fuel.locator('option').evaluateAll((os) => os.map((o) => o.value).filter(Boolean))
+  let ok = false
+  for (const f of fuels) {
+    await fuel.selectOption(f)
+    if ((await config.locator('option').count()) > 1) { await selectFirstReal(config); ok = true; break }
+  }
+  if (!ok) throw new Error('ningún combustible con configuración de venta')
+  await page.locator('input[type=number]').fill('8')
+  await page.getByRole('button', { name: 'Guardar offline' }).click()
+  await page.waitForURL(/\/tickets\/[0-9a-f-]{36}$/)
+  prepaidOfflineTicketLocalId = page.url().split('/').pop()
+  await expectVisible(page.getByRole('button', { name: 'Registrar pago' }))
+  if (await page.getByRole('button', { name: 'Registrar despacho' }).count()) {
+    throw new Error('prepago offline no debería ofrecer despacho antes de pagar')
+  }
+
+  // Cobrar el total completo, en la moneda del ticket.
+  await page.getByRole('button', { name: 'Registrar pago' }).click()
+  const totalText = await page.getByText('Total a cobrar').locator('xpath=following-sibling::span').first().textContent()
+  const total = parseMoney(totalText ?? '')
+  const symbol = (totalText ?? '').trim().split(/\s/)[0]
+  const currencySelect = page.locator('select[name="lines.0.currencyId"]')
+  const options = await currencySelect.locator('option').evaluateAll((os) =>
+    os.map((o) => ({ value: o.value, text: o.textContent })).filter((o) => o.value)
+  )
+  await currencySelect.selectOption(options.find((o) => o.text.startsWith(symbol)).value)
+  await page.locator('input[name="lines.0.amount"]').fill(String(total))
+  await page.getByRole('button', { name: 'Guardar pago offline' }).click()
+  await expectVisible(page.getByText('Pagado — pendiente de despacho'))
+
+  // Despachar menos de lo pagado, offline: completa igual (prepago), con diferencial que
+  // recién se puede ver tras sincronizar (salesTicketDifferential necesita red).
+  await page.getByRole('button', { name: 'Registrar despacho' }).click()
+  const selects = page.locator('form select')
+  await selectFirstReal(selects.nth(0))
+  await selectFirstReal(selects.nth(1))
+  await page.locator('form input[type=number]').fill('5') // menos que los 8 pagados
+  await page.getByRole('button', { name: 'Guardar offline' }).click()
+  await expectVisible(page.getByText('Completado'))
+})
+
 await step('Lecturas FINAL offline', async () => {
   await page.goto(`${APP}/shifts/${shiftLocalId}`)
   await page.getByRole('button', { name: 'Lecturas finales' }).click()
@@ -227,8 +274,9 @@ await step('Cerrar turno offline: recarga < 1 s conserva la escritura (flush pag
 
 await step('Todo quedó en la cola (sin conflictos)', async () => {
   const q = await queueCount(page)
-  // 1 turno + N lecturas INITIAL + 1 ticket + 1 despacho + 2 pagos + N lecturas FINAL + 1 medición + 1 cierre
-  const expected = 1 + nozzleCount + 1 + 1 + 2 + nozzleCount + 1 + 1
+  // 1 turno + N lecturas INITIAL + 1 ticket postpago + 1 despacho + 2 pagos + 1 ticket prepago
+  // + 1 pago + 1 despacho (T-040) + N lecturas FINAL + 1 medición + 1 cierre
+  const expected = 1 + nozzleCount + 1 + 1 + 2 + 1 + 1 + 1 + nozzleCount + 1 + 1
   if (q.queue !== expected || q.failed !== 0) throw new Error(`cola ${JSON.stringify(q)}, esperado ${expected}`)
 })
 
@@ -253,8 +301,11 @@ await step('BD: turno, lecturas, ticket, 2 pagos y medición con IDs reales, sin
   if (closed !== 'true') throw new Error('turno no cerrado')
   const readings = Number(psql(`select count(*) from dispenser_readings where "employeeShiftId"='${shiftId}'`))
   if (readings !== nozzleCount * 2) throw new Error(`lecturas ${readings}, esperado ${nozzleCount * 2}`)
+  // Este turno ahora tiene 2 tickets (postpago principal + prepago offline de T-040) — se filtra
+  // por modo para no mezclar las dos filas.
   const [ticketId, status, liters] = psql(
-    `select id||'|'||status||'|'||coalesce("actualLitersDispatched"::text,'null') from sales_tickets where "cashierShiftId"='${shiftId}'`
+    `select id||'|'||status||'|'||coalesce("actualLitersDispatched"::text,'null') from sales_tickets ` +
+    `where "cashierShiftId"='${shiftId}' and "paymentMode"='POSTPAID'`
   ).split('|')
   if (status !== 'COMPLETED' || Number(liters) !== 10) throw new Error(`ticket ${status} ${liters}`)
   if (psql(`select count(*) from payments where "salesTicketId"='${ticketId}'`) !== '2') throw new Error('pagos != 2')
@@ -262,6 +313,31 @@ await step('BD: turno, lecturas, ticket, 2 pagos y medición con IDs reales, sin
   if (psql(`select count(*) from employee_shifts where "employeeId"='${employeeId}' and "createdAt" > now() - interval '1 hour'`) !== '1') {
     throw new Error('turnos duplicados')
   }
+})
+
+await step('Prepago offline — BD: ticket sin duplicados; diferencial visible tras sincronizar (T-040)', async () => {
+  const shiftId = psql(
+    `select id from employee_shifts where "employeeId"='${employeeId}' order by "createdAt" desc limit 1`
+  )
+  const rows = psql(
+    `select id||'|'||status||'|'||coalesce("actualLitersDispatched"::text,'null') from sales_tickets ` +
+    `where "cashierShiftId"='${shiftId}' and "paymentMode"='PREPAID'`
+  ).split('\n').filter(Boolean)
+  // Si el sync hubiera duplicado la creación del ticket (idempotencia rota), aparecería más de
+  // una fila acá — el mismo chequeo que T-004/T-007 hacen para turnos.
+  if (rows.length !== 1) throw new Error(`tickets prepago en este turno: ${rows.length}, esperado 1`)
+  const [ticketId, status, liters] = rows[0].split('|')
+  if (status !== 'COMPLETED' || Number(liters) !== 5) throw new Error(`ticket prepago offline: ${status} ${liters}`)
+  if (psql(`select count(*) from payments where "salesTicketId"='${ticketId}'`) !== '1') {
+    throw new Error('pagos del ticket prepago offline duplicados por el sync')
+  }
+
+  await page.goto(`${APP}/tickets/${ticketId}`)
+  await expectVisible(page.getByText('Diferencial a favor de la estación'))
+  // El span trae "<monto> base (<litros> L)" junto — aislar el monto antes de " base".
+  const pendingText = await page.getByText('Diferencial pendiente').locator('xpath=following-sibling::span').first().textContent()
+  const pendingBase = parseMoney((pendingText ?? '').split(' base')[0])
+  if (!(pendingBase > 0)) throw new Error(`diferencial pendiente no es positivo tras sincronizar: "${pendingText}"`)
 })
 
 // ── Reporte de turno: las filas suman el Total (T-017) ──────────────────────
