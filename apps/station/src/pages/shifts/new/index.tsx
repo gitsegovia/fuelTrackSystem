@@ -4,6 +4,9 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2, WifiOff } from 'lucide-react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
+import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
+import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
+import { ensureEmptyList, upsertInCachedList } from '@/lib/offline-cache'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -34,7 +37,10 @@ export default function NewShiftPage() {
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
-  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
+  const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees, {
+    variables: { gasStationId },
+    skip: !gasStationId,
+  })
   const employee = empData?.employees?.find((e) => e.user.id === user?.id)
 
   const employeeRole = USERTYPE_TO_ROLE[user?.userType ?? ''] ?? 'CASHIER'
@@ -46,6 +52,52 @@ export default function NewShiftPage() {
         { query: QUERIES.employeeShiftsByGasStation, variables: { gasStationId } },
         { query: QUERIES.activeEmployeeShift, variables: { employeeId: employee?.id } },
       ],
+      // Offline: el turno queda como activo con su localId para que las operaciones
+      // siguientes (ej. medición de tanque) lo referencien y se sincronicen detrás de él.
+      // El detalle (/shifts/:localId) lo resuelve el cache redirect de employeeShift(id).
+      writeToCache: (cache, { variables, localId }) => {
+        if (!localId || !employee) return
+        const input = variables?.input ?? {}
+        const shift = {
+          __typename: 'EmployeeShift',
+          id: localId,
+          employeeId: employee.id,
+          gasStationId,
+          employeeRole: input.employeeRole,
+          shiftStartTime: input.shiftStartTime,
+          shiftEndTime: null,
+          createdAt: input.shiftStartTime,
+          employee: {
+            __typename: 'Employee',
+            id: employee.id,
+            firstName: employee.firstName,
+            lastName: employee.lastName,
+          },
+          gasStation: {
+            __typename: 'GasStation',
+            id: gasStationId,
+            name: user?.assignedGasStation?.name ?? '',
+          },
+        }
+        try {
+          cache.writeQuery({
+            query: QUERIES.activeEmployeeShift,
+            variables: { employeeId: employee.id },
+            data: { activeEmployeeShift: shift },
+          })
+          upsertInCachedList(cache, {
+            query: QUERIES.employeeShiftsByGasStation,
+            variables: { gasStationId },
+            field: 'employeeShiftsByGasStation',
+            item: shift,
+          })
+          // En el servidor todavía no existe: sus tickets y lecturas empiezan vacíos.
+          ensureEmptyList(cache, TicketQueries.salesTicketsByCashierShift, { cashierShiftId: localId }, 'salesTicketsByCashierShift')
+          ensureEmptyList(cache, ReadingQueries.dispenserReadingsByShift, { employeeShiftId: localId }, 'dispenserReadingsByShift')
+        } catch (e) {
+          console.warn('[FuelTrack] writeToCache shift failed:', e)
+        }
+      },
     }
   )
 

@@ -26,6 +26,9 @@ import { initialize as initTankMeasurement } from "./tankMeasurement";
 import { initialize as initInvoicePayment } from "./invoicePayment";
 import { initialize as initAuditPeriodClose } from "./auditPeriodClose";
 import { initialize as initOfflineMutationLog } from "./offlineMutationLog";
+import { initialize as initAuthSession } from "./authSession";
+import { initialize as initRefreshToken } from "./refreshToken";
+import { initialize as initTicketRefund } from "./ticketRefund";
 
 const models: AppModels = {
   Company: initCompany(sequelize),
@@ -52,6 +55,9 @@ const models: AppModels = {
   InvoicePayment: initInvoicePayment(sequelize),
   AuditPeriodClose: initAuditPeriodClose(sequelize),
   OfflineMutationLog: initOfflineMutationLog(sequelize),
+  AuthSession: initAuthSession(sequelize),
+  RefreshToken: initRefreshToken(sequelize),
+  TicketRefund: initTicketRefund(sequelize),
 };
 
 //Defined associations

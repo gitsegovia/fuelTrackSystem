@@ -2,8 +2,8 @@ import { useCallback, useRef, useState } from 'react'
 import { useApolloClient } from '@apollo/client/react'
 import type { DocumentNode } from '@apollo/client'
 import { print } from 'graphql'
-import { enqueue } from '@/lib/offline-db'
 import { onMutationQueued } from '@/lib/apollo-client'
+import { sendOrQueue } from '@/lib/offline-sync'
 import { useOffline } from '@/context/OfflineContext'
 import { getDeviceFingerprint, getStoredUserId } from '@/lib/device-fingerprint'
 
@@ -112,10 +112,13 @@ export function useOfflineMutation<TData = unknown>(
   const mutate = useCallback(
     async (opts: OfflineMutateOptions = {}): Promise<OfflineMutateResult<TData>> => {
       const { variables, localId, dependsOn, optimisticResponse } = opts
+      const online = isOnline && navigator.onLine
 
-      // ── Modo offline: encolar sin intentar la red ─────────────────────────
-      if (!isOnline || !navigator.onLine) {
-        await enqueue({
+      if (online) setLoading(true)
+      try {
+        // Errores de aplicación (GraphQL, 4xx/5xx) se relanzan para que el caller los muestre.
+        const outcome = await sendOrQueue({
+          online,
           operationName,
           query: queryString,
           variables: (variables ?? {}) as Record<string, unknown>,
@@ -123,57 +126,30 @@ export function useOfflineMutation<TData = unknown>(
           dependsOn,
           createdBy: getStoredUserId(),
           deviceFingerprint: getDeviceFingerprint(),
+          isNetworkError,
+          send: async ({ variables: vars, headers }) => {
+            const result = await apolloClient.mutate<TData>({
+              mutation,
+              variables: vars as Record<string, any>,
+              refetchQueries: baseOptionsRef.current?.refetchQueries as any,
+              // skipOfflineLink: si la red cae mid-flight, sendOrQueue encola con el mismo id;
+              // el OfflineLink no debe duplicar el encolado.
+              context: { skipOfflineLink: true, headers },
+            })
+            return result.data ?? null
+          },
         })
-        // Notifica al OfflineContext para actualizar el badge de pendientes + toast
-        onMutationQueued?.()
 
+        if (!outcome.queued) {
+          return { data: outcome.data as TData | null, wasQueued: false }
+        }
+        // Notifica al OfflineContext para actualizar el badge de pendientes + toast
+        onMutationQueued?.(outcome.reason)
         // Escribe datos optimistas en el cache Apollo si el caller lo pide
         baseOptionsRef.current?.writeToCache?.(apolloClient.cache, { variables, localId })
-
-        return {
-          data: (optimisticResponse ?? null) as TData | null,
-          wasQueued: true,
-        }
-      }
-
-      // ── Modo online: intentar la mutation normalmente ─────────────────────
-      setLoading(true)
-      try {
-        const result = await apolloClient.mutate<TData>({
-          mutation,
-          variables: variables as Record<string, any>,
-          refetchQueries: baseOptionsRef.current?.refetchQueries as any,
-          // Indica al OfflineLink que no duplique el encolado si la red cae mid-flight;
-          // el bloque catch lo maneja aquí con los metadatos completos (localId, dependsOn).
-          context: { skipOfflineLink: true },
-        })
-        return { data: result.data ?? null, wasQueued: false }
-
-      } catch (err: unknown) {
-        // Red cayó mientras enviaba: encolar con metadatos completos
-        if (isNetworkError(err)) {
-          await enqueue({
-            operationName,
-            query: queryString,
-            variables: (variables ?? {}) as Record<string, unknown>,
-            localId,
-            dependsOn,
-            createdBy: getStoredUserId(),
-            deviceFingerprint: getDeviceFingerprint(),
-          })
-          onMutationQueued?.()
-          baseOptionsRef.current?.writeToCache?.(apolloClient.cache, { variables, localId })
-          return {
-            data: (optimisticResponse ?? null) as TData | null,
-            wasQueued: true,
-          }
-        }
-        // Error de aplicación (GraphQL error, 4xx/5xx): relanzar para que
-        // el caller lo capture con try/catch y muestre el mensaje al usuario.
-        throw err
-
+        return { data: (optimisticResponse ?? null) as TData | null, wasQueued: true }
       } finally {
-        setLoading(false)
+        if (online) setLoading(false)
       }
     },
     // apolloClient y mutation son estables; isOnline cambia con la red

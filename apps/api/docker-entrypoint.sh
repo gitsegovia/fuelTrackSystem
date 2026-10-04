@@ -31,6 +31,20 @@ done
 echo "Database is ready. Running migrations..."
 npx sequelize-cli db:migrate
 
-echo "Migrations finished. Starting the application..."
+echo "Migrations finished."
+
+# Carga seeds solo si SEED_DB=true Y la tabla companies está vacía (evita duplicados en reinicios).
+if [ "$SEED_DB" = "true" ]; then
+  COUNT=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" -t -c "SELECT COUNT(*) FROM companies;" 2>/dev/null | tr -d ' ' || echo "0")
+  if [ "$COUNT" = "0" ]; then
+    echo "Running seeds..."
+    npx sequelize-cli db:seed:all
+    echo "Seeds loaded."
+  else
+    echo "Database already seeded (companies: $COUNT), skipping."
+  fi
+fi
+
+echo "Starting the application..."
 # 'exec "$@"' ejecuta el comando que se pasó al entrypoint (el CMD del Dockerfile).
 exec "$@"

@@ -1,11 +1,17 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { Tank as TankModel } from "../../models/tank"; // Import the Tank model type
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const tankResolver: IResolvers<Context> = {
   Query: {
     // Get all tanks
     tanks: async (_parent, _args, context: Context) => {
+      // H-021 (T-022, riesgo #7): measurements/dispatchReceptions (hasMany sin límite) fuera del
+      // include base. Si el cliente los pide anidados, los sirve el field resolver de abajo
+      // (parent.getX()), igual que hoy — no había ganancia real en incluirlos aquí porque
+      // graphql-js siempre invoca el field resolver explícito en vez de leer la propiedad ya
+      // cargada por Sequelize.
       return context.models.Tank.findAll({
         include: [
           { model: context.models.GasStation, as: "gasStation" },
@@ -13,8 +19,6 @@ const tankResolver: IResolvers<Context> = {
           { model: context.models.TankModel, as: "tankModel" },
           { model: context.models.TankAssignment, as: "tankAssignments" },
           { model: context.models.Dispenser, as: "connectedDispensers" },
-          { model: context.models.DispatchReception, as: "dispatchReceptions" },
-          { model: context.models.TankMeasurement, as: "measurements" },
         ],
       });
     },
@@ -27,8 +31,6 @@ const tankResolver: IResolvers<Context> = {
           { model: context.models.TankModel, as: "tankModel" },
           { model: context.models.TankAssignment, as: "tankAssignments" },
           { model: context.models.Dispenser, as: "connectedDispensers" },
-          { model: context.models.DispatchReception, as: "dispatchReceptions" },
-          { model: context.models.TankMeasurement, as: "measurements" },
         ],
       });
     },
@@ -151,31 +153,14 @@ const tankResolver: IResolvers<Context> = {
   },
   // --- Field Resolvers for relationships ---
   Tank: {
-    gasStation: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getGasStation();
-    },
-    fuelType: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getFuelType();
-    },
-    tankModel: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getTankModel();
-    },
-    tankAssignments: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getTankAssignments();
-    },
-    connectedDispensers: async (
-      parent: TankModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getConnectedDispensers();
-    },
-    dispatchReceptions: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getDispatchReceptions();
-    },
-    measurements: async (parent: TankModel, _args, _context: Context) => {
-      return parent.getMeasurements();
-    },
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    fuelType: belongsTo("fuelType", "FuelType", "fuelTypeId"),
+    tankModel: belongsTo("tankModel", "TankModel", "tankModelId"),
+    // tankId en tank_assignments es una columna fantasma (H-016): nadie la setea, siempre []
+    tankAssignments: hasMany("tankAssignments", "TankAssignment", "tankId"),
+    connectedDispensers: hasMany("connectedDispensers", "Dispenser", "tankId"),
+    dispatchReceptions: hasMany("dispatchReceptions", "DispatchReception", "tankId"),
+    measurements: hasMany("measurements", "TankMeasurement", "tankId"),
   },
 };
 

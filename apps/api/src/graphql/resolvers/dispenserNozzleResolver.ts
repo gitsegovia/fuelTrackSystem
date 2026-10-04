@@ -1,17 +1,18 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { DispenserNozzle as DispenserNozzleModel } from "../../models/dispenserNozzle";
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const dispenserNozzleResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las boquillas
+    // H-021 (T-022, riesgo #8): dispenserReadings/salesTickets (hasMany sin límite) fuera del
+    // include base; el field resolver de abajo (parent.getX()) los sigue sirviendo si se piden
+    // anidados, como ya hacía antes (graphql-js llama al resolver explícito, no lee la
+    // propiedad precargada por el include).
     dispenserNozzles: async (_parent, _args, context: Context) => {
       return context.models.DispenserNozzle.findAll({
-        include: [
-          { model: context.models.Dispenser, as: "dispenser" },
-          { model: context.models.DispenserReading, as: "dispenserReadings" },
-          { model: context.models.SalesTicket, as: "salesTickets" },
-        ],
+        include: [{ model: context.models.Dispenser, as: "dispenser" }],
       });
     },
     // Obtener una boquilla por ID
@@ -21,11 +22,7 @@ const dispenserNozzleResolver: IResolvers<Context> = {
       context: Context
     ) => {
       return context.models.DispenserNozzle.findByPk(id, {
-        include: [
-          { model: context.models.Dispenser, as: "dispenser" },
-          { model: context.models.DispenserReading, as: "dispenserReadings" },
-          { model: context.models.SalesTicket, as: "salesTickets" },
-        ],
+        include: [{ model: context.models.Dispenser, as: "dispenser" }],
       });
     },
     // Obtener boquillas por ID de surtidor
@@ -148,27 +145,9 @@ const dispenserNozzleResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   DispenserNozzle: {
-    dispenser: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenser();
-    },
-    dispenserReadings: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserReadings();
-    },
-    salesTickets: async (
-      parent: DispenserNozzleModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTickets();
-    },
+    dispenser: belongsTo("dispenser", "Dispenser", "dispenserId"),
+    dispenserReadings: hasMany("dispenserReadings", "DispenserReading", "dispenserNozzleId"),
+    salesTickets: hasMany("salesTickets", "SalesTicket", "dispenserNozzleId"),
   },
 };
 

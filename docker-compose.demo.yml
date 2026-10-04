@@ -21,9 +21,9 @@ services:
       api:
         condition: service_started
     volumes:
-      - ./apps/web:/app
-      - /app/node_modules
-      - /app/.next
+      - ./apps/web:/app/apps/web
+      - /app/apps/web/node_modules
+      - /app/apps/web/.next
 
   api:
     build:
@@ -33,12 +33,29 @@ services:
       - "${API_PORT:-4000}:3000"
     environment:
       NODE_ENV: development
+      DOCKER_ENV: "true"
+      SEED_DB: "true"
     volumes:
       - ./apps/api:/usr/src/app
       - /usr/src/app/node_modules
       # Fingerprint de dev generado desde estos archivos por docker-entrypoint.sh
       - ./apps/api/dev-machine-id.md:/run/secrets/machine-id:ro
       - ./apps/api/dev-mac-address.md:/run/secrets/mac-address:ro
+
+  station:
+    build:
+      target: development
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      VITE_GRAPHQL_URI: http://localhost:4000/graphql
+    depends_on:
+      api:
+        condition: service_started
+    volumes:
+      - ./apps/station:/app/apps/station
+      - /app/apps/station/node_modules
 
   db:
     restart: unless-stopped

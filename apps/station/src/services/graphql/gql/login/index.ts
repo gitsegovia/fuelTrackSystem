@@ -17,17 +17,42 @@ export const USER_FRAGMENT = gql`
   }
 `
 
+const AUTH_PAYLOAD_FRAGMENT = gql`
+  fragment AuthPayloadFields on AuthPayload {
+    token
+    accessTokenExpiresAt
+    refreshToken
+    sessionExpiresAt
+    user {
+      ...UserFields
+    }
+  }
+  ${USER_FRAGMENT}
+`
+
 export const MUTATIONS = {
   login: gql`
     mutation Login($input: LoginInput!) {
       login(input: $input) {
-        token
-        user {
-          ...UserFields
-        }
+        ...AuthPayloadFields
       }
     }
-    ${USER_FRAGMENT}
+    ${AUTH_PAYLOAD_FRAGMENT}
+  `,
+  // ADR-014: rota el refresh token. Errores (extensions.code): INVALID_REFRESH_TOKEN,
+  // REFRESH_TOKEN_REUSED, SESSION_REVOKED, SESSION_EXPIRED — los cuatro piden re-login.
+  refreshSession: gql`
+    mutation RefreshSession($refreshToken: String!) {
+      refreshSession(refreshToken: $refreshToken) {
+        ...AuthPayloadFields
+      }
+    }
+    ${AUTH_PAYLOAD_FRAGMENT}
+  `,
+  logout: gql`
+    mutation Logout($refreshToken: String!) {
+      logout(refreshToken: $refreshToken)
+    }
   `,
 }
 

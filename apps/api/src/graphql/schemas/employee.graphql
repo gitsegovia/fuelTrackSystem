@@ -41,7 +41,7 @@ input UpdateEmployeeInput {
 }
 
 extend type Query {
-  employees: [Employee!]!
+  employees(gasStationId: UUID): [Employee!]!
   employee(id: UUID!): Employee
 }
 

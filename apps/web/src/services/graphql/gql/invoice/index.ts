@@ -31,7 +31,9 @@ const INVOICE_FRAGMENT = gql`
 
 export const QUERIES = {
   invoices: gql`
-    query Invoices { invoices { ...InvoiceFields } } ${INVOICE_FRAGMENT}
+    query Invoices($gasStationId: UUID, $companyId: UUID) {
+      invoices(gasStationId: $gasStationId, companyId: $companyId) { ...InvoiceFields }
+    } ${INVOICE_FRAGMENT}
   `,
   invoice: gql`
     query Invoice($id: UUID!) { invoice(id: $id) { ...InvoiceFields } } ${INVOICE_FRAGMENT}

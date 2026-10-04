@@ -1,11 +1,13 @@
 import { AppModels } from "./models";
 import { Sequelize } from "sequelize";
 import { UserRole, UserType } from "../utils/types";
+import { Loaders } from "../graphql/helpers/dataloaders";
 
 export interface AuthenticatedUser {
   id: string;
   username: string;
   role: UserRole;
+  sid?: string; // id de AuthSession; ausente en tokens emitidos antes de ADR-014
 }
 
 export interface OfflineSource {
@@ -19,6 +21,8 @@ export interface Context {
   models: AppModels;
   sequelize: Sequelize;
   offlineSource?: OfflineSource; // presente solo en mutations sincronizadas desde la cola offline
+  offlineMutationId?: string; // header x-offline-mutation-id: activa la idempotencia de mutations
+  loaders: Loaders; // DataLoaders por request (T-023); nunca compartir entre requests
 }
 
 //Interface to arguments

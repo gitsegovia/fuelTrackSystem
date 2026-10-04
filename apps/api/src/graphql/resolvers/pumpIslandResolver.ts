@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { PumpIsland as PumpIslandModel } from "../../models/pumpIsland"; // Importar el tipo de modelo
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const pumpIslandResolver: IResolvers<Context> = {
   Query: {
@@ -137,12 +138,8 @@ const pumpIslandResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   PumpIsland: {
-    gasStation: async (parent: PumpIslandModel, _args, _context: Context) => {
-      return parent.getGasStation();
-    },
-    dispensers: async (parent: PumpIslandModel, _args, _context: Context) => {
-      return parent.getDispensers();
-    },
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    dispensers: hasMany("dispensers", "Dispenser", "pumpIslandId"),
   },
 };
 

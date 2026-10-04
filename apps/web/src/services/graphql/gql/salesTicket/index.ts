@@ -53,11 +53,6 @@ export const MUTATIONS = {
       processSalesTicketDispatch(id: $id, dispatcherEmployeeId: $dispatcherEmployeeId, dispenserNozzleId: $dispenserNozzleId, actualLitersDispatched: $actualLitersDispatched) { ...SalesTicketFields }
     } ${SALES_TICKET_FRAGMENT}
   `,
-  completeSalesTicketPayment: gql`
-    mutation CompleteSalesTicketPayment($id: UUID!) {
-      completeSalesTicketPayment(id: $id) { ...SalesTicketFields }
-    } ${SALES_TICKET_FRAGMENT}
-  `,
   cancelSalesTicket: gql`
     mutation CancelSalesTicket($id: UUID!) {
       cancelSalesTicket(id: $id) { ...SalesTicketFields }

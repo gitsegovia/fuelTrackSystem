@@ -2,19 +2,13 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import { useAuth } from '@/hooks/useAuth'
 import { QUERIES } from '@/services/graphql/gql/salesTicket'
+import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
-
-const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pago recibido',
-  COMPLETED: 'Completado',
-  CANCELED: 'Cancelado',
-}
 
 type Ticket = {
   id: string
@@ -55,7 +49,7 @@ export default function TicketsPage() {
     {
       header: 'Estado',
       cell: ({ row }) => (
-        <Badge variant="outline">{STATUS_LABELS[row.original.status] ?? row.original.status}</Badge>
+        <Badge variant="outline">{TICKET_STATUS_LABELS[row.original.status] ?? row.original.status}</Badge>
       ),
     },
     {

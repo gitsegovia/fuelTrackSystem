@@ -1,10 +1,14 @@
-# src/graphql/schemas/salesTicket.graphql
-
 enum SalesTicketStatus {
-  PENDING_PAYMENT_DISPATCH
-  PAID_PENDING_DISPATCH
+  ISSUED
+  PAID
+  DISPATCHED
   COMPLETED
   CANCELED
+}
+
+enum PaymentMode {
+  PREPAID
+  POSTPAID
 }
 
 type SalesTicket {
@@ -20,6 +24,8 @@ type SalesTicket {
   actualLitersDispatched: Decimal
   assignedSaleTypeConfigId: UUID!
   ticketIssueTime: DateTime!
+  paymentMode: PaymentMode!
+  pricePerLiter: Decimal!
   totalAmountExpected: Decimal!
   status: SalesTicketStatus!
   createdAt: DateTime!
@@ -34,6 +40,32 @@ type SalesTicket {
   payments: [Payment!]!
 }
 
+# Diferencial a favor de la estación de un ticket: pagado − despachado − devuelto (D-18).
+# Montos en moneda base (monto / exchangeRate). Solo es significativo en COMPLETED.
+type SalesTicketDifferential {
+  paidAmount: Decimal!
+  dispatchedAmount: Decimal!
+  refundedAmount: Decimal!
+  differentialAmount: Decimal!
+  differentialLiters: Decimal!
+}
+
+# Totales por bombero para el cierre de turno. Solo tickets COMPLETED. Sin comisiones (D-17).
+type DispatcherDifferentialSummary {
+  dispatcherEmployeeId: UUID!
+  ticketCount: Int!
+  grossDifferentialLiters: Decimal!
+  grossDifferentialAmount: Decimal!
+  refundedLiters: Decimal!
+  refundedAmount: Decimal!
+  netDifferentialLiters: Decimal!
+  netDifferentialAmount: Decimal!
+}
+
+# Campos legados (totalAmountExpected, status, actualLitersDispatched, dispatcherEmployeeId,
+# dispenserNozzleId) se aceptan por compatibilidad con clientes y colas offline ya guardadas, y el
+# servidor los IGNORA. Obsoletos: el total lo calcula el servidor y el estado y despacho los
+# cambian sus mutations. Se retiran cuando station y web dejen de enviarlos.
 input CreateSalesTicketInput {
   gasStationId: UUID!
   cashierShiftId: UUID!
@@ -41,48 +73,75 @@ input CreateSalesTicketInput {
   requestedLiters: Decimal!
   assignedSaleTypeConfigId: UUID!
   ticketIssueTime: DateTime!
-  totalAmountExpected: Decimal!
-  # Los siguientes campos pueden ser nulos al crear y se llenan después
-  dispatcherEmployeeId: UUID
-  dispenserNozzleId: UUID
+  paymentMode: PaymentMode # Default: PREPAID
+  # Obsoleto, ignorado por el servidor
+  totalAmountExpected: Decimal
+  # Obsoleto, ignorado por el servidor
+  status: SalesTicketStatus
+  # Obsoleto, ignorado por el servidor
   actualLitersDispatched: Decimal
-  status: SalesTicketStatus # Default: PENDING_PAYMENT_DISPATCH
+  # Obsoleto, ignorado por el servidor
+  dispatcherEmployeeId: UUID
+  # Obsoleto, ignorado por el servidor
+  dispenserNozzleId: UUID
 }
 
+# Cambiar litros, tipo de venta o combustible solo se permite mientras el ticket está en ISSUED y
+# recalcula el total. Los campos legados de estado, total y despacho se ignoran (ver CreateSalesTicketInput).
 input UpdateSalesTicketInput {
-  dispatcherEmployeeId: UUID
-  dispenserNozzleId: UUID
   fuelTypeId: UUID
   requestedLiters: Decimal
-  actualLitersDispatched: Decimal
   assignedSaleTypeConfigId: UUID
   ticketIssueTime: DateTime
+  # Obsoleto, ignorado por el servidor
   totalAmountExpected: Decimal
+  # Obsoleto, ignorado por el servidor
   status: SalesTicketStatus
+  # Obsoleto, ignorado por el servidor
+  actualLitersDispatched: Decimal
+  # Obsoleto, ignorado por el servidor
+  dispatcherEmployeeId: UUID
+  # Obsoleto, ignorado por el servidor
+  dispenserNozzleId: UUID
 }
 
 extend type Query {
   salesTickets: [SalesTicket!]!
   salesTicket(id: UUID!): SalesTicket
-  salesTicketsByGasStation(gasStationId: UUID!, date: DateTime): [SalesTicket!]! # Filtrar por estación y opcionalmente por fecha
+  salesTicketsByGasStation(gasStationId: UUID!, date: DateTime, startDate: DateTime, endDate: DateTime): [SalesTicket!]!
   salesTicketsByCashierShift(cashierShiftId: UUID!): [SalesTicket!]!
   salesTicketsByDispatcher(dispatcherEmployeeId: UUID!): [SalesTicket!]!
   salesTicketsByNozzle(dispenserNozzleId: UUID!): [SalesTicket!]!
   salesTicketsByFuelType(fuelTypeId: UUID!): [SalesTicket!]!
   salesTicketsByStatus(status: SalesTicketStatus!): [SalesTicket!]!
+  salesTicketDailyTotals(gasStationId: UUID, startDate: DateTime!, endDate: DateTime!): [SalesTicketDailyTotal!]!
+  salesTicketDifferential(id: UUID!): SalesTicketDifferential
+  # Por estación y rango de emisión, o por turno del bombero (dispatcherShiftId).
+  dispatcherDifferentialSummary(
+    gasStationId: UUID
+    startDate: DateTime
+    endDate: DateTime
+    dispatcherShiftId: UUID
+  ): [DispatcherDifferentialSummary!]!
+}
+
+type SalesTicketDailyTotal {
+  date: Date!
+  fuelTypeId: UUID!
+  fuelTypeName: String!
+  liters: Decimal!
+  revenue: Decimal!
+  ticketCount: Int!
 }
 
 extend type Mutation {
   createSalesTicket(input: CreateSalesTicketInput!): SalesTicket!
   updateSalesTicket(id: UUID!, input: UpdateSalesTicketInput!): SalesTicket
   deleteSalesTicket(id: UUID!): Boolean!
-  # Mutaciones específicas para el flujo del ticket
-  processSalesTicketDispatch(
-    id: UUID!
-    dispatcherEmployeeId: UUID!
-    dispenserNozzleId: UUID!
-    actualLitersDispatched: Decimal!
-  ): SalesTicket!
-  completeSalesTicketPayment(id: UUID!): SalesTicket! # Marcar como COMPLETED
-  cancelSalesTicket(id: UUID!): SalesTicket! # Marcar como CANCELLED
+  # PREPAID: solo desde PAID; litros ≤ requestedLiters. COMPLETED.
+  # POSTPAID: solo desde ISSUED; recalcula el total con el precio actual. DISPATCHED.
+  processSalesTicketDispatch(id: UUID!, dispatcherEmployeeId: UUID!, dispenserNozzleId: UUID!, actualLitersDispatched: Decimal!): SalesTicket!
+  # Obsoleta: COMPLETED ocurre solo al cumplirse cobro y despacho según el modo.
+  completeSalesTicketPayment(id: UUID!): SalesTicket! @deprecated(reason: "COMPLETED ocurre automáticamente al cumplirse pago y despacho según paymentMode")
+  cancelSalesTicket(id: UUID!): SalesTicket!
 }

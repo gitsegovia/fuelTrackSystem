@@ -1,19 +1,22 @@
 import { ApolloClient, ApolloLink, InMemoryCache, Observable, from } from '@apollo/client'
+import type { FieldPolicy } from '@apollo/client'
 import { createHttpLink } from '@apollo/client/link/http'
 import { setContext } from '@apollo/client/link/context'
-import { persistCache, LocalStorageWrapper } from 'apollo3-cache-persist'
+import { CachePersistor, LocalStorageWrapper } from 'apollo3-cache-persist'
 import { print } from 'graphql'
 import { enqueue } from './offline-db'
 import { getDeviceFingerprint, getStoredUserId } from './device-fingerprint'
 
-export let onMutationQueued: (() => void) | null = null
-export function setMutationQueuedCallback(fn: () => void) {
+import type { QueueReason } from './offline-sync'
+
+export let onMutationQueued: ((reason?: QueueReason) => void) | null = null
+export function setMutationQueuedCallback(fn: (reason?: QueueReason) => void) {
   onMutationQueued = fn
 }
 
 // Detecta fallo de red real — compatible con Chrome, Firefox y Safari.
 // Firefox reporta la conexión caída como error CORS con statusCode null.
-function isNetworkDown(err: unknown): boolean {
+export function isNetworkDown(err: unknown): boolean {
   if (!err) return false
   const e = err as any
   if (e?.statusCode) return false // Error HTTP del servidor, no corte de red
@@ -45,6 +48,9 @@ function buildOfflineLink(): ApolloLink {
               (d: any) => d.kind === 'OperationDefinition' && d.operation === 'mutation'
             )
             if (!skip && isMutation && isNetworkDown(err)) {
+              // Red de seguridad para mutations que no usan useOfflineMutation: el intento
+              // original salió sin x-offline-mutation-id, así que no hay id previo que reusar;
+              // enqueue genera uno nuevo (estable desde aquí en adelante).
               enqueue({
                 operationName: operation.operationName ?? 'unknown',
                 query: print(operation.query),
@@ -67,22 +73,63 @@ function buildOfflineLink(): ApolloLink {
   })
 }
 
+// Cache redirect: una query de detalle por id resuelve a la entidad ya normalizada
+// (p. ej. un ticket o turno creado offline con su localId, o uno cargado por una lista).
+function redirectById(__typename: string): FieldPolicy {
+  return {
+    read(existing, { args, toReference }) {
+      return existing ?? (args?.id ? toReference({ __typename, id: args.id }) : undefined)
+    },
+  }
+}
+
+/** Se resuelve cuando el cache persistido ya se restauró (o falló la restauración). */
+export let cacheRestored: Promise<void> = Promise.resolve()
+
+let persistor: { persist(): Promise<void> } | null = null
+function flushCache() {
+  persistor?.persist().catch(() => {})
+}
+
 // Inicialización síncrona: persistCache restaura el cache en segundo plano
 // sobre la misma instancia de InMemoryCache sin bloquear el render inicial.
 export function makeApolloClient() {
-  const cache = new InMemoryCache()
+  const cache = new InMemoryCache({
+    typePolicies: {
+      Query: {
+        fields: {
+          salesTicket: redirectById('SalesTicket'),
+          employeeShift: redirectById('EmployeeShift'),
+        },
+      },
+    },
+  })
 
-  persistCache({
+  // persistCache(opts) es exactamente new CachePersistor(opts).restore(); se usa la clase para
+  // conservar la referencia y poder forzar la escritura al ocultarse la página.
+  const cachePersistor = new CachePersistor({
     cache,
     storage: new LocalStorageWrapper(window.localStorage),
     maxSize: 1048576 * 5,
     debounce: 2000,
   })
-    .then(() => console.debug('[FuelTrack] Apollo cache restored'))
+  cacheRestored = cachePersistor.restore()
+    .then(() => {
+      persistor = cachePersistor
+      console.debug('[FuelTrack] Apollo cache restored')
+    })
     .catch((e) => {
       console.warn('[FuelTrack] Cache restore failed, starting fresh:', e)
       try { window.localStorage.removeItem('apollo-cache-persist') } catch {}
     })
+
+  // El debounce de persistCache puede perder la última escritura si la página se descarga
+  // antes de que dispare. Persistir al ocultarse; persistor solo existe tras restaurar, así
+  // que nunca sobrescribe el cache guardado con uno vacío.
+  window.addEventListener('pagehide', flushCache)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushCache()
+  })
 
   const httpLink = createHttpLink({
     uri: import.meta.env.VITE_GRAPHQL_URI || 'http://localhost:4000/graphql',
@@ -105,7 +152,8 @@ export function makeApolloClient() {
       watchQuery: {
         fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
-        ...({ errorPolicy: 'all' } as object),
+        // Sin errorPolicy 'all': en Apollo v4 un error de red con 'all' vacía `data` aunque el
+        // cache la tenga, y offline ninguna página vería sus datos. El default ('none') la conserva.
       },
     },
   })

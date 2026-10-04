@@ -1,15 +1,26 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { Invoice as InvoiceModel } from "../../models/invoice"; // Importar el tipo de modelo Invoice
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const invoiceResolver: IResolvers<Context> = {
   Query: {
     // Obtener todas las facturas
-    invoices: async (_parent, _args, context: Context) => {
+    invoices: async (
+      _parent,
+      { gasStationId, companyId }: { gasStationId?: string; companyId?: string },
+      context: Context
+    ) => {
       // Incluir relaciones para evitar N+1 si se piden a menudo
       return context.models.Invoice.findAll({
+        where: gasStationId ? { gasStationId } : undefined,
         include: [
-          { model: context.models.GasStation, as: "receivingGasStation" },
+          {
+            model: context.models.GasStation,
+            as: "receivingGasStation",
+            where: companyId ? { companyId } : undefined,
+            required: !!companyId,
+          },
           { model: context.models.Currency, as: "currency" },
           { model: context.models.DispatchReception, as: "dispatchReceptions" },
         ],
@@ -123,22 +134,17 @@ const invoiceResolver: IResolvers<Context> = {
   // --- Resolvers de Campo ---
   Invoice: {
     fuelKind: (parent: InvoiceModel) => parent.fuelType,
-    receivingGasStation: async (parent: InvoiceModel, _args, _context: Context) => {
-      return parent.getReceivingGasStation();
-    },
-    currency: async (parent: InvoiceModel, _args, _context: Context) => {
-      return parent.getCurrency();
-    },
-    dispatchReceptions: async (parent: InvoiceModel, _args, _context: Context) => {
-      return parent.getDispatchReceptions();
-    },
-    invoicePayments: async (parent: InvoiceModel, _args, _context: Context) => {
-      return parent.getInvoicePayments();
-    },
-    paymentStatus: async (parent: InvoiceModel, _args, _context: Context) => {
-      const payments = await parent.getInvoicePayments();
+    receivingGasStation: belongsTo("receivingGasStation", "GasStation", "gasStationId"),
+    currency: belongsTo("currency", "Currency", "currencyId"),
+    dispatchReceptions: hasMany("dispatchReceptions", "DispatchReception", "invoiceId"),
+    invoicePayments: hasMany("invoicePayments", "InvoicePayment", "invoiceId"),
+    paymentStatus: async (parent: InvoiceModel, _args, context: Context) => {
+      const payments =
+        (parent as any).invoicePayments !== undefined
+          ? (parent as any).invoicePayments
+          : await context.loaders.byForeignKey("InvoicePayment", "invoiceId").load(parent.id);
       const totalAmount = parseFloat(String(parent.totalAmount ?? 0));
-      const totalPaid = payments.reduce((s, p) => s + parseFloat(String((p as any).amount ?? 0)), 0);
+      const totalPaid = payments.reduce((s: number, p: any) => s + parseFloat(String(p.amount ?? 0)), 0);
       if (totalPaid >= totalAmount) return "PAID";
       if (totalPaid > 0) return "PARTIAL";
       return "PENDING";

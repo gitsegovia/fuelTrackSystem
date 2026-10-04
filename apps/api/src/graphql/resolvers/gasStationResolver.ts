@@ -2,6 +2,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { AppModels } from "../../interfaces/models";
 import { GasStation as GasStationModel } from "src/models/gasStation";
+import { belongsTo } from "../helpers/dataloaders";
 
 const gasStationResolver: IResolvers<Context> = {
   Query: {
@@ -65,14 +66,7 @@ const gasStationResolver: IResolvers<Context> = {
   },
   // Resolvers para campos específicos que son relaciones (si no se precargan en la consulta principal)
   GasStation: {
-    company: async (
-      parent: GasStationModel,
-      _args,
-      context: { models: AppModels }
-    ) => {
-      // 'parent' es el objeto GasStation que se está resolviendo
-      return parent.getCompany(); // Usamos el getter de Sequelize
-    },
+    company: belongsTo("company", "Company", "companyId"),
   },
 };
 

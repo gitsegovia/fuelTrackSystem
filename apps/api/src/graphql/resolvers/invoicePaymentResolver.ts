@@ -3,6 +3,7 @@ import { Context } from "../../interfaces";
 import { Op } from "sequelize";
 import { SalesTicketStatus } from "../../utils/types";
 import { InvoicePayment as InvoicePaymentModel } from "../../models/invoicePayment";
+import { belongsTo } from "../helpers/dataloaders";
 
 function toNum(v: any): number {
   return parseFloat(String(v ?? 0)) || 0;
@@ -205,8 +206,8 @@ const invoicePaymentResolver: IResolvers<Context> = {
   },
 
   InvoicePayment: {
-    invoice: async (parent: InvoicePaymentModel, _, ctx: Context) => parent.getInvoice(),
-    recordedBy: async (parent: InvoicePaymentModel, _, ctx: Context) => parent.getRecordedBy(),
+    invoice: belongsTo("invoice", "Invoice", "invoiceId"),
+    recordedBy: belongsTo("recordedBy", "User", "recordedById"),
   },
 };
 

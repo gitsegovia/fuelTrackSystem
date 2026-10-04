@@ -7,12 +7,15 @@ const SALES_TICKET_FRAGMENT = gql`
     gasStationId
     cashierShiftId
     dispatcherEmployeeId
+    dispatcherShiftId
     dispenserNozzleId
     fuelTypeId
     requestedLiters
     actualLitersDispatched
     assignedSaleTypeConfigId
     ticketIssueTime
+    paymentMode
+    pricePerLiter
     totalAmountExpected
     status
     createdAt
@@ -28,8 +31,8 @@ const SALES_TICKET_FRAGMENT = gql`
 
 export const QUERIES = {
   salesTicketsByGasStation: gql`
-    query SalesTicketsByGasStation($gasStationId: UUID!) {
-      salesTicketsByGasStation(gasStationId: $gasStationId) { ...SalesTicketFields }
+    query SalesTicketsByGasStation($gasStationId: UUID!, $date: DateTime) {
+      salesTicketsByGasStation(gasStationId: $gasStationId, date: $date) { ...SalesTicketFields }
     } ${SALES_TICKET_FRAGMENT}
   `,
   salesTicketsByCashierShift: gql`
@@ -39,6 +42,36 @@ export const QUERIES = {
   `,
   salesTicket: gql`
     query SalesTicket($id: UUID!) { salesTicket(id: $id) { ...SalesTicketFields } } ${SALES_TICKET_FRAGMENT}
+  `,
+  salesTicketDifferential: gql`
+    query SalesTicketDifferential($id: UUID!) {
+      salesTicketDifferential(id: $id) {
+        paidAmount
+        dispatchedAmount
+        refundedAmount
+        differentialAmount
+        differentialLiters
+      }
+    }
+  `,
+  dispatcherDifferentialSummary: gql`
+    query DispatcherDifferentialSummary($gasStationId: UUID, $startDate: DateTime, $endDate: DateTime, $dispatcherShiftId: UUID) {
+      dispatcherDifferentialSummary(
+        gasStationId: $gasStationId
+        startDate: $startDate
+        endDate: $endDate
+        dispatcherShiftId: $dispatcherShiftId
+      ) {
+        dispatcherEmployeeId
+        ticketCount
+        grossDifferentialLiters
+        grossDifferentialAmount
+        refundedLiters
+        refundedAmount
+        netDifferentialLiters
+        netDifferentialAmount
+      }
+    }
   `,
 }
 
@@ -51,11 +84,6 @@ export const MUTATIONS = {
   processSalesTicketDispatch: gql`
     mutation ProcessSalesTicketDispatch($id: UUID!, $dispatcherEmployeeId: UUID!, $dispenserNozzleId: UUID!, $actualLitersDispatched: Decimal!) {
       processSalesTicketDispatch(id: $id, dispatcherEmployeeId: $dispatcherEmployeeId, dispenserNozzleId: $dispenserNozzleId, actualLitersDispatched: $actualLitersDispatched) { ...SalesTicketFields }
-    } ${SALES_TICKET_FRAGMENT}
-  `,
-  completeSalesTicketPayment: gql`
-    mutation CompleteSalesTicketPayment($id: UUID!) {
-      completeSalesTicketPayment(id: $id) { ...SalesTicketFields }
     } ${SALES_TICKET_FRAGMENT}
   `,
   cancelSalesTicket: gql`

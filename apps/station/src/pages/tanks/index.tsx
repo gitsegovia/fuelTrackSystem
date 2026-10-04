@@ -4,7 +4,8 @@ import { gql } from '@apollo/client'
 import { toast } from 'sonner'
 import { Loader2, ChevronDown, ChevronUp, AlertTriangle, CheckCircle2, WifiOff } from 'lucide-react'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
-import { MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
+import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
+import { QUERIES as MeasurementQueries, MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -18,8 +19,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
-const TANKS_WITH_LATEST = gql`
-  query TanksWithLatest($gasStationId: UUID!) {
+// Sin `measurements` anidado: esa lista trae el historial completo de cada tanque sin límite
+// (H-025 #4). El nivel actual ya viene en currentVolumeLiters/currentHeightCm; la última
+// medición (fecha + quién la tomó) se pide aparte por tanque con latestTankMeasurement.
+const TANKS_QUERY = gql`
+  query TanksForInventory($gasStationId: UUID!) {
     tanksByGasStation(gasStationId: $gasStationId) {
       id
       name
@@ -28,10 +32,6 @@ const TANKS_WITH_LATEST = gql`
       currentVolumeLiters
       currentHeightCm
       fuelType { id name }
-      measurements {
-        id manualLevelReadingCm volumeInLiters measurementTime measurementReason
-        employee { id firstName lastName }
-      }
     }
   }
 `
@@ -81,7 +81,17 @@ function TankLevelBar({ current, max, min }: { current: number; max: number; min
   )
 }
 
-function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string; refetch: () => void }) {
+function TankCard({
+  tank,
+  employeeId,
+  employeeShiftId,
+  refetch,
+}: {
+  tank: any
+  employeeId: string
+  employeeShiftId?: string | null
+  refetch: () => void
+}) {
   const [open, setOpen] = useState(false)
   const [levelCm, setLevelCm] = useState('')
   const [volumeL, setVolumeL] = useState('')
@@ -100,10 +110,11 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
   const isCritical = currentVolume <= minOperating * 0.5
   const hasVolume = tank.currentVolumeLiters !== null && tank.currentVolumeLiters !== undefined
 
-  const sortedMeasurements = [...(tank.measurements ?? [])].sort(
-    (a: any, b: any) => new Date(b.measurementTime).getTime() - new Date(a.measurementTime).getTime()
+  const { data: latestData, refetch: refetchLatest } = useQuery<{ latestTankMeasurement: any }>(
+    MeasurementQueries.latestTankMeasurement,
+    { variables: { tankId: tank.id } }
   )
-  const lastMeasurement = sortedMeasurements[0]
+  const lastMeasurement = latestData?.latestTankMeasurement
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -119,6 +130,7 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
           input: {
             tankId: tank.id,
             employeeId,
+            ...(employeeShiftId ? { employeeShiftId } : {}),
             measurementTime: new Date().toISOString(),
             manualLevelReadingCm: cm,
             volumeInLiters: vol,
@@ -126,12 +138,15 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
             notes: notes.trim() || null,
           },
         },
+        // Si el turno se abrió offline, su id es un localId: la medición se envía detrás de él.
+        dependsOn: employeeShiftId ?? undefined,
       })
       if (wasQueued) {
         toast.success('Medición guardada. Se enviará al servidor cuando vuelva la conexión.')
       } else {
         toast.success('Medición registrada.')
         refetch()
+        refetchLatest()
       }
       setLevelCm('')
       setVolumeL('')
@@ -207,27 +222,6 @@ function TankCard({ tank, employeeId, refetch }: { tank: any; employeeId: string
             </div>
           )}
         </div>
-
-        {sortedMeasurements.length > 0 && (
-          <div className="border-t pt-3 space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Últimas mediciones
-            </p>
-            <div className="space-y-1">
-              {sortedMeasurements.slice(0, 5).map((m: any) => (
-                <div key={m.id} className="grid grid-cols-3 gap-2 text-xs rounded-md bg-muted/30 px-3 py-1.5">
-                  <span className="text-muted-foreground">{format(new Date(m.measurementTime), 'dd/MM HH:mm')}</span>
-                  <span className="font-mono font-medium text-center">
-                    {parseFloat(m.volumeInLiters).toLocaleString(undefined, { maximumFractionDigits: 0 })} L
-                  </span>
-                  <span className="text-muted-foreground text-right truncate">
-                    {m.employee?.firstName} {m.employee?.lastName}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="border-t pt-3">
           <Button
@@ -309,7 +303,13 @@ export default function TanksPage() {
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
   const employee = empData?.employees?.find((e: any) => e.user.id === user?.id)
 
-  const { data, loading, refetch } = useQuery<{ tanksByGasStation: any[] }>(TANKS_WITH_LATEST, {
+  const { data: shiftData } = useQuery<{ activeEmployeeShift: any }>(ShiftQueries.activeEmployeeShift, {
+    variables: { employeeId: employee?.id },
+    skip: !employee?.id,
+  })
+  const activeShiftId = shiftData?.activeEmployeeShift?.id ?? null
+
+  const { data, loading, refetch } = useQuery<{ tanksByGasStation: any[] }>(TANKS_QUERY, {
     variables: { gasStationId },
     skip: !gasStationId,
   })
@@ -371,6 +371,7 @@ export default function TanksPage() {
               key={tank.id}
               tank={tank}
               employeeId={employee?.id ?? ''}
+              employeeShiftId={activeShiftId}
               refetch={refetch}
             />
           ))}

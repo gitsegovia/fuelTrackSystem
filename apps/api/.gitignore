@@ -149,5 +149,4 @@ docker-compose.override.yml
 # Archivos para simular el fingerprint en desarrollo
 dev-mac-address.txt
 dev-machine-id.txt
-dev-mac-address.md
-dev-machine-id.md
+# dev-mac-address.md y dev-machine-id.md SÍ se commitean — necesarios para Docker demo

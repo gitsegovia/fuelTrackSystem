@@ -18,15 +18,17 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { format } from 'date-fns'
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING_PAYMENT_DISPATCH: 'Pendiente',
-  PAID_PENDING_DISPATCH: 'Pago recibido',
+  ISSUED: 'Emitido',
+  PAID: 'Pago recibido',
+  DISPATCHED: 'Despachado',
   COMPLETED: 'Completado',
   CANCELED: 'Cancelado',
 }
 
 const STATUS_VARIANT: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
-  PENDING_PAYMENT_DISPATCH: 'secondary',
-  PAID_PENDING_DISPATCH: 'default',
+  ISSUED: 'secondary',
+  PAID: 'default',
+  DISPATCHED: 'default',
   COMPLETED: 'outline',
   CANCELED: 'destructive',
 }

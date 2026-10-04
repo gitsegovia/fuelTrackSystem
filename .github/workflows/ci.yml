@@ -1,0 +1,180 @@
+name: CI
+
+# Disparo SOLO manual desde la pestaña Actions de GitHub.
+# No se ejecuta automáticamente en push ni en pull_request.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Qué verificar"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - api
+          - web
+          - station
+
+jobs:
+  lint-typecheck-api:
+    name: "API — lint + typecheck"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+      # apps/api usa npm (no pnpm), igual que su Dockerfile (node:20-alpine) —
+      # el requisito de Node >= 22.13 de pnpm 11 (T-026) no aplica a este job.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
+        name: TypeScript check
+
+  db-migrate-seed-api:
+    name: "API — db:migrate + db:seed:all (PostgreSQL 15 vacío)"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    # Misma imagen mayor que docker-compose.yml (postgres:15-alpine), para detectar
+    # regresiones de esquema/migraciones antes de llegar a producción (H-004, recomendación 5).
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fueltrack_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Variables de prueba, no secretos reales — solo válidas contra el contenedor
+      # postgres descartable de este job.
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_DATABASE: fueltrack_ci
+      DB_HOST: localhost
+      DB_PORT: 5432
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx sequelize-cli db:migrate
+        name: db:migrate sobre BD vacía
+      - run: npx sequelize-cli db:seed:all
+        name: db:seed:all (seed demo)
+      - name: Conteo mínimo de filas (tickets, pagos, facturas)
+        run: |
+          set -e
+          ROW=$(PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_DATABASE" -t -A -F',' -c \
+            "SELECT (SELECT COUNT(*) FROM sales_tickets), (SELECT COUNT(*) FROM payments), (SELECT COUNT(*) FROM invoices);")
+          TICKETS=$(echo "$ROW" | cut -d',' -f1)
+          PAYMENTS=$(echo "$ROW" | cut -d',' -f2)
+          INVOICES=$(echo "$ROW" | cut -d',' -f3)
+          echo "sales_tickets=$TICKETS payments=$PAYMENTS invoices=$INVOICES"
+          if [ "$TICKETS" -le 0 ] || [ "$PAYMENTS" -le 0 ] || [ "$INVOICES" -le 0 ]; then
+            echo "::error::El seed no cargó datos (sales_tickets=$TICKETS, payments=$PAYMENTS, invoices=$INVOICES)"
+            exit 1
+          fi
+      - run: npx sequelize-cli db:migrate:undo:all
+        name: db:migrate:undo:all (verifica los down)
+
+  smoke-test-api-production:
+    name: "API — smoke test target production (H-026)"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'api' }}
+    runs-on: ubuntu-latest
+    # Reutiliza docker-compose.verify.yml (T-028) con VERIFY_API_TARGET=production
+    # (T-029/T-032): así el CI detecta si la imagen de producción de la API deja
+    # de arrancar, algo que antes de H-026 nadie probaba de punta a punta.
+    # Proyecto de compose propio para no chocar con otro `docker compose` que
+    # pudiera correr en el mismo runner.
+    env:
+      VERIFY_API_TARGET: production
+      VERIFY_API_PORT: 4599
+      COMPOSE_PROJECT: ci-verify-prod
+    steps:
+      - uses: actions/checkout@v4
+      - name: Levantar API + Postgres + stub de licencia (target production)
+        run: docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" up -d --build
+      - name: Esperar la API y hacer login real contra el usuario sembrado
+        run: |
+          set -e
+          for i in $(seq 1 60); do
+            RESP=$(curl -s -m 3 -X POST "http://localhost:${VERIFY_API_PORT}/graphql" --json '{"query":"mutation { login(input: {username: \"admin.petronorte\", password: \"Demo1234!\"}) { token } }"}' || true)
+            if printf '%s' "$RESP" | grep -q '"token"'; then
+              echo "Login OK: $RESP"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::La imagen production de la API no respondio login a tiempo (H-026)"
+          docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" logs verify-api
+          exit 1
+      - name: Bajar el stack (siempre, incluso si el paso anterior fallo)
+        if: always()
+        run: docker compose -f docker-compose.verify.yml -p "$COMPOSE_PROJECT" down -v
+
+  lint-typecheck-web:
+    name: "Web — lint + typecheck"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'web' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+      # pnpm 11 exige Node >= 22.13 (engines.node en su package.json) — usar
+      # Node 20 aquí rompe el propio "pnpm install" (H-019, T-025/T-026).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --filter web... --ignore-scripts
+      - run: pnpm --filter web exec tsc --noEmit
+        name: TypeScript check
+      - run: pnpm --filter web build
+        name: Next.js build
+        env:
+          NEXT_PUBLIC_GRAPHQL_URI: http://localhost:4000/graphql
+          NEXT_PUBLIC_JWT_SECRET: ci-placeholder-secret
+
+  lint-typecheck-station:
+    name: "Station — lint + typecheck + build"
+    if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'station' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.1
+      # Mismo motivo que en lint-typecheck-web: pnpm 11 exige Node >= 22.13.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile --filter station... --ignore-scripts
+      - run: pnpm --filter station exec tsc -b
+        name: TypeScript check
+      - run: pnpm --filter station build
+        name: Vite build
+        env:
+          VITE_GRAPHQL_URI: http://localhost:4000/graphql

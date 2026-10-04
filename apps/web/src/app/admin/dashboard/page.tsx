@@ -15,25 +15,32 @@ import { QUERIES as CompanyQueries } from '@/services/graphql/gql/company'
 import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { QUERIES as UserQueries } from '@/services/graphql/gql/user'
 import { QUERIES as FuelTypeQueries } from '@/services/graphql/gql/fuelType'
+import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
 import { cn } from '@/lib/utils'
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-const TICKET_FIELDS = `
-  id status ticketIssueTime requestedLiters actualLitersDispatched totalAmountExpected
-  fuelType { id name }
-  assignedSaleTypeConfig { currency { id symbol exchangeRate } }
-`
+interface DailyTotalRow {
+  date: string
+  fuelTypeId: string
+  fuelTypeName: string
+  liters: number
+  revenue: number
+  ticketCount: number
+}
 
-const DASHBOARD_TICKETS = gql`
-  query DashboardTickets($gasStationId: UUID!) {
-    salesTicketsByGasStation(gasStationId: $gasStationId) { ${TICKET_FIELDS} }
-  }
-`
-
-const DASHBOARD_ALL_TICKETS = gql`
-  query DashboardAllTickets {
-    salesTickets { ${TICKET_FIELDS} }
+// Totales agregados en SQL (solo tickets COMPLETED) — reemplaza traer tickets crudos
+// y sumar en el cliente (riesgo #1 de Inventario de consultas, T-027).
+const DASHBOARD_DAILY_TOTALS = gql`
+  query DashboardDailyTotals($gasStationId: UUID, $startDate: DateTime!, $endDate: DateTime!) {
+    salesTicketDailyTotals(gasStationId: $gasStationId, startDate: $startDate, endDate: $endDate) {
+      date
+      fuelTypeId
+      fuelTypeName
+      liters
+      revenue
+      ticketCount
+    }
   }
 `
 
@@ -95,102 +102,93 @@ export default function DashboardPage() {
   const { data: stations, loading: l2 } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations)
   const { data: users, loading: l3 } = useQuery<{ users: { id: string }[] }>(UserQueries.users)
   const { data: fuelTypes, loading: l4 } = useQuery<{ fuelTypes: { id: string }[] }>(FuelTypeQueries.fuelTypes)
+  const { data: currencies } = useQuery<{ currencies: { id: string; symbol: string; exchangeRate: string }[] }>(CurrencyQueries.currencies)
 
-  const showAll = selectedStationId === ''
-
-  const { data: stationTicketsData, loading: loadingStation } = useQuery<{ salesTicketsByGasStation: any[] }>(DASHBOARD_TICKETS, {
-    variables: { gasStationId: selectedStationId },
-    skip: showAll || !selectedStationId,
-  })
-  const { data: allTicketsData, loading: loadingAll } = useQuery<{ salesTickets: any[] }>(DASHBOARD_ALL_TICKETS, {
-    skip: !showAll,
-  })
-
-  const loadingTickets = showAll ? loadingAll : loadingStation
-  const allTickets: any[] = showAll
-    ? (allTicketsData?.salesTickets ?? [])
-    : (stationTicketsData?.salesTicketsByGasStation ?? [])
-
-  // Rango de fechas actual y anterior
+  // Rango de fechas actual y anterior (locales); se pide todo de una vez
+  // ([prevPeriodStart, ahora]) y se separa por fila con la fecha ya agregada.
   const now = new Date()
   const periodStart = startOfDay(subDays(now, rangeDays))
   const prevPeriodStart = startOfDay(subDays(now, rangeDays * 2))
+  const periodStartKey = format(periodStart, 'yyyy-MM-dd')
 
-  const currentPeriodTickets = allTickets.filter((t) => {
-    const d = new Date(t.ticketIssueTime)
-    return d >= periodStart && d <= endOfDay(now)
-  })
-  const prevPeriodTickets = allTickets.filter((t) => {
-    const d = new Date(t.ticketIssueTime)
-    return d >= prevPeriodStart && d < periodStart
-  })
+  const { data: totalsData, loading: loadingTickets } = useQuery<{ salesTicketDailyTotals: DailyTotalRow[] }>(
+    DASHBOARD_DAILY_TOTALS,
+    {
+      variables: {
+        gasStationId: selectedStationId || null,
+        startDate: prevPeriodStart.toISOString(),
+        endDate: endOfDay(now).toISOString(),
+      },
+    }
+  )
+  const allRows = totalsData?.salesTicketDailyTotals ?? []
+  // Las filas ya vienen filtradas a status COMPLETED desde SQL (ver T-022/T-027).
+  const currentRows = allRows.filter((r) => r.date >= periodStartKey)
+  const prevRows = allRows.filter((r) => r.date < periodStartKey)
 
-  const completedCurrent = currentPeriodTickets.filter((t) => t.status === 'COMPLETED')
-  const completedPrev    = prevPeriodTickets.filter((t) => t.status === 'COMPLETED')
+  const sumLiters  = (list: DailyTotalRow[]) => list.reduce((s, r) => s + r.liters, 0)
+  const sumRevenue = (list: DailyTotalRow[]) => list.reduce((s, r) => s + r.revenue, 0)
+  const sumTickets = (list: DailyTotalRow[]) => list.reduce((s, r) => s + r.ticketCount, 0)
 
-  const liters = (list: any[]) => list.reduce((s, t) => s + parseFloat(t.actualLitersDispatched ?? t.requestedLiters ?? '0'), 0)
-  const baseRevenue = (list: any[]) => list.reduce((s, t) => {
-    const rate = parseFloat(t.assignedSaleTypeConfig?.currency?.exchangeRate ?? '1')
-    return s + parseFloat(t.totalAmountExpected ?? '0') / rate
-  }, 0)
-
-  const currentLiters  = liters(completedCurrent)
-  const prevLiters     = liters(completedPrev)
-  const currentRevenue = baseRevenue(completedCurrent)
-  const prevRevenue    = baseRevenue(completedPrev)
+  const currentLiters  = sumLiters(currentRows)
+  const prevLiters     = sumLiters(prevRows)
+  const currentRevenue = sumRevenue(currentRows)
+  const prevRevenue    = sumRevenue(prevRows)
+  const currentTicketCount = sumTickets(currentRows)
+  const prevTicketCount    = sumTickets(prevRows)
 
   const litersTrend  = prevLiters  > 0 ? ((currentLiters  - prevLiters)  / prevLiters)  * 100 : 0
   const revenueTrend = prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0
-  const ticketsTrend = completedPrev.length > 0
-    ? ((completedCurrent.length - completedPrev.length) / completedPrev.length) * 100 : 0
+  const ticketsTrend = prevTicketCount > 0
+    ? ((currentTicketCount - prevTicketCount) / prevTicketCount) * 100 : 0
 
   // ── BarChart: litros por día ─────────────────────────────────────────────
   const fuelNames = useMemo(() => {
     const names = new Set<string>()
-    completedCurrent.forEach((t) => names.add(t.fuelType.name))
+    currentRows.forEach((r) => names.add(r.fuelTypeName))
     return [...names]
-  }, [completedCurrent])
+  }, [currentRows])
 
   const dailyData = useMemo(() => {
     const days = eachDayOfInterval({ start: periodStart, end: now })
     return days.map((day) => {
-      const dayStr = format(day, 'dd/MM', { locale: es })
-      const dayTickets = completedCurrent.filter(
-        (t) => format(new Date(t.ticketIssueTime), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
-      )
-      const row: Record<string, any> = { date: dayStr }
+      const dayKey = format(day, 'yyyy-MM-dd')
+      const dayRows = currentRows.filter((r) => r.date === dayKey)
+      const row: Record<string, string | number> = { date: format(day, 'dd/MM', { locale: es }) }
       fuelNames.forEach((name) => {
-        row[name] = dayTickets
-          .filter((t) => t.fuelType.name === name)
-          .reduce((s, t) => s + parseFloat(t.actualLitersDispatched ?? t.requestedLiters ?? '0'), 0)
+        row[name] = dayRows
+          .filter((r) => r.fuelTypeName === name)
+          .reduce((s, r) => s + r.liters, 0)
       })
       return row
     })
-  }, [completedCurrent, fuelNames, periodStart, now])
+  }, [currentRows, fuelNames, periodStart, now])
 
   // ── Donut: distribución por combustible ─────────────────────────────────
   const fuelDistribution = useMemo(() => {
     const map: Record<string, number> = {}
-    completedCurrent.forEach((t) => {
-      const name = t.fuelType.name
-      const l = parseFloat(t.actualLitersDispatched ?? t.requestedLiters ?? '0')
-      map[name] = (map[name] ?? 0) + l
+    currentRows.forEach((r) => {
+      map[r.fuelTypeName] = (map[r.fuelTypeName] ?? 0) + r.liters
     })
     return Object.entries(map).map(([name, value]) => ({ name, value }))
-  }, [completedCurrent])
+  }, [currentRows])
 
   // ── LineChart: tendencia diaria de tickets ───────────────────────────────
+  // Nota: antes contaba tickets de cualquier estado por día; salesTicketDailyTotals
+  // solo agrega COMPLETED (igual que las demás tarjetas/gráficos de este dashboard).
   const ticketTrendData = useMemo(() => {
     const days = eachDayOfInterval({ start: periodStart, end: now })
-    return days.map((day) => ({
-      date: format(day, 'dd/MM'),
-      tickets: currentPeriodTickets.filter(
-        (t) => format(new Date(t.ticketIssueTime), 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd')
-      ).length,
-    }))
-  }, [currentPeriodTickets, periodStart, now])
+    return days.map((day) => {
+      const dayKey = format(day, 'yyyy-MM-dd')
+      return {
+        date: format(day, 'dd/MM'),
+        tickets: sumTickets(currentRows.filter((r) => r.date === dayKey)),
+      }
+    })
+  }, [currentRows, periodStart, now])
 
-  const currencySymbol = allTickets[0]?.assignedSaleTypeConfig?.currency?.symbol ?? '$'
+  const baseCurrency = currencies?.currencies?.find((c) => parseFloat(c.exchangeRate) === 1)
+  const currencySymbol = baseCurrency?.symbol ?? currencies?.currencies?.[0]?.symbol ?? '$'
 
   const systemStats = [
     { title: 'Empresas',     value: l1 ? 0 : companies?.companies?.length ?? 0,  icon: Building2, loading: l1 },
@@ -244,7 +242,7 @@ export default function DashboardPage() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <StatCard
           title="Tickets completados"
-          value={completedCurrent.length}
+          value={currentTicketCount}
           icon={Fuel}
           trend={{ value: ticketsTrend, label: '' }}
           loading={loadingTickets}
@@ -272,7 +270,7 @@ export default function DashboardPage() {
           <Skeleton className="h-72 col-span-2" />
           <Skeleton className="h-72" />
         </div>
-      ) : completedCurrent.length === 0 ? (
+      ) : currentTicketCount === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             Sin datos de ventas en los últimos {rangeDays} días para esta estación.

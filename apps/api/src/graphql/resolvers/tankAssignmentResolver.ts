@@ -1,6 +1,7 @@
 import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { TankAssignment as TankAssignmentModel } from "../../models/tankAssignment"; // Importar el tipo de modelo
+import { belongsTo } from "../helpers/dataloaders";
 
 const tankAssignmentResolver: IResolvers<Context> = {
   Query: {
@@ -148,13 +149,7 @@ const tankAssignmentResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   TankAssignment: {
-    dispatchReception: async (
-      parent: TankAssignmentModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispatchReception();
-    },
+    dispatchReception: belongsTo("dispatchReception", "DispatchReception", "dispatchReceptionId"),
   },
 };
 

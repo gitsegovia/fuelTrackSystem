@@ -2,6 +2,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { Context } from "../../interfaces";
 import { EmployeeShift as EmployeeShiftModel } from "../../models/employeeShift";
 import { Op } from "sequelize"; // Importar Op para operadores de Sequelize
+import { belongsTo, hasMany } from "../helpers/dataloaders";
 
 const employeeShiftResolver: IResolvers<Context> = {
   Query: {
@@ -108,25 +109,27 @@ const employeeShiftResolver: IResolvers<Context> = {
   Mutation: {
     createEmployeeShift: async (_parent, { input }, context: Context) => {
       try {
-        const { employeeId, ...restInput } = input;
+        const { employeeId } = input;
 
-        // Opcional: Validar que no haya un turno activo para este empleado en la misma estación
-        const existingActiveShift = await context.models.EmployeeShift.findOne({
-          where: {
-            employeeId,
-            gasStationId: input.gasStationId,
-            shiftEndTime: null, // Un turno activo no tiene hora de fin
-          },
+        return await context.sequelize.transaction(async (t) => {
+          // Opcional: Validar que no haya un turno activo para este empleado en la misma estación
+          const existingActiveShift = await context.models.EmployeeShift.findOne({
+            where: {
+              employeeId,
+              gasStationId: input.gasStationId,
+              shiftEndTime: null, // Un turno activo no tiene hora de fin
+            },
+            transaction: t,
+          });
+
+          if (existingActiveShift) {
+            throw new Error(
+              "There is already an active shift for this employee at this gas station."
+            );
+          }
+
+          return context.models.EmployeeShift.create(input, { transaction: t });
         });
-
-        if (existingActiveShift) {
-          throw new Error(
-            "There is already an active shift for this employee at this gas station."
-          );
-        }
-
-        const newShift = await context.models.EmployeeShift.create(input);
-        return newShift;
       } catch (error: any) {
         console.error(
           `❌ Error in 'createEmployeeShift' mutation:`,
@@ -211,23 +214,26 @@ const employeeShiftResolver: IResolvers<Context> = {
       context: Context
     ) => {
       try {
-        const shift = await context.models.EmployeeShift.findByPk(id);
-        if (!shift) {
-          throw new Error("Employee shift not found.");
-        }
+        const shift = await context.sequelize.transaction(async (t) => {
+          const shift = await context.models.EmployeeShift.findByPk(id, { transaction: t });
+          if (!shift) {
+            throw new Error("Employee shift not found.");
+          }
 
-        if (shift.shiftEndTime) {
-          throw new Error("This shift has already been ended.");
-        }
+          if (shift.shiftEndTime) {
+            throw new Error("This shift has already been ended.");
+          }
 
-        // Validar que la hora de fin no sea anterior a la hora de inicio
-        if (shiftEndTime <= shift.shiftStartTime) {
-          throw new Error(
-            "Shift end time cannot be earlier than or equal to shift start time."
-          );
-        }
+          // Validar que la hora de fin no sea anterior a la hora de inicio
+          if (shiftEndTime <= shift.shiftStartTime) {
+            throw new Error(
+              "Shift end time cannot be earlier than or equal to shift start time."
+            );
+          }
 
-        await shift.update({ shiftEndTime });
+          await shift.update({ shiftEndTime }, { transaction: t });
+          return shift;
+        });
 
         // **Lógica Adicional al finalizar un turno (ejemplos):**
         // 1. **Calcular ventas totales del turno:** Podrías recorrer todos los SalesTickets asociados
@@ -253,44 +259,12 @@ const employeeShiftResolver: IResolvers<Context> = {
   },
   // --- Resolvers de Campo para relaciones ---
   EmployeeShift: {
-    employee: async (parent: EmployeeShiftModel, _args, _context: Context) => {
-      return parent.getEmployee();
-    },
-    gasStation: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getGasStation();
-    },
-    dispenserReadings: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getDispenserReadings();
-    },
-    salesTicketsProcessed: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTicketsProcessed();
-    },
-    salesTicketsDispatched: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getSalesTicketsDispatched();
-    },
-    tankMeasurements: async (
-      parent: EmployeeShiftModel,
-      _args,
-      _context: Context
-    ) => {
-      return parent.getTankMeasurements();
-    },
+    employee: belongsTo("employee", "Employee", "employeeId"),
+    gasStation: belongsTo("gasStation", "GasStation", "gasStationId"),
+    dispenserReadings: hasMany("dispenserReadings", "DispenserReading", "employeeShiftId"),
+    salesTicketsProcessed: hasMany("salesTicketsProcessed", "SalesTicket", "cashierShiftId"),
+    salesTicketsDispatched: hasMany("salesTicketsDispatched", "SalesTicket", "dispatcherShiftId"),
+    tankMeasurements: hasMany("tankMeasurements", "TankMeasurement", "employeeShiftId"),
   },
 };
 
