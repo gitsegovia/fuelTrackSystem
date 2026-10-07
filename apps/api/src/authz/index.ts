@@ -3,7 +3,7 @@ import { IResolvers } from "@graphql-tools/utils";
 import { AppModels } from "../interfaces/models";
 import { AuthenticatedUser, Context } from "../interfaces";
 import { verifyToken } from "../middleware/auth";
-import { UserRole } from "../utils/types";
+import { UserRole, UserType } from "../utils/types";
 import { Profile, profileOf } from "./profiles";
 import { POLICY, PUBLIC_OPERATIONS, OpPolicy } from "./policy";
 import {
@@ -57,8 +57,33 @@ export async function loadRequestUser(
 
 type AnyResolver = GraphQLFieldResolver<unknown, Context>;
 
+// Cargo Administrativo: alcance de empresa solo en facturas, pagos a proveedor, reportes y cierres
+// (filas 15, 17, 18 y 20 de la matriz). En el resto de operaciones vale el rol EMPLOYEE.
+const ADMINISTRATIVO_COMPANY_SCOPE = new Set([
+  "Query.invoices", "Query.invoice", "Mutation.createInvoice", "Mutation.updateInvoice",
+  "Mutation.deleteInvoice", "Mutation.closeInvoice",
+  "Query.invoicePayment", "Query.invoicePayments", "Query.invoiceBalance",
+  "Query.invoicePaymentsByStation", "Query.unpaidInvoices", "Query.invoiceProfitMargin",
+  "Mutation.createInvoicePayment", "Mutation.updateInvoicePayment", "Mutation.deleteInvoicePayment",
+  "Query.invoiceAudit", "Query.driverAuditSummary", "Query.shiftAudit", "Query.shiftAuditDetail",
+  "Query.shiftFinancialAudit", "Query.tankBalanceAudit", "Query.tankBalanceAuditByStation",
+  "Query.dispatcherAudit", "Query.auditPeriodCloses", "Query.auditPeriodClose",
+  "Mutation.createAuditPeriodClose", "Mutation.confirmAuditPeriodClose",
+  "Mutation.recalculateAuditPeriodClose",
+]);
+
+// Usuario con el que se evalúa el alcance de una operación.
+function scopeUserFor(user: AuthenticatedUser, key: string): AuthenticatedUser {
+  if (user.role !== UserRole.ADMIN && user.userType === UserType.ADMINISTRATIVE && ADMINISTRATIVO_COMPANY_SCOPE.has(key)) {
+    return { ...user, role: UserRole.ADMIN };
+  }
+  return user;
+}
+
 function unauthenticated(): GraphQLError {
-  return new GraphQLError("Autenticación requerida.", { extensions: { code: "UNAUTHENTICATED" } });
+  return new GraphQLError("Autenticación requerida.", {
+    extensions: { code: "UNAUTHENTICATED", rule: "sin-sesion" },
+  });
 }
 
 function hasArgument(info: GraphQLResolveInfo, name: string): boolean {
@@ -75,11 +100,25 @@ function applyActorFields(args: Record<string, any>, user: AuthenticatedUser): R
   return { ...args, input };
 }
 
+// Una línea por denegación, sin tokens: operación, usuario, regla y origen (cola offline o no).
+function logDenial(key: string, info: GraphQLResolveInfo, user: AuthenticatedUser | undefined, context: Context, error: any) {
+  const code = error?.extensions?.code;
+  if (code !== "FORBIDDEN" && code !== "UNAUTHENTICATED") return;
+  const who = user
+    ? `user=${user.username} id=${user.id} role=${user.role} userType=${user.userType}`
+    : "user=anonimo";
+  const origen = context.offlineSource ? "cola-offline" : context.offlineMutationId ? "idempotente" : "directo";
+  const operacion = info.operation.name?.value ?? "sin-nombre";
+  console.warn(
+    `[authz] ${code} op=${key} operacionGraphQL=${operacion} ${who} regla=${error.extensions?.rule ?? "desconocida"} origen=${origen} mensaje="${error.message}"`
+  );
+}
+
 function guardField(kind: "Query" | "Mutation", field: string, resolve: AnyResolver): AnyResolver {
   const key = `${kind}.${field}`;
   const policy: OpPolicy | undefined = POLICY[key];
 
-  return async (parent, args, context, info) => {
+  const authorized: AnyResolver = async (parent, args, context, info) => {
     if (PUBLIC_OPERATIONS.has(key)) return resolve(parent, args, context, info);
 
     // Arranque: el primer usuario (admin inicial) se crea sin sesión, como hoy con bootstrap-admin.
@@ -93,30 +132,52 @@ function guardField(kind: "Query" | "Mutation", field: string, resolve: AnyResol
     // Operaciones fuera del mapa: solo ADMIN (regla por defecto).
     const profile = profileOf(user.role, user.userType as any);
     const allowed = policy?.profiles ?? [Profile.ADMIN];
-    if (!profile || !allowed.includes(profile)) throw forbidden();
+    if (!profile || !allowed.includes(profile)) {
+      throw forbidden(
+        "No tienes permiso para esta operación.",
+        policy ? "perfil-no-permitido" : "sin-politica-solo-admin"
+      );
+    }
 
+    const scopeUser = scopeUserFor(user, key);
     let a: Record<string, any> = { ...args };
     // Estación por defecto: un gerente o empleado que no pide estación ve la suya.
-    if (user.role !== UserRole.ADMIN && a.gasStationId === undefined && hasArgument(info, "gasStationId")) {
-      a.gasStationId = user.gasStationId;
+    if (scopeUser.role !== UserRole.ADMIN && a.gasStationId === undefined && hasArgument(info, "gasStationId")) {
+      a.gasStationId = scopeUser.gasStationId;
     }
     // Argumento id: el modelo sale de la operación; si no se puede determinar, se rechaza.
     if (a.id !== undefined) {
       const entity = policy?.entity ?? entityFromOperation(field);
-      if (!entity) throw forbidden();
-      await assertReferencesInScope(context.models, user, [{ model: entity, id: a.id }]);
+      if (!entity) throw forbidden("No tienes permiso para esta operación.", "entidad-id-desconocida");
+      await assertReferencesInScope(context.models, scopeUser, [{ model: entity, id: a.id }]);
     }
-    await assertReferencesInScope(context.models, user, collectReferences(a));
+    await assertReferencesInScope(context.models, scopeUser, collectReferences(a));
 
-    await guardOperation(key, { models: context.models, user, profile, args: a });
+    try {
+      await guardOperation(key, { models: context.models, user, profile, args: a });
+    } catch (error: any) {
+      if (error?.extensions?.code === "FORBIDDEN" && error.extensions.rule === "desconocida") {
+        throw forbidden(error.message, `regla:${key}`);
+      }
+      throw error;
+    }
     a = applyActorFields(a, user);
 
     const result = await resolve(parent, a, context, info);
     if (kind !== "Query") return result;
 
     const typeName = getNamedType(info.returnType).name;
-    const scoped = await filterResult(context.models, user, typeName, result);
+    const scoped = await filterResult(context.models, scopeUser, typeName, result);
     return filterOwnDispatcherRows(key, profile, user.employeeId, scoped);
+  };
+
+  return async (parent, args, context, info) => {
+    try {
+      return await authorized(parent, args, context, info);
+    } catch (error: any) {
+      logDenial(key, info, context.user, context, error);
+      throw error;
+    }
   };
 }
 
