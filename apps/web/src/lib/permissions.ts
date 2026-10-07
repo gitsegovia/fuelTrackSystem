@@ -10,8 +10,9 @@ export const isAdministrativeCargo = (u: AuthUser | null | undefined) => u?.user
 export const canAccessAdminPanel = (u: AuthUser | null | undefined) =>
   isAdminRole(u) || isManagerRole(u) || isAdministrativeCargo(u)
 
-// Alcance por estación (no empresa): todo el que no es ADMIN.
-export const isStationScoped = (u: AuthUser | null | undefined) => !isAdminRole(u)
+// Alcance por estación: todo el que no es ADMIN ni cargo Administrativo (alcance de empresa).
+export const isStationScoped = (u: AuthUser | null | undefined) =>
+  !isAdminRole(u) && !isAdministrativeCargo(u)
 
 // Catálogos y equipamiento (combustibles, modelos de tanque, estaciones, islas, tanques): solo ADMIN escribe.
 export const canManageCatalogs = (u: AuthUser | null | undefined) => isAdminRole(u)
