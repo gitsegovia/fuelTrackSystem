@@ -10,6 +10,7 @@ import { ArrowLeft, Loader2 } from 'lucide-react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/user'
 import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { useAuth } from '@/hooks/useAuth'
+import { isAdminRole } from '@/lib/permissions'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -128,8 +129,8 @@ export default function NewUserPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="role">Rol *</Label>
                 <select id="role" className={selectClass} {...register('role')}>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="MANAGER">Gerente</option>
+                  {isAdminRole(user) && <option value="ADMIN">Administrador</option>}
+                  {isAdminRole(user) && <option value="MANAGER">Gerente</option>}
                   <option value="EMPLOYEE">Empleado</option>
                 </select>
                 {errors.role && (

@@ -16,6 +16,8 @@ import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { QUERIES as UserQueries } from '@/services/graphql/gql/user'
 import { QUERIES as FuelTypeQueries } from '@/services/graphql/gql/fuelType'
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
+import { useAuth } from '@/hooks/useAuth'
+import { canManagePeople, canViewCompanies, isStationScoped } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 import { format, subDays, startOfDay, endOfDay, eachDayOfInterval } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -95,13 +97,24 @@ function StatCard({
 }
 
 export default function DashboardPage() {
-  const [selectedStationId, setSelectedStationId] = useState<string>('')
+  const { user } = useAuth()
+  const stationScoped = isStationScoped(user)
+  const [selectedStationId, setSelectedStationId] = useState<string>(
+    stationScoped ? user?.assignedGasStation?.id ?? '' : ''
+  )
   const [rangeDays, setRangeDays] = useState(30)
 
-  const { data: companies, loading: l1 } = useQuery<{ companies: { id: string }[] }>(CompanyQueries.companies)
-  const { data: stations, loading: l2 } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations)
-  const { data: users, loading: l3 } = useQuery<{ users: { id: string }[] }>(UserQueries.users)
+  const { data: companies, loading: l1 } = useQuery<{ companies: { id: string }[] }>(CompanyQueries.companies, {
+    skip: !canViewCompanies(user),
+  })
+  const { data: stations, loading: l2 } = useQuery<{ gasStations: { id: string; name: string; company: { id: string } }[] }>(GasStationQueries.gasStations)
+  const { data: users, loading: l3 } = useQuery<{ users: { id: string }[] }>(UserQueries.users, {
+    skip: !canManagePeople(user),
+  })
   const { data: fuelTypes, loading: l4 } = useQuery<{ fuelTypes: { id: string }[] }>(FuelTypeQueries.fuelTypes)
+  const visibleStations = (stations?.gasStations ?? []).filter(
+    (s) => !stationScoped || s.id === user?.assignedGasStation?.id
+  )
   const { data: currencies } = useQuery<{ currencies: { id: string; symbol: string; exchangeRate: string }[] }>(CurrencyQueries.currencies)
 
   // Rango de fechas actual y anterior (locales); se pide todo de una vez
@@ -191,11 +204,11 @@ export default function DashboardPage() {
   const currencySymbol = baseCurrency?.symbol ?? currencies?.currencies?.[0]?.symbol ?? '$'
 
   const systemStats = [
-    { title: 'Empresas',     value: l1 ? 0 : companies?.companies?.length ?? 0,  icon: Building2, loading: l1 },
-    { title: 'Estaciones',   value: l2 ? 0 : stations?.gasStations?.length ?? 0,  icon: Fuel,      loading: l2 },
-    { title: 'Usuarios',     value: l3 ? 0 : users?.users?.length ?? 0,           icon: Users,     loading: l3 },
-    { title: 'Combustibles', value: l4 ? 0 : fuelTypes?.fuelTypes?.length ?? 0,   icon: Droplets,  loading: l4 },
-  ]
+    canViewCompanies(user) && { title: 'Empresas', value: l1 ? 0 : companies?.companies?.length ?? 0, icon: Building2, loading: l1 },
+    { title: 'Estaciones', value: l2 ? 0 : visibleStations.length, icon: Fuel, loading: l2 },
+    canManagePeople(user) && { title: 'Usuarios', value: l3 ? 0 : users?.users?.length ?? 0, icon: Users, loading: l3 },
+    { title: 'Combustibles', value: l4 ? 0 : fuelTypes?.fuelTypes?.length ?? 0, icon: Droplets, loading: l4 },
+  ].filter((s): s is { title: string; value: number; icon: typeof Fuel; loading: boolean } => Boolean(s))
 
   return (
     <div className="space-y-6">
@@ -214,9 +227,10 @@ export default function DashboardPage() {
           className={selectClass}
           value={selectedStationId}
           onChange={(e) => setSelectedStationId(e.target.value)}
+          disabled={stationScoped}
         >
-          <option value="">Todas las estaciones</option>
-          {stations?.gasStations?.map((s) => (
+          {!stationScoped && <option value="">Todas las estaciones</option>}
+          {visibleStations.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>

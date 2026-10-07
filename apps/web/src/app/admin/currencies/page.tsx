@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs, canEditCurrencyRate } from '@/lib/permissions'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -25,6 +27,9 @@ interface Currency {
 
 export default function CurrenciesPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const canManage = canManageCatalogs(user)
+  const canEdit = canEditCurrencyRate(user)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ currencies: Currency[] }>(QUERIES.currencies)
@@ -64,15 +69,19 @@ export default function CurrenciesPage() {
       header: '',
       cell: ({ row }) => (
         <div className="flex items-center gap-1 justify-end">
-          <Button variant="ghost" size="icon-sm"
-            onClick={() => router.push(`/admin/currencies/${row.original.id}/edit`)}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm"
-            onClick={() => setDeleteId(row.original.id)}
-            className="text-destructive hover:text-destructive">
-            <Trash2 className="size-4" />
-          </Button>
+          {canEdit && (
+            <Button variant="ghost" size="icon-sm"
+              onClick={() => router.push(`/admin/currencies/${row.original.id}/edit`)}>
+              <Pencil className="size-4" />
+            </Button>
+          )}
+          {canManage && (
+            <Button variant="ghost" size="icon-sm"
+              onClick={() => setDeleteId(row.original.id)}
+              className="text-destructive hover:text-destructive">
+              <Trash2 className="size-4" />
+            </Button>
+          )}
         </div>
       ),
     },
@@ -83,11 +92,11 @@ export default function CurrenciesPage() {
       <PageHeader
         title="Monedas"
         description="Gestiona las monedas y tasas de cambio"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/currencies/new')} size="sm">
             <Plus className="size-4" /> Nueva moneda
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.currencies ?? []} loading={loading} />

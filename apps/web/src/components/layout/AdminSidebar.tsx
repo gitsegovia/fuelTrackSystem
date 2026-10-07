@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { canAccessRoute } from '@/lib/permissions'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -61,14 +62,17 @@ export function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {navGroups.map((group, i) => (
+        {navGroups.map((group, i) => {
+          const items = group.items.filter(({ href }) => canAccessRoute(user, href))
+          if (items.length === 0) return null
+          return (
           <div key={i} className="space-y-0.5">
             {group.label && (
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
                 {group.label}
               </p>
             )}
-            {group.items.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, icon: Icon }) => {
               const active = pathname.startsWith(href)
               return (
                 <Link
@@ -87,7 +91,8 @@ export function AdminSidebar() {
               )
             })}
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       <Separator className="bg-sidebar-border" />

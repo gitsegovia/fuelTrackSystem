@@ -1,14 +1,31 @@
 import { ApolloClient, ApolloLink, InMemoryCache, Observable, from } from '@apollo/client'
 import { createHttpLink } from '@apollo/client/link/http'
 import { setContext } from '@apollo/client/link/context'
+import { onError } from '@apollo/client/link/error'
+import { CombinedGraphQLErrors } from '@apollo/client/errors'
 import { persistCache, LocalStorageWrapper } from 'apollo3-cache-persist'
 import { print } from 'graphql'
+import { toast } from 'sonner'
 import { enqueue } from './offline-db'
 
 export let onMutationQueued: (() => void) | null = null
 export function setMutationQueuedCallback(fn: () => void) {
   onMutationQueued = fn
 }
+
+let onUnauthenticated: (() => void) | null = null
+export function setUnauthenticatedCallback(fn: (() => void) | null) {
+  onUnauthenticated = fn
+}
+
+const authErrorLink = onError(({ error }) => {
+  if (!CombinedGraphQLErrors.is(error)) return
+  error.errors.forEach((err) => {
+    const code = err.extensions?.code as string | undefined
+    if (code === 'UNAUTHENTICATED') onUnauthenticated?.()
+    else if (code === 'FORBIDDEN') toast.error('No tienes permiso para realizar esta acción.')
+  })
+})
 
 // Detecta fallo de red real — compatible con Chrome, Firefox y Safari.
 // Firefox reporta la conexión caída como error CORS con statusCode null.
@@ -105,7 +122,7 @@ export function makeApolloClient() {
   })
 
   return new ApolloClient({
-    link: from([buildOfflineLink(), authLink, httpLink]),
+    link: from([authErrorLink, buildOfflineLink(), authLink, httpLink]),
     cache,
     defaultOptions: {
       watchQuery: {

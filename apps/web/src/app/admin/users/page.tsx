@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManagePeople } from '@/lib/permissions'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -46,6 +48,8 @@ const roleVariants: Record<string, 'default' | 'secondary' | 'outline'> = {
 
 export default function UsersPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const canManage = canManagePeople(user)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ users: User[] }>(QUERIES.users)
@@ -99,7 +103,7 @@ export default function UsersPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button
             variant="ghost"
@@ -126,12 +130,12 @@ export default function UsersPage() {
       <PageHeader
         title="Usuarios"
         description="Gestiona los usuarios del sistema"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/users/new')} size="sm">
             <Plus className="size-4" />
             Nuevo usuario
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.users ?? []} loading={loading} />

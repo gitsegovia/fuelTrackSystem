@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useMutation, useApolloClient } from '@apollo/client/react'
 import { toast } from 'sonner'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/login'
+import { setUnauthenticatedCallback } from '@/lib/apollo-client'
+import { canAccessAdminPanel } from '@/lib/permissions'
 import type { AuthContextValue, AuthUser, LoginParams, ErrCallbackType } from '@/types/auth'
 import {
   readSessionTokens,
@@ -120,6 +122,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     performRefreshRef.current = performRefresh
   }, [performRefresh])
 
+  // El servidor rechazó el token (vencido o sesión cerrada): intentar renovar; si no
+  // se puede, performRefresh lleva a login con el mensaje correspondiente.
+  useEffect(() => {
+    setUnauthenticatedCallback(() => {
+      void performRefreshRef.current()
+    })
+    return () => setUnauthenticatedCallback(null)
+  }, [])
+
   useEffect(() => {
     const initAuth = async () => {
       const tokens = readSessionTokens()
@@ -170,19 +181,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         variables: { input: { username: params.username, password: params.password } },
       })
       if (data?.login?.token) {
+        const loggedUser = data.login.user
+        const hasAdminPanel = canAccessAdminPanel(loggedUser)
+        if (!hasAdminPanel && !loggedUser.assignedGasStation) {
+          toast.error('Tu usuario no tiene acceso a ningún panel. Consulta con un administrador.')
+          return
+        }
         writeSessionTokens({
           accessToken: data.login.token,
           refreshToken: data.login.refreshToken,
           accessTokenExpiresAt: data.login.accessTokenExpiresAt,
           sessionExpiresAt: data.login.sessionExpiresAt,
         })
-        setUser(data.login.user)
+        setUser(loggedUser)
         scheduleRefresh(data.login.accessTokenExpiresAt)
-        if (data.login.user.assignedGasStation) {
-          router.replace('/station/dashboard')
-        } else {
-          router.replace('/admin/dashboard')
-        }
+        router.replace(hasAdminPanel ? '/admin/dashboard' : '/station/dashboard')
       }
     } catch (err) {
       if (errorCallback) errorCallback(err)
