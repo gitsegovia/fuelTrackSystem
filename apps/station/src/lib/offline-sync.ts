@@ -9,6 +9,7 @@ import {
   updateQueueEntry,
   type QueuedMutation,
 } from './offline-db'
+import { FORBIDDEN_MESSAGE, graphQLErrorCode } from './graphql-errors'
 
 type Vars = Record<string, unknown>
 
@@ -145,12 +146,15 @@ export interface SyncResult {
   synced: number
   movedToFailed: number
   hadError: boolean
+  /** El servidor rechazó la sesión: la corrida se cortó y la cola quedó intacta. */
+  unauthenticated: boolean
 }
 
 /**
  * Procesa la cola en orden. Un item cuyo productor sigue pendiente espera; un error de red
- * corta la corrida sin contar intento; un error de servidor suma intento y, al llegar a
- * MAX_RETRIES, el item pasa a la bandeja de conflictos (nunca se borra en silencio).
+ * corta la corrida sin contar intento; UNAUTHENTICATED corta la corrida sin contar intento
+ * (quien llama renueva la sesión); FORBIDDEN va directo a la bandeja de conflictos; un error de
+ * servidor suma intento y, al llegar a MAX_RETRIES, el item pasa a la bandeja (nunca se borra).
  */
 export async function syncQueue(
   queue: QueuedMutation[],
@@ -159,7 +163,7 @@ export async function syncQueue(
     isNetworkError: (err: unknown) => boolean
   }
 ): Promise<SyncResult> {
-  const result: SyncResult = { synced: 0, movedToFailed: 0, hadError: false }
+  const result: SyncResult = { synced: 0, movedToFailed: 0, hadError: false, unauthenticated: false }
   const idMap = await getIdMap()
   const failed = await getFailed()
   // localIds cuyo create todavía no llegó al servidor: sus dependientes esperan.
@@ -196,9 +200,19 @@ export async function syncQueue(
       await removeFromQueue(item.id)
       result.synced++
     } catch (err) {
+      const code = graphQLErrorCode(err)
+      if (code === 'UNAUTHENTICATED') {
+        result.unauthenticated = true
+        break
+      }
       result.hadError = true
       if (deps.isNetworkError(err)) break
       console.warn('[FuelTrack] Sync failed for', item.operationName, err)
+      if (code === 'FORBIDDEN') {
+        await moveToFailed({ ...item, variables }, FORBIDDEN_MESSAGE)
+        result.movedToFailed++
+        continue
+      }
       const lastError = (err as Error)?.message || 'Error desconocido'
       const retries = item.retries + 1
       if (retries >= MAX_RETRIES) {

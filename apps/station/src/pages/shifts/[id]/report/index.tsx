@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { can } from '@/lib/permissions'
+import { useAuth } from '@/hooks/useAuth'
 import { format, differenceInMinutes } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -69,6 +71,7 @@ function paymentBaseTotal(payments: any[]): number {
 export default function ShiftReportPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const { data: shiftData, loading: loadingShift } = useQuery<{ employeeShift: any }>(
     ShiftQueries.employeeShift, { variables: { id }, skip: !id }
@@ -83,6 +86,7 @@ export default function ShiftReportPage() {
   // caja (varios bomberos pudieron despachar durante esta ventana), así que se agrega por
   // estación + rango de fechas del propio turno, igual que el resto de este reporte.
   const shiftForQuery = shiftData?.employeeShift
+  const canViewDifferential = can(user, 'viewDifferential')
   const { data: diffData, loading: loadingDiff } = useQuery<{ dispatcherDifferentialSummary: any[] }>(
     TicketQueries.dispatcherDifferentialSummary,
     {
@@ -91,7 +95,7 @@ export default function ShiftReportPage() {
         startDate: shiftForQuery?.shiftStartTime,
         endDate: shiftForQuery?.shiftEndTime ?? new Date().toISOString(),
       },
-      skip: !shiftForQuery?.gasStationId,
+      skip: !shiftForQuery?.gasStationId || !canViewDifferential,
     }
   )
 
@@ -391,7 +395,7 @@ export default function ShiftReportPage() {
         </Card>
       )}
 
-      {differentials.length > 0 && (
+      {canViewDifferential && differentials.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">

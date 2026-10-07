@@ -7,6 +7,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
+import { can } from '@/lib/permissions'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -118,6 +119,10 @@ export default function ShiftDetailPage() {
   const isActive = !shift?.shiftEndTime
   const isMyShift = employee && shift?.employee?.id === employee.id
 
+  const canCloseShift = isActive && can(user, isMyShift ? 'openOwnShift' : 'closeOtherShift')
+  const canReadings = isActive && can(user, 'recordReadings')
+  const canEmit = isActive && can(user, 'emitTicket')
+
   return (
     <div className="space-y-6 max-w-2xl">
       {isActive && !isOnline && (
@@ -138,7 +143,7 @@ export default function ShiftDetailPage() {
             <Button variant="outline" size="sm" onClick={() => navigate(`/shifts/${id}/report`)}>
               <BarChart2 className="size-4" /> Reporte
             </Button>
-            {isActive && isMyShift && (
+            {canCloseShift && (
               <Button variant="destructive" size="sm" onClick={handleEndShift} disabled={ending}>
                 {ending ? <Clock className="size-4 animate-spin" /> : <StopCircle className="size-4" />}
                 Cerrar turno
@@ -174,12 +179,12 @@ export default function ShiftDetailPage() {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Lecturas de surtidores</h3>
           <div className="flex gap-2">
-            {isActive && !hasInitial && (
+            {canReadings && !hasInitial && (
               <Button size="sm" variant="outline" onClick={() => navigate(`/shifts/${id}/readings/new?type=INITIAL`)}>
                 <Gauge className="size-4" /> Lecturas iniciales
               </Button>
             )}
-            {isActive && hasInitial && !hasFinal && (
+            {canReadings && hasInitial && !hasFinal && (
               <Button size="sm" variant="outline" onClick={() => navigate(`/shifts/${id}/readings/new?type=FINAL`)}>
                 <Gauge className="size-4" /> Lecturas finales
               </Button>
@@ -227,7 +232,7 @@ export default function ShiftDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-medium">Tickets de venta ({tickets.length})</h3>
-          {isActive && (
+          {canEmit && (
             <Button size="sm" onClick={() => navigate(`/tickets/new?shiftId=${id}`)}>
               <Plus className="size-4" /> Nuevo ticket
             </Button>

@@ -14,6 +14,7 @@ import { PAYMENT_MODE_LABELS } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
+import { can } from '@/lib/permissions'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -181,8 +182,7 @@ export default function NewTicketPage() {
         toast.success(`Ticket #${ticket.ticketNumber} creado.`)
       }
 
-      const canActOnTicket = ['Cashier', 'FuelAttendant'].includes(user?.userType ?? '')
-      if (canActOnTicket) {
+      if (can(user, 'payTicket') || can(user, 'dispatchTicket')) {
         // ticket.id = localId si offline, UUID real si online — ambos funcionan
         navigate(`/tickets/${ticket.id}`)
       } else {
@@ -191,6 +191,22 @@ export default function NewTicketPage() {
     } catch (err: any) {
       toast.error(`No se pudo crear el ticket: ${err.message ?? ''}`)
     }
+  }
+
+  if (!can(user, 'emitTicket')) {
+    return (
+      <div className="space-y-6 max-w-sm">
+        <PageHeader
+          title="Nuevo ticket de venta"
+          action={
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="size-4" /> Volver
+            </Button>
+          }
+        />
+        <p className="text-sm rounded-lg border px-3 py-2">Tu cargo no puede emitir tickets.</p>
+      </div>
+    )
   }
 
   return (

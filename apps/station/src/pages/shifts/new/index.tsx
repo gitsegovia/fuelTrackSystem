@@ -7,6 +7,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { ensureEmptyList, upsertInCachedList } from '@/lib/offline-cache'
+import { can } from '@/lib/permissions'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -131,6 +132,22 @@ export default function NewShiftPage() {
     } catch (err: any) {
       toast.error(`No se pudo iniciar el turno: ${err.message ?? ''}`)
     }
+  }
+
+  if (!can(user, 'openOwnShift')) {
+    return (
+      <div className="space-y-6 max-w-sm">
+        <PageHeader
+          title="Iniciar turno"
+          action={
+            <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
+              <ArrowLeft className="size-4" /> Volver
+            </Button>
+          }
+        />
+        <p className="text-sm rounded-lg border px-3 py-2">Tu cargo no puede iniciar turnos.</p>
+      </div>
+    )
   }
 
   return (

@@ -7,6 +7,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as MeasurementQueries, MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
 import { useAuth } from '@/hooks/useAuth'
+import { can } from '@/lib/permissions'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -98,6 +99,8 @@ function TankCard({
   const [reason, setReason] = useState('SHIFT_CLOSURE')
   const [notes, setNotes] = useState('')
   const { isOnline } = useOffline()
+  const { user } = useAuth()
+  const canMeasure = can(user, 'measureTank')
 
   const [createMeasurement, { loading: saving }] = useOfflineMutation(
     MeasurementMutations.createTankMeasurement
@@ -223,18 +226,20 @@ function TankCard({
           )}
         </div>
 
-        <div className="border-t pt-3">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => setOpen((v) => !v)}
-          >
-            {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-            Registrar medición
-          </Button>
+        <div className={canMeasure ? 'border-t pt-3' : undefined}>
+          {canMeasure && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => setOpen((v) => !v)}
+            >
+              {open ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+              Registrar medición
+            </Button>
+          )}
 
-          {open && (
+          {open && canMeasure && (
             <form onSubmit={handleSubmit} className="mt-3 space-y-3">
               {!isOnline && (
                 <div className="flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-50 px-3 py-2 text-xs text-amber-700">

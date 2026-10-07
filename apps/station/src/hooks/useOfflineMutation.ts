@@ -6,6 +6,8 @@ import { onMutationQueued } from '@/lib/apollo-client'
 import { sendOrQueue } from '@/lib/offline-sync'
 import { useOffline } from '@/context/OfflineContext'
 import { getDeviceFingerprint, getStoredUserId } from '@/lib/device-fingerprint'
+import { withSessionRetry } from '@/lib/auth-session'
+import { FORBIDDEN_MESSAGE, graphQLErrorCode } from '@/lib/graphql-errors'
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -128,15 +130,22 @@ export function useOfflineMutation<TData = unknown>(
           deviceFingerprint: getDeviceFingerprint(),
           isNetworkError,
           send: async ({ variables: vars, headers }) => {
-            const result = await apolloClient.mutate<TData>({
-              mutation,
-              variables: vars as Record<string, any>,
-              refetchQueries: baseOptionsRef.current?.refetchQueries as any,
-              // skipOfflineLink: si la red cae mid-flight, sendOrQueue encola con el mismo id;
-              // el OfflineLink no debe duplicar el encolado.
-              context: { skipOfflineLink: true, headers },
-            })
-            return result.data ?? null
+            try {
+              const result = await withSessionRetry(apolloClient, () =>
+                apolloClient.mutate<TData>({
+                  mutation,
+                  variables: vars as Record<string, any>,
+                  refetchQueries: baseOptionsRef.current?.refetchQueries as any,
+                  // skipOfflineLink: si la red cae mid-flight, sendOrQueue encola con el mismo id;
+                  // el OfflineLink no debe duplicar el encolado.
+                  context: { skipOfflineLink: true, headers },
+                })
+              )
+              return result.data ?? null
+            } catch (err) {
+              if (graphQLErrorCode(err) === 'FORBIDDEN') throw new Error(FORBIDDEN_MESSAGE)
+              throw err
+            }
           },
         })
 

@@ -10,7 +10,9 @@ import { fileURLToPath } from 'node:url'
 export const APP = process.env.E2E_APP ?? 'http://localhost:3001'
 export const PROXY_CONTROL = process.env.E2E_PROXY_CONTROL ?? 'http://localhost:4502'
 const DB_CONTAINER = process.env.E2E_DB_CONTAINER ?? 'ft-station-e2e-verify-db-1'
-export const USER = 'bombero1.norte'
+// Gerente de Norte: la matriz de ADR-016 le permite todo lo de la operación de estación (filas
+// 6–14), así que sirve para los flujos de punta a punta. Los casos por cargo van en permisos-e2e.mjs.
+export const USER = 'mgr.norte'
 export const SHOTS = join(tmpdir(), 'ft-station-e2e')
 mkdirSync(SHOTS, { recursive: true })
 
