@@ -11,7 +11,7 @@ import {
 } from '@/lib/offline-db'
 import { syncQueue } from '@/lib/offline-sync'
 import { isNetworkDown, setMutationQueuedCallback } from '@/lib/apollo-client'
-import { ensureFreshAccessToken } from '@/lib/auth-session'
+import { ensureFreshAccessToken, expireSession, forceRefreshAccessToken } from '@/lib/auth-session'
 import { useAuth } from '@/hooks/useAuth'
 
 const SYNC_LOCK = 'fueltrack-offline-sync'
@@ -78,14 +78,16 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     refreshCount()
   }, [refreshCount])
 
-  const runSync = useCallback(async () => {
+  /** Devuelve true si el servidor rechazó la sesión (la cola queda intacta). */
+  const runSync = useCallback(async (): Promise<boolean> => {
     const queue = await dequeueAll()
-    if (queue.length === 0) return
+    if (queue.length === 0) return false
 
     setSyncStatus('syncing')
     let hadError = false
     let synced = 0
     let movedToFailed = 0
+    let unauthenticated = false
 
     try {
       const result = await syncQueue(queue, {
@@ -100,7 +102,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           return res.data
         },
       })
-      ;({ hadError, synced, movedToFailed } = result)
+      ;({ hadError, synced, movedToFailed, unauthenticated } = result)
     } catch (err) {
       hadError = true
       throw err
@@ -124,6 +126,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         )
       }
     }
+    return unauthenticated
   }, [apolloClient, refreshCount])
 
   const processQueue = useCallback(async () => {
@@ -139,13 +142,20 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       } catch {
         return
       }
+      // T-044: si el servidor rechaza la sesión, se renueva una vez y se reintenta. Si vuelve a
+      // rechazarla, la sesión termina y la cola queda para después del próximo login.
+      const syncWithSession = async () => {
+        if (!(await runSync())) return
+        await forceRefreshAccessToken(apolloClient)
+        if (await runSync()) throw expireSession('INVALID_REFRESH_TOKEN')
+      }
       // Una sola pestaña sincroniza a la vez; si otra tiene el lock, esta no envía nada.
       if (navigator.locks) {
         await navigator.locks.request(SYNC_LOCK, { ifAvailable: true }, async (lock) => {
-          if (lock) await runSync()
+          if (lock) await syncWithSession()
         })
       } else {
-        await runSync()
+        await syncWithSession()
       }
     } catch (err) {
       console.warn('[FuelTrack] Sync aborted:', err)
