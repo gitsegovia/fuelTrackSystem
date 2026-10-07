@@ -182,8 +182,7 @@ export default function NewTicketPage() {
         toast.success(`Ticket #${ticket.ticketNumber} creado.`)
       }
 
-      const canActOnTicket = ['Cashier', 'FuelAttendant'].includes(user?.userType ?? '')
-      if (canActOnTicket) {
+      if (can(user, 'payTicket') || can(user, 'dispatchTicket')) {
         // ticket.id = localId si offline, UUID real si online — ambos funcionan
         navigate(`/tickets/${ticket.id}`)
       } else {

@@ -10,6 +10,7 @@
     "lint": "eslint",
     "e2e:all": "node e2e/run.mjs",
     "e2e": "node e2e/offline-e2e.mjs",
+    "e2e:permisos": "node e2e/permisos-e2e.mjs",
     "e2e:sesion": "node e2e/sesion-e2e.mjs",
     "e2e:sesion:all": "node e2e/run-sesion.mjs"
   },
