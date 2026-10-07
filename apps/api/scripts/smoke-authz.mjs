@@ -213,6 +213,18 @@ check("lista de estaciones (cajero Sur) solo incluye Sur", !scopeStations.errors
 const scopeAdminSur = await gql(`query($id: UUID!) { salesTicketsByGasStation(gasStationId: $id) { id } }`, { id: SUR.id }, T.admin);
 check("admin lee tickets de Sur (misma empresa) → OK", !scopeAdminSur.errors, scopeAdminSur.errors?.[0]?.message);
 
+console.log("\n== 3b. Cargo Administrativo: alcance de empresa solo en facturas, pagos, reportes y cierres ==");
+const admInvSur = await gql(`query($id: UUID!) { invoices(gasStationId: $id) { id } }`, { id: SUR.id }, adm.token);
+check("administrativo lee facturas de Sur (empresa, fila 15) → OK", !admInvSur.errors, admInvSur.errors?.[0]?.message);
+const admAuditSur = await gql(`query($id: UUID!) { shiftAudit(gasStationId: $id) { shift { id } } }`, { id: SUR.id }, adm.token);
+check("administrativo lee auditoría de turnos de Sur (fila 18) → OK", !admAuditSur.errors, admAuditSur.errors?.[0]?.message);
+const admSalesSur = await gql(`query($id: UUID!) { salesTicketsByGasStation(gasStationId: $id) { id } }`, { id: SUR.id }, adm.token);
+check("administrativo lee tickets de Sur (fuera de la excepción) → FORBIDDEN", codeOf(admSalesSur) === "FORBIDDEN", codeOf(admSalesSur));
+const admCreateSur = await call(adm.token, "Mutation", "createInvoice", { gasStationId: SUR.id });
+check("administrativo crea factura en Sur (fila 15) → OK", !denied(admCreateSur), codeOf(admCreateSur));
+const admCloseSur = await call(adm.token, "Mutation", "createAuditPeriodClose", { input: { gasStationId: SUR.id } });
+check("administrativo cierra período de Sur (fila 20) → OK", !denied(admCloseSur), codeOf(admCloseSur));
+
 console.log("\n== 4. H-002: escalada de privilegios en usuarios ==");
 const elevate = await call(T.cajNorte, "Mutation", "createUser", { role: "ADMIN", companyId, gasStationId: NORTE.id });
 check("empleado no crea admin → FORBIDDEN", codeOf(elevate) === "FORBIDDEN", codeOf(elevate));
