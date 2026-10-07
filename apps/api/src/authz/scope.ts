@@ -83,8 +83,9 @@ export function entityFromOperation(field: string): string | undefined {
   return ENTITY_MODELS.includes(name) ? name : undefined;
 }
 
-export function forbidden(message = "No tienes permiso para esta operación."): GraphQLError {
-  return new GraphQLError(message, { extensions: { code: "FORBIDDEN" } });
+// `rule` identifica la regla que negó (solo se escribe en el log del servidor, nunca en la respuesta).
+export function forbidden(message = "No tienes permiso para esta operación.", rule = "desconocida"): GraphQLError {
+  return new GraphQLError(message, { extensions: { code: "FORBIDDEN", rule } });
 }
 
 export function inScope(user: AuthenticatedUser, scope: Scope): boolean {
@@ -163,7 +164,9 @@ export async function assertReferencesInScope(
   for (const [model, ids] of byModel) {
     const rows: any[] = await (models as any)[model].findAll({ where: { id: [...ids] }, raw: true });
     const scopes = await scopesOf(models, model, rows);
-    if (scopes.some((s) => !inScope(user, s))) throw forbidden();
+    if (scopes.some((s) => !inScope(user, s))) {
+      throw forbidden("Referencia fuera de tu alcance.", `alcance-referencia:${model}`);
+    }
   }
 }
 
