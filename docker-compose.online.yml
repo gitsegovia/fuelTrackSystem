@@ -1,0 +1,40 @@
+# Overlay DEMO ONLINE — se suma a docker-compose.yml + docker-compose.prod.yml
+# para levantar FuelTrack en modo producción en una PC con Docker Desktop
+# (sin servidor Linux real), expuesta por un túnel de Cloudflare propio
+# (T-041). Guía completa: vault 90-mantenimiento/Demo online con Cloudflare
+# Tunnel.md.
+#
+# Uso:
+#   docker compose --env-file .env.online -f docker-compose.yml \
+#     -f docker-compose.prod.yml -f docker-compose.online.yml up -d --build
+#
+# Requiere:
+#   - .env.online           (root, gitignored) — ver .env.online.example
+#   - apps/api/.env.docker  (gitignored)        — ver apps/api/.env.docker.example
+#   - Servidor de licencias en host.docker.internal:4100 (real, o el stub de
+#     docker-compose.verify.yml si no hay acceso a CCILicenseServer)
+#
+# Qué cambia respecto a docker-compose.prod.yml (producción "real"):
+#   1. Fingerprint: docker-compose.prod.yml monta /etc/machine-id y la MAC del
+#      host Linux — en Windows con Docker Desktop esas rutas no existen. Este
+#      overlay las reemplaza por los mismos fixtures de dev versionados que ya
+#      usa docker-compose.demo.yml (apps/api/dev-machine-id.md +
+#      dev-mac-address.md). `!override` (no un merge normal) es necesario
+#      porque Compose por default CONCATENA listas de `volumes` entre
+#      archivos — sin él, quedarían los 2 volúmenes de prod.yml más este,
+#      montando dos orígenes distintos en el mismo destino, lo que Docker
+#      rechaza al arrancar el contenedor.
+#   2. `SEED_DB=true`: producción real nunca siembra datos demo (el primer
+#      admin se crea con bootstrap-admin); la demo online sí, porque es
+#      exactamente lo que hay que mostrar.
+#   3. Puertos: ya son variables en docker-compose.prod.yml
+#      (${WEB_PORT:-3000} etc.) — no hace falta tocarlos aquí. Los valores de
+#      la demo (3110/3111/4110) van en .env.online, no en .env.prod.
+
+services:
+  api:
+    volumes: !override
+      - ./apps/api/dev-machine-id.md:/run/secrets/machine-id:ro
+      - ./apps/api/dev-mac-address.md:/run/secrets/mac-address:ro
+    environment:
+      SEED_DB: "true"
