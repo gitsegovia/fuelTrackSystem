@@ -9,8 +9,8 @@ import { Request, Response, NextFunction } from "express";
 import config from "./config";
 import { sequelize, models } from "./models";
 import { typeDefs, resolvers } from "./graphql";
-import { verifyToken } from "./middleware/auth";
-import { AuthenticatedUser, Context } from "./interfaces";
+import { loadRequestUser } from "./authz";
+import { Context } from "./interfaces";
 import { validateLicense } from "./utils/licenseValidator";
 import { createLoaders } from "./graphql/helpers/dataloaders";
 
@@ -49,14 +49,6 @@ const offlineAuditPlugin: ApolloServerPlugin<Context> = {
   },
 };
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-    }
-  }
-}
-
 async function startApolloServer() {
   // Primero, validamos la licencia. La aplicación no se detendrá si falla.
   const isLicenseValid = await validateLicense();
@@ -88,24 +80,11 @@ async function startApolloServer() {
       cors<cors.CorsRequest>(),
       express.json(),
       async (req: Request, res: Response, next: NextFunction) => {
-        try {
-          const authHeader = req.headers.authorization;
-          const token =
-            authHeader && authHeader.startsWith("Bearer ")
-              ? authHeader.split(" ")[1]
-              : null;
-
-          if (token) {
-            req.user = verifyToken(token);
-          }
-        } catch (error: any) {
-          console.error("Autthentication check error: ", error.message);
-        }
         next();
       },
       expressMiddleware(server, {
         context: async ({ req }) => {
-          const user = req.user || undefined;
+          const user = await loadRequestUser(models, req.headers.authorization);
 
           const createdByHeader = req.headers["x-offline-created-by"];
           const offlineSource = createdByHeader
