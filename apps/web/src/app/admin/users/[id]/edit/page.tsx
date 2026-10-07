@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { isAdminRole } from '@/lib/permissions'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -56,6 +58,7 @@ type FormData = z.infer<typeof schema>
 export default function EditUserPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useAuth()
 
   const { data, loading: fetching } = useQuery<{ user: User | null }>(QUERIES.user, {
     variables: { id },
@@ -167,8 +170,8 @@ export default function EditUserPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="role">Rol *</Label>
                 <select id="role" className={selectClass} {...register('role')}>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="MANAGER">Gerente</option>
+                  {isAdminRole(user) && <option value="ADMIN">Administrador</option>}
+                  {isAdminRole(user) && <option value="MANAGER">Gerente</option>}
                   <option value="EMPLOYEE">Empleado</option>
                 </select>
               </div>

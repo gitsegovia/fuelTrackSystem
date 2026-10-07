@@ -8,6 +8,7 @@ import { Plus, Pencil, Trash2, PackagePlus, Lock, Eye } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/invoice'
 import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { useAuth } from '@/hooks/useAuth'
+import { isStationScoped } from '@/lib/permissions'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
@@ -46,15 +47,19 @@ type Invoice = {
 export default function InvoicesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const stationScoped = isStationScoped(user)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [closeId, setCloseId] = useState<string | null>(null)
-  const [selectedStationId, setSelectedStationId] = useState<string>('')
+  const [selectedStationId, setSelectedStationId] = useState<string>(
+    stationScoped ? user?.assignedGasStation?.id ?? '' : ''
+  )
 
   const { data: stationsData } = useQuery<{
     gasStations: { id: string; name: string; code: string; company: { id: string } }[]
   }>(GasStationQueries.gasStations)
   const stations = (stationsData?.gasStations ?? []).filter(
-    (s) => !user?.company?.id || s.company.id === user.company.id
+    (s) => (!user?.company?.id || s.company.id === user.company.id)
+      && (!stationScoped || s.id === user?.assignedGasStation?.id)
   )
 
   const queryVariables = {
@@ -176,8 +181,9 @@ export default function InvoicesPage() {
           className={selectClass}
           value={selectedStationId}
           onChange={(e) => setSelectedStationId(e.target.value)}
+          disabled={stationScoped}
         >
-          <option value="">Todas mis estaciones</option>
+          {!stationScoped && <option value="">Todas mis estaciones</option>}
           {stations.map((s) => (
             <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
           ))}

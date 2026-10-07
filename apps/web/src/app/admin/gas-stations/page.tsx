@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs } from '@/lib/permissions'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Wrench } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -32,6 +34,8 @@ interface GasStation {
 
 export default function GasStationsPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const canManage = canManageCatalogs(user)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ gasStations: GasStation[] }>(QUERIES.gasStations)
@@ -75,7 +79,7 @@ export default function GasStationsPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button
             variant="ghost"
@@ -110,12 +114,12 @@ export default function GasStationsPage() {
       <PageHeader
         title="Estaciones"
         description="Gestiona las estaciones de servicio"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/gas-stations/new')} size="sm">
             <Plus className="size-4" />
             Nueva estación
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.gasStations ?? []} loading={loading} />

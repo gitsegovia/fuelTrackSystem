@@ -21,6 +21,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useAuth } from '@/hooks/useAuth'
+import { canDeleteAuditPeriod } from '@/lib/permissions'
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -398,7 +399,7 @@ function CloseCard({
   onToggle: () => void
   onConfirm: () => void
   onRecalc: () => void
-  onDelete: () => void
+  onDelete?: () => void
   recalcing: boolean
 }) {
   const isDraft = close.status === 'DRAFT'
@@ -456,9 +457,11 @@ function CloseCard({
               <Button variant="ghost" size="icon" title="Confirmar cierre (inmutable)" onClick={onConfirm}>
                 <Lock className="size-4 text-primary" />
               </Button>
-              <Button variant="ghost" size="icon" title="Eliminar borrador" onClick={onDelete}>
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
+              {onDelete && (
+                <Button variant="ghost" size="icon" title="Eliminar borrador" onClick={onDelete}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -718,7 +721,7 @@ export default function AuditCierresPage() {
             onToggle={() => setExpandedId(expandedId === close.id ? null : close.id)}
             onConfirm={() => setConfirmId(close.id)}
             onRecalc={() => handleRecalc(close.id)}
-            onDelete={() => setDeleteId(close.id)}
+            onDelete={canDeleteAuditPeriod(user) ? () => setDeleteId(close.id) : undefined}
             recalcing={recalcingId === close.id}
           />
         ))}
