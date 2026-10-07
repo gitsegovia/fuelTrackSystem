@@ -14,6 +14,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { TICKET_STATUS_LABELS, PAYMENT_MODE_LABELS, canPay, canDispatch, isOpenTicket } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
+import { can } from '@/lib/permissions'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { upsertInCachedList } from '@/lib/offline-cache'
 import { useOffline } from '@/context/OfflineContext'
@@ -476,8 +477,8 @@ export default function TicketDetailPage() {
   }
 
   const open = isOpenTicket(ticket.status)
-  const showDispatchAction = open && canDispatch(ticket.paymentMode, ticket.status)
-  const showPaymentAction = open && canPay(ticket.paymentMode, ticket.status)
+  const showDispatchAction = open && can(user, 'dispatchTicket') && canDispatch(ticket.paymentMode, ticket.status)
+  const showPaymentAction = open && can(user, 'payTicket') && canPay(ticket.paymentMode, ticket.status)
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -766,14 +767,14 @@ export default function TicketDetailPage() {
         </div>
       )}
 
-      {open && (
+      {open && can(user, 'cancelTicket') && (
         <Button variant="outline" className="w-full" onClick={() => setConfirmCancel(true)} disabled={canceling}>
           <XCircle className="size-4" /> Cancelar ticket
         </Button>
       )}
 
       {/* Diferencial y devolución (solo COMPLETED) */}
-      {completed && differential && (
+      {completed && differential && can(user, 'viewDifferential') && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Diferencial a favor de la estación</CardTitle>
@@ -811,7 +812,7 @@ export default function TicketDetailPage() {
               </div>
             )}
 
-            {pendingRefundInBase > 0.001 && (
+            {pendingRefundInBase > 0.001 && can(user, 'refundTicket') && (
               <>
                 <Button variant="outline" size="sm" className="w-full" onClick={() => setShowRefund(!showRefund)}>
                   <Undo2 className="size-4" /> Registrar devolución
