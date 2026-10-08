@@ -2,7 +2,7 @@
 // Uso: node --loader ts-node/esm --experimental-specifier-resolution=node scripts/test-license-lifecycle.ts
 import { generateKeyPairSync, sign } from "node:crypto";
 import { verifyCciLicense } from "../src/license/cciLicense";
-import { computeStatus, effectiveNow, isClockSkewed, maxDate } from "../src/license/lifecycle";
+import { computeStatus, createDebouncer, effectiveNow, isClockSkewed, maxDate } from "../src/license/lifecycle";
 import { isHardRejection } from "../src/license/service";
 
 let failures = 0;
@@ -102,6 +102,24 @@ check("CREDENTIAL_REQUIRED no es un rechazo duro (no fuerza solo lectura)", !isH
 check("un 5xx sin código reconocido no es un rechazo duro", !isHardRejection(undefined));
 check("INVALID_LICENSE sí es un rechazo duro", isHardRejection("INVALID_LICENSE"));
 check("SUBSCRIPTION_CANCELED sí es un rechazo duro", isHardRejection("SUBSCRIPTION_CANCELED"));
+
+// 8. T-055: createDebouncer (usado por scheduleImmediateRevalidation tras desactivar/reactivar
+// una estación). Delays cortos: no hace falta mockear el reloj.
+{
+  const calls: number[] = [];
+  const debouncer = createDebouncer<number>((arg) => calls.push(arg), 60);
+  debouncer.trigger(1);
+  debouncer.trigger(2);
+  debouncer.trigger(3); // tres llamadas seguidas, antes de que venza el antirrebote
+  check("antirrebote: nada corre todavía mientras está pendiente", calls.length === 0 && debouncer.pending);
+  await new Promise((r) => setTimeout(r, 120));
+  check("antirrebote: se ejecuta una sola vez, con el último argumento", calls.length === 1 && calls[0] === 3);
+  check("antirrebote: callCount queda en 1", debouncer.callCount === 1);
+
+  debouncer.trigger(4);
+  await new Promise((r) => setTimeout(r, 120));
+  check("antirrebote: una llamada posterior (ya sin pendiente) dispara de nuevo", calls.length === 2 && calls[1] === 4);
+}
 
 console.log(`\n${failures === 0 ? "todas las comprobaciones pasaron" : `${failures} comprobación(es) fallaron`}`);
 process.exit(failures > 0 ? 1 : 0);

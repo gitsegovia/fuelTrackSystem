@@ -49,6 +49,10 @@ export const POLICY: Record<string, OpPolicy> = {
   // Equipamiento (fila 2: lectura para todo el personal de la estación, escritura solo admin)
   ...grant("Query", ["gasStations", "gasStation"], ALL),
   ...grant("Mutation", ["createGasStation", "updateGasStation", "deleteGasStation"], [A]),
+  // "deactivate" no está en el prefijo de verbos que recorta entityFromOperation
+  // (create/update/delete/...), así que el modelo del argumento id se declara explícito.
+  // Reactivar no tiene mutation: solo CCI Innovation puede, con el script reactivate-station.
+  ...grant("Mutation", ["deactivateGasStation"], [A], { entity: "GasStation" }),
   ...grant("Query", ["pumpIslands", "pumpIsland", "pumpIslandsByGasStation", "pumpIslandByGasStationAndName", "dispensers", "dispenser", "dispensersByGasStation", "dispensersByPumpIsland", "dispensersByTank", "dispensersByFuelType", "dispenserByGasStationAndName", "dispenserNozzles", "dispenserNozzle", "dispenserNozzlesByDispenser", "dispenserNozzleByDispenserAndName", "tanks", "tank", "tanksByGasStation", "tankByGasStationAndName", "tankAssignments", "tankAssignment", "tankAssignmentsByDispatchReception", "tankAssignmentByDispatchReceptionAndDate"], ALL),
   ...grant("Mutation", ["createPumpIsland", "updatePumpIsland", "deletePumpIsland", "createDispenser", "updateDispenser", "deleteDispenser", "createDispenserNozzle", "updateDispenserNozzle", "deleteDispenserNozzle", "createTank", "updateTank", "deleteTank", "createTankAssignment", "updateTankAssignment", "deleteTankAssignment"], [A]),
 

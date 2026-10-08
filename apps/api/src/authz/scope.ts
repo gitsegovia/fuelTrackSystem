@@ -151,11 +151,15 @@ export function collectReferences(value: unknown, out: Array<{ model: string; id
   return out;
 }
 
+// Además de validar el alcance, devuelve las estaciones involucradas (de cualquier referencia con
+// `gasStationId`): T-055 la reutiliza para saber si una mutation toca una estación desactivada,
+// sin repetir las consultas que ya hace esta misma función.
 export async function assertReferencesInScope(
   models: AppModels,
   user: AuthenticatedUser,
   refs: Array<{ model: string; id: string }>
-): Promise<void> {
+): Promise<Set<string>> {
+  const touchedStations = new Set<string>();
   const byModel = new Map<string, Set<string>>();
   for (const r of refs) {
     if (!byModel.has(r.model)) byModel.set(r.model, new Set());
@@ -167,7 +171,11 @@ export async function assertReferencesInScope(
     if (scopes.some((s) => !inScope(user, s))) {
       throw forbidden("Referencia fuera de tu alcance.", `alcance-referencia:${model}`);
     }
+    for (const s of scopes) {
+      if (s.gasStationId) touchedStations.add(s.gasStationId);
+    }
   }
+  return touchedStations;
 }
 
 // Filtra resultados de tipos con alcance: las listas quitan lo ajeno; un objeto ajeno se devuelve null.
