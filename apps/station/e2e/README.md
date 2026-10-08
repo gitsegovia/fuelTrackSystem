@@ -33,7 +33,15 @@ FORBIDDEN tras cambiarle el cargo en la BD, llega a `/sync` con el mensaje de pe
 Usuarios: los flujos de punta a punta entran como `mgr.norte` (gerente, todas las acciones de
 estación según la matriz). Los casos por cargo usan `cajero.norte` y `bombero1.norte`.
 
-El código de salida es 0 solo si pasan los dos scripts.
+Por último corre `e2e/licencia-e2e.mjs` (T-052). El stack de verificación está en modo LEGACY, así
+que el proxy simula el modo CCI1: `GET /license?status=DUE_SOON|GRACE|READ_ONLY[&skew=1]` responde
+`LicenseStatus` con ese estado, y `GET /reject?op=<Operación>` responde esa mutation con
+`LICENSE_READ_ONLY` (`/rejected` cuenta los envíos). Comprueba que LEGACY no muestra nada, las
+tres franjas, el aviso de reloj, que READ_ONLY oculta las escrituras y se ve tras recargar sin red,
+y que una operación encolada que vuelve con `LICENSE_READ_ONLY` va a conflictos con un solo envío
+mientras la siguiente de la cola se aplica.
+
+El código de salida es 0 solo si pasan los tres scripts.
 
 ## Fase B: sesión con token corto — también un solo comando
 

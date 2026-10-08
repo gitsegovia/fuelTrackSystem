@@ -13,6 +13,7 @@ import { syncQueue } from '@/lib/offline-sync'
 import { isNetworkDown, setMutationQueuedCallback } from '@/lib/apollo-client'
 import { ensureFreshAccessToken, expireSession, forceRefreshAccessToken } from '@/lib/auth-session'
 import { useAuth } from '@/hooks/useAuth'
+import { QUERIES as LicenseQueries } from '@/services/graphql/gql/license'
 
 const SYNC_LOCK = 'fueltrack-offline-sync'
 
@@ -103,6 +104,9 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
         },
       })
       ;({ hadError, synced, movedToFailed, unauthenticated } = result)
+      if (result.licenseReadOnly) {
+        apolloClient.refetchQueries({ include: [LicenseQueries.licenseStatus] }).catch(() => {})
+      }
     } catch (err) {
       hadError = true
       throw err

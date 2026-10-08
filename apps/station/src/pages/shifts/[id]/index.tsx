@@ -7,7 +7,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
-import { can } from '@/lib/permissions'
+import { useCan } from '@/hooks/useCan'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -30,6 +30,7 @@ export default function ShiftDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDo = useCan()
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -119,9 +120,9 @@ export default function ShiftDetailPage() {
   const isActive = !shift?.shiftEndTime
   const isMyShift = employee && shift?.employee?.id === employee.id
 
-  const canCloseShift = isActive && can(user, isMyShift ? 'openOwnShift' : 'closeOtherShift')
-  const canReadings = isActive && can(user, 'recordReadings')
-  const canEmit = isActive && can(user, 'emitTicket')
+  const canCloseShift = isActive && canDo(isMyShift ? 'openOwnShift' : 'closeOtherShift')
+  const canReadings = isActive && canDo('recordReadings')
+  const canEmit = isActive && canDo('emitTicket')
 
   return (
     <div className="space-y-6 max-w-2xl">

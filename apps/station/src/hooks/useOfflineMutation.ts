@@ -7,7 +7,8 @@ import { sendOrQueue } from '@/lib/offline-sync'
 import { useOffline } from '@/context/OfflineContext'
 import { getDeviceFingerprint, getStoredUserId } from '@/lib/device-fingerprint'
 import { withSessionRetry } from '@/lib/auth-session'
-import { FORBIDDEN_MESSAGE, graphQLErrorCode } from '@/lib/graphql-errors'
+import { NON_RETRYABLE_MESSAGES, graphQLErrorCode } from '@/lib/graphql-errors'
+import { QUERIES as LicenseQueries } from '@/services/graphql/gql/license'
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -143,7 +144,11 @@ export function useOfflineMutation<TData = unknown>(
               )
               return result.data ?? null
             } catch (err) {
-              if (graphQLErrorCode(err) === 'FORBIDDEN') throw new Error(FORBIDDEN_MESSAGE)
+              const code = graphQLErrorCode(err)
+              if (code === 'LICENSE_READ_ONLY') {
+                apolloClient.refetchQueries({ include: [LicenseQueries.licenseStatus] }).catch(() => {})
+              }
+              if (code && NON_RETRYABLE_MESSAGES[code]) throw new Error(NON_RETRYABLE_MESSAGES[code])
               throw err
             }
           },

@@ -8,3 +8,10 @@ export function graphQLErrorCode(err: unknown): string | null {
 }
 
 export const FORBIDDEN_MESSAGE = 'Tu usuario no tiene permiso para esta operación.'
+export const LICENSE_READ_ONLY_MESSAGE = 'La licencia del sistema está vencida; la operación no se aplicó.'
+
+/** Errores que reenviar no cambia: van directo a conflictos, sin reintentos (T-044, T-052). */
+export const NON_RETRYABLE_MESSAGES: Record<string, string> = {
+  FORBIDDEN: FORBIDDEN_MESSAGE,
+  LICENSE_READ_ONLY: LICENSE_READ_ONLY_MESSAGE,
+}
