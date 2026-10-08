@@ -14,6 +14,7 @@ import {
   forbidden,
 } from "./scope";
 import { filterOwnDispatcherRows, guardOperation } from "./guards";
+import { assertStationsActive } from "../stationLifecycle/activeGate";
 
 // Usuario de la request: el token debe tener sesión vigente (no revocada ni vencida) y el usuario
 // se vuelve a leer de la BD, así un cambio de rol o de estación aplica sin esperar al token.
@@ -103,7 +104,7 @@ function applyActorFields(args: Record<string, any>, user: AuthenticatedUser): R
 // Una línea por denegación, sin tokens: operación, usuario, regla y origen (cola offline o no).
 function logDenial(key: string, info: GraphQLResolveInfo, user: AuthenticatedUser | undefined, context: Context, error: any) {
   const code = error?.extensions?.code;
-  if (code !== "FORBIDDEN" && code !== "UNAUTHENTICATED") return;
+  if (!["FORBIDDEN", "UNAUTHENTICATED", "STATION_INACTIVE"].includes(code)) return;
   const who = user
     ? `user=${user.username} id=${user.id} role=${user.role} userType=${user.userType}`
     : "user=anonimo";
@@ -146,12 +147,20 @@ function guardField(kind: "Query" | "Mutation", field: string, resolve: AnyResol
       a.gasStationId = scopeUser.gasStationId;
     }
     // Argumento id: el modelo sale de la operación; si no se puede determinar, se rechaza.
+    const touchedStations = new Set<string>();
     if (a.id !== undefined) {
       const entity = policy?.entity ?? entityFromOperation(field);
       if (!entity) throw forbidden("No tienes permiso para esta operación.", "entidad-id-desconocida");
-      await assertReferencesInScope(context.models, scopeUser, [{ model: entity, id: a.id }]);
+      for (const s of await assertReferencesInScope(context.models, scopeUser, [{ model: entity, id: a.id }])) {
+        touchedStations.add(s);
+      }
     }
-    await assertReferencesInScope(context.models, scopeUser, collectReferences(a));
+    for (const s of await assertReferencesInScope(context.models, scopeUser, collectReferences(a))) {
+      touchedStations.add(s);
+    }
+    // D-19 (propuesta provisional, T-055): el día a día de una estación desactivada se bloquea.
+    // Reutiliza las estaciones que ya resolvió el chequeo de alcance de arriba.
+    if (kind === "Mutation") await assertStationsActive(context.models, field, touchedStations);
 
     try {
       await guardOperation(key, { models: context.models, user, profile, args: a });

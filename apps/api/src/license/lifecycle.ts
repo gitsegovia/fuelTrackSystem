@@ -42,3 +42,29 @@ export function isClockSkewed(localNow: Date, maxSeenAt: Date | null | undefined
   const seen = maxSeenAt ?? new Date(0);
   return seen.getTime() - localNow.getTime() > CLOCK_SKEW_THRESHOLD_MS;
 }
+
+// T-055, criterio 4: varias llamadas seguidas (desactivar varias estaciones una tras otra) se
+// juntan en una sola ejecución de `fn`, con el último argumento recibido. Genérico y sin red ni
+// BD para poder probarlo con delays cortos.
+export function createDebouncer<T>(fn: (arg: T) => void, delayMs: number) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let latestArg: T;
+  let calls = 0;
+  return {
+    trigger(arg: T): void {
+      latestArg = arg;
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        calls += 1;
+        fn(latestArg);
+      }, delayMs);
+    },
+    get pending(): boolean {
+      return timer !== null;
+    },
+    get callCount(): number {
+      return calls;
+    },
+  };
+}

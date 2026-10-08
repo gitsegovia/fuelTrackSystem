@@ -6,6 +6,7 @@ import config from "../config";
 import { Context } from "../interfaces";
 import { User } from "../models/user";
 import { RefreshToken } from "../models/refreshToken";
+import { UserRole, UserType } from "./types";
 
 // Sesión ADR-014: access token JWT corto + refresh token opaco rotativo.
 // Una AuthSession es la familia; cada RefreshToken emitido es un eslabón. El tope absoluto
@@ -15,17 +16,39 @@ export type SessionErrorCode =
   | "INVALID_REFRESH_TOKEN"
   | "REFRESH_TOKEN_REUSED"
   | "SESSION_REVOKED"
-  | "SESSION_EXPIRED";
+  | "SESSION_EXPIRED"
+  | "STATION_INACTIVE";
 
 const MESSAGES: Record<SessionErrorCode, string> = {
   INVALID_REFRESH_TOKEN: "Refresh token inválido.",
   REFRESH_TOKEN_REUSED: "Refresh token ya utilizado: la sesión fue revocada por seguridad.",
   SESSION_REVOKED: "La sesión fue cerrada. Inicia sesión otra vez.",
   SESSION_EXPIRED: "La sesión superó su duración máxima. Inicia sesión otra vez.",
+  STATION_INACTIVE: "Tu estación está desactivada. Contacta al administrador.",
 };
 
-function sessionError(code: SessionErrorCode): GraphQLError {
+export function sessionError(code: SessionErrorCode): GraphQLError {
   return new GraphQLError(MESSAGES[code], { extensions: { code } });
+}
+
+// D-19 (propuesta provisional, T-055): los usuarios de una estación desactivada no pueden entrar
+// ni renovar sesión. Admin y Administrativo (alcance de empresa) no se ven afectados — mismo
+// criterio que el alcance de empresa de T-053 para ese cargo.
+function isCompanyScoped(user: Pick<User, "role" | "userType">): boolean {
+  return user.role === UserRole.ADMIN || user.userType === UserType.ADMINISTRATIVE;
+}
+
+async function assertStationActiveForSession(
+  ctx: Context,
+  user: User,
+  t?: Transaction
+): Promise<SessionErrorCode | null> {
+  if (isCompanyScoped(user) || !user.gasStationId) return null;
+  const station = await ctx.models.GasStation.findByPk(user.gasStationId, {
+    transaction: t,
+    attributes: ["active"],
+  });
+  return station && !station.active ? "STATION_INACTIVE" : null;
 }
 
 export interface AuthPayload {
@@ -64,6 +87,8 @@ async function issueRefreshToken(ctx: Context, sessionId: string, t: Transaction
 }
 
 export async function startSession(ctx: Context, user: User): Promise<AuthPayload> {
+  const stationError = await assertStationActiveForSession(ctx, user);
+  if (stationError) throw sessionError(stationError);
   return ctx.sequelize.transaction(async (t) => {
     const session = await ctx.models.AuthSession.create(
       { userId: user.id, expiresAt: new Date(Date.now() + config.sessionMaxHours * 3_600_000) },
@@ -128,6 +153,8 @@ export async function rotateSession(ctx: Context, refreshToken: string): Promise
 
       const user = await ctx.models.User.findByPk(session.userId, { transaction: t });
       if (!user) return "INVALID_REFRESH_TOKEN";
+      const stationError = await assertStationActiveForSession(ctx, user, t);
+      if (stationError) return stationError;
 
       const next = await issueRefreshToken(ctx, session.id, t);
       if (successor) {

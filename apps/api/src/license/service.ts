@@ -4,7 +4,7 @@ import { GraphQLError } from "graphql";
 import { AppModels } from "../interfaces/models";
 import { validateLicense as validateLegacyLicense } from "../utils/licenseValidator";
 import { CciLicensePayload, verifyCciLicense } from "./cciLicense";
-import { computeStatus, daysUntil, effectiveNow, graceEndsAt, isClockSkewed, maxDate, LicenseStatus } from "./lifecycle";
+import { computeStatus, createDebouncer, daysUntil, effectiveNow, graceEndsAt, isClockSkewed, maxDate, LicenseStatus } from "./lifecycle";
 
 // Fila única: no hace falta buscarla por ningún criterio de negocio.
 const SINGLETON_ID = "00000000-0000-0000-0000-000000000001";
@@ -57,6 +57,12 @@ export function isCciMode(): boolean {
   return !!publicKeyPem;
 }
 
+// Para scripts de servidor (reactivate-station.ts) que necesitan isCciMode()/getSnapshot() sin
+// levantar el servidor GraphQL completo ni hacer la validación en vivo que hace bootLicense.
+export async function initLicenseKey(): Promise<void> {
+  publicKeyPem = await loadPublicKey();
+}
+
 // El fingerprint no cambia durante la vida del proceso (lo fija el entrypoint al instalar), así
 // que se lee una sola vez y se cachea: no tiene sentido abrir el archivo en cada mutation.
 let cachedFingerprint: string | null = null;
@@ -70,7 +76,8 @@ async function getFingerprint(): Promise<string> {
 }
 
 async function countActiveStations(models: AppModels): Promise<number> {
-  return models.GasStation.count();
+  // T-055: una estación desactivada queda como histórico y no cuenta en el tope de la licencia.
+  return models.GasStation.count({ where: { active: true } });
 }
 
 // Verifica SIEMPRE con la clave pública local, tanto si el token viene de la red como si viene
@@ -253,6 +260,19 @@ export async function assertStationLimit(models: AppModels): Promise<void> {
       { extensions: { code: "LICENSE_STATION_LIMIT" } }
     );
   }
+}
+
+// T-055, criterio 4: tras desactivar/reactivar una estación (o crear una), activeStations cambió
+// y no tiene sentido esperar 24h para que CCI Licencias se entere. Antirrebote de 30s (ajustable
+// para pruebas): varias llamadas seguidas (p. ej. desactivar 3 estaciones una tras otra) disparan
+// una sola validación.
+const revalidationDebouncer = createDebouncer<AppModels>((models) => {
+  fetchAndStore(models).catch((e) => console.warn("[licencia] validación inmediata falló:", e.message));
+}, Number(process.env.LICENSE_REVALIDATION_DEBOUNCE_MS ?? 30_000));
+
+export function scheduleImmediateRevalidation(models: AppModels): void {
+  if (!isCciMode()) return;
+  revalidationDebouncer.trigger(models);
 }
 
 export function startDailyRevalidation(models: AppModels): void {
