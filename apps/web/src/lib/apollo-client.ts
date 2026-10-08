@@ -18,12 +18,19 @@ export function setUnauthenticatedCallback(fn: (() => void) | null) {
   onUnauthenticated = fn
 }
 
+export type LicenseErrorCode = 'LICENSE_READ_ONLY' | 'LICENSE_STATION_LIMIT'
+let onLicenseError: ((code: LicenseErrorCode) => void) | null = null
+export function setLicenseErrorCallback(fn: ((code: LicenseErrorCode) => void) | null) {
+  onLicenseError = fn
+}
+
 const authErrorLink = onError(({ error }) => {
   if (!CombinedGraphQLErrors.is(error)) return
   error.errors.forEach((err) => {
     const code = err.extensions?.code as string | undefined
     if (code === 'UNAUTHENTICATED') onUnauthenticated?.()
     else if (code === 'FORBIDDEN') toast.error('No tienes permiso para realizar esta acción.')
+    else if (code === 'LICENSE_READ_ONLY' || code === 'LICENSE_STATION_LIMIT') onLicenseError?.(code)
   })
 })
 

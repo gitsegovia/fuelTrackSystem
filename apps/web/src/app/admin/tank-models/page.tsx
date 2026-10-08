@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, TableProperties } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -29,7 +30,8 @@ interface TankModel {
 export default function TankModelsPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const canManage = canManageCatalogs(user)
+  const { license } = useLicense()
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ tankModels: TankModel[] }>(QUERIES.tankModels)

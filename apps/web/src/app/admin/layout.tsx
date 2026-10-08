@@ -5,8 +5,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { AdminSidebar } from '@/components/layout/AdminSidebar'
 import { AdminTopbar } from '@/components/layout/AdminTopbar'
+import { LicenseBanner } from '@/components/layout/LicenseBanner'
 import { AccessDenied } from '@/components/shared/AccessDenied'
 import { Skeleton } from '@/components/ui/skeleton'
+import { LicenseProvider } from '@/context/LicenseContext'
 import { canAccessAdminPanel, canAccessRoute } from '@/lib/permissions'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -39,14 +41,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user || !panelAllowed) return null
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AdminSidebar />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <AdminTopbar />
-        <main className="flex-1 overflow-y-auto p-6 bg-muted/20">
-          {canAccessRoute(user, pathname) ? children : <AccessDenied />}
-        </main>
+    <LicenseProvider>
+      <div className="flex h-screen overflow-hidden">
+        <AdminSidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <AdminTopbar />
+          <LicenseBanner />
+          <main className="flex-1 overflow-y-auto p-6 bg-muted/20">
+            {canAccessRoute(user, pathname) ? children : <AccessDenied />}
+          </main>
+        </div>
       </div>
-    </div>
+    </LicenseProvider>
   )
 }
