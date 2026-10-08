@@ -26,6 +26,7 @@ import { OfflineMutationLog } from "src/models/offlineMutationLog";
 import { AuthSession } from "src/models/authSession";
 import { RefreshToken } from "src/models/refreshToken";
 import { TicketRefund } from "src/models/ticketRefund";
+import { LicenseState } from "src/models/licenseState";
 
 export interface AppModels {
   Company: ModelStatic<Company>;
@@ -55,4 +56,5 @@ export interface AppModels {
   AuthSession: ModelStatic<AuthSession>;
   RefreshToken: ModelStatic<RefreshToken>;
   TicketRefund: ModelStatic<TicketRefund>;
+  LicenseState: ModelStatic<LicenseState>;
 }

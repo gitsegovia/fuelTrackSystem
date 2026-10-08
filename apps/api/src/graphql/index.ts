@@ -30,8 +30,10 @@ import auditResolver from "./resolvers/auditResolver";
 import invoicePaymentResolver from "./resolvers/invoicePaymentResolver";
 import auditPeriodCloseResolver from "./resolvers/auditPeriodCloseResolver";
 import ticketRefundResolver from "./resolvers/ticketRefundResolver";
+import licenseResolver from "./resolvers/licenseResolver";
 import { applyOfflineIdempotency } from "./helpers/offlineIdempotency";
 import { applyAuthorization } from "../authz";
+import { applyLicenseGate } from "../license/gate";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -43,8 +45,12 @@ const typesArray = loadFilesSync(join(__dirname, "./schemas"), {
 
 export const typeDefs = mergeTypeDefs(typesArray);
 
-// Orden: la autorización envuelve a la idempotencia, así una mutation rechazada no se marca APPLIED.
-export const resolvers: IResolvers<any>[] = applyAuthorization(applyOfflineIdempotency([
+// Orden: autorización → licencia → idempotencia. La autorización va primero para que una
+// petición sin sesión dé UNAUTHENTICATED y no filtre nada de la licencia (cuántas estaciones
+// tiene o si está en solo lectura) a quien no está ni autenticado. La licencia va antes de la
+// idempotencia para que una mutation bloqueada por LICENSE_READ_ONLY o LICENSE_STATION_LIMIT
+// tampoco quede marcada APPLIED.
+export const resolvers: IResolvers<any>[] = applyAuthorization(applyLicenseGate(applyOfflineIdempotency([
   scalarResolvers,
   userResolver,
   companyResolver,
@@ -71,4 +77,5 @@ export const resolvers: IResolvers<any>[] = applyAuthorization(applyOfflineIdemp
   invoicePaymentResolver,
   auditPeriodCloseResolver,
   ticketRefundResolver,
-]));
+  licenseResolver,
+])));

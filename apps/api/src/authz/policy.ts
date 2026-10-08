@@ -27,6 +27,7 @@ export const PUBLIC_OPERATIONS = new Set(["Mutation.login", "Mutation.refreshSes
 export const POLICY: Record<string, OpPolicy> = {
   // Sesión
   ...grant("Query", ["me"], ALL),
+  ...grant("Query", ["licenseStatus"], ALL),
   ...grant("Mutation", ["login", "refreshSession", "logout"], [], { public: true }),
   // Usuarios (fila 1: el gerente solo gestiona empleados de su estación; ver guards.ts)
   ...grant("Query", ["users", "user"], [A, G]),
