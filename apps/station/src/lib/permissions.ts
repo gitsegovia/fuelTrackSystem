@@ -48,6 +48,10 @@ export function profileOf(user: Pick<AuthUser, 'role' | 'userType'>): Profile | 
   }
 }
 
+export function isWriteCapability(capability: Capability): boolean {
+  return capability !== 'viewDifferential'
+}
+
 export function can(user: AuthUser | null | undefined, capability: Capability): boolean {
   if (!user) return false
   const profile = profileOf(user)

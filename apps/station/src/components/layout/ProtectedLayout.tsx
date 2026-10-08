@@ -3,6 +3,7 @@ import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { StationSidebar } from './StationSidebar'
 import { OfflineBanner } from './OfflineBanner'
+import { LicenseBanner } from './LicenseBanner'
 
 export function ProtectedLayout() {
   const { user, loading } = useAuth()
@@ -29,6 +30,7 @@ export function ProtectedLayout() {
     <div className="flex h-screen bg-background">
       <StationSidebar />
       <main className="flex flex-col flex-1 overflow-hidden">
+        <LicenseBanner />
         <OfflineBanner />
         <div className="flex-1 overflow-y-auto p-6">
           <Outlet />

@@ -7,7 +7,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as MeasurementQueries, MUTATIONS as MeasurementMutations } from '@/services/graphql/gql/tankMeasurement'
 import { useAuth } from '@/hooks/useAuth'
-import { can } from '@/lib/permissions'
+import { useCan } from '@/hooks/useCan'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -99,8 +99,7 @@ function TankCard({
   const [reason, setReason] = useState('SHIFT_CLOSURE')
   const [notes, setNotes] = useState('')
   const { isOnline } = useOffline()
-  const { user } = useAuth()
-  const canMeasure = can(user, 'measureTank')
+  const canMeasure = useCan()('measureTank')
 
   const [createMeasurement, { loading: saving }] = useOfflineMutation(
     MeasurementMutations.createTankMeasurement

@@ -14,7 +14,9 @@ import { PAYMENT_MODE_LABELS } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
-import { can } from '@/lib/permissions'
+import { useCan } from '@/hooks/useCan'
+import { useLicense } from '@/context/LicenseContext'
+import { LICENSE_READ_ONLY_BANNER } from '@/components/layout/LicenseBanner'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,6 +45,8 @@ export default function NewTicketPage() {
   const [searchParams] = useSearchParams()
   const shiftId = searchParams.get('shiftId') ?? ''
   const { user } = useAuth()
+  const canDo = useCan()
+  const { readOnly: licenseReadOnly } = useLicense()
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -182,7 +186,7 @@ export default function NewTicketPage() {
         toast.success(`Ticket #${ticket.ticketNumber} creado.`)
       }
 
-      if (can(user, 'payTicket') || can(user, 'dispatchTicket')) {
+      if (canDo('payTicket') || canDo('dispatchTicket')) {
         // ticket.id = localId si offline, UUID real si online — ambos funcionan
         navigate(`/tickets/${ticket.id}`)
       } else {
@@ -193,7 +197,7 @@ export default function NewTicketPage() {
     }
   }
 
-  if (!can(user, 'emitTicket')) {
+  if (!canDo('emitTicket')) {
     return (
       <div className="space-y-6 max-w-sm">
         <PageHeader
@@ -204,7 +208,9 @@ export default function NewTicketPage() {
             </Button>
           }
         />
-        <p className="text-sm rounded-lg border px-3 py-2">Tu cargo no puede emitir tickets.</p>
+        <p className="text-sm rounded-lg border px-3 py-2">
+          {licenseReadOnly ? LICENSE_READ_ONLY_BANNER : 'Tu cargo no puede emitir tickets.'}
+        </p>
       </div>
     )
   }

@@ -7,7 +7,9 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
 import { ensureEmptyList, upsertInCachedList } from '@/lib/offline-cache'
-import { can } from '@/lib/permissions'
+import { useCan } from '@/hooks/useCan'
+import { useLicense } from '@/context/LicenseContext'
+import { LICENSE_READ_ONLY_BANNER } from '@/components/layout/LicenseBanner'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { useOffline } from '@/context/OfflineContext'
@@ -35,6 +37,8 @@ const ROLE_LABELS: Record<string, string> = {
 export default function NewShiftPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDo = useCan()
+  const { readOnly: licenseReadOnly } = useLicense()
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
@@ -134,7 +138,7 @@ export default function NewShiftPage() {
     }
   }
 
-  if (!can(user, 'openOwnShift')) {
+  if (!canDo('openOwnShift')) {
     return (
       <div className="space-y-6 max-w-sm">
         <PageHeader
@@ -145,7 +149,9 @@ export default function NewShiftPage() {
             </Button>
           }
         />
-        <p className="text-sm rounded-lg border px-3 py-2">Tu cargo no puede iniciar turnos.</p>
+        <p className="text-sm rounded-lg border px-3 py-2">
+          {licenseReadOnly ? LICENSE_READ_ONLY_BANNER : 'Tu cargo no puede iniciar turnos.'}
+        </p>
       </div>
     )
   }
