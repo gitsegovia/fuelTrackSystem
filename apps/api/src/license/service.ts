@@ -4,14 +4,22 @@ import { GraphQLError } from "graphql";
 import { AppModels } from "../interfaces/models";
 import { validateLicense as validateLegacyLicense } from "../utils/licenseValidator";
 import { CciLicensePayload, verifyCciLicense } from "./cciLicense";
-import { computeStatus, daysUntil, graceEndsAt, LicenseStatus } from "./lifecycle";
+import { computeStatus, daysUntil, effectiveNow, graceEndsAt, isClockSkewed, maxDate, LicenseStatus } from "./lifecycle";
 
 // Fila única: no hace falta buscarla por ningún criterio de negocio.
 const SINGLETON_ID = "00000000-0000-0000-0000-000000000001";
-const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 // Rechazos explícitos del servidor: prevalecen sobre la fecha local hasta la próxima validación
 // exitosa (a diferencia de un error de red, que conserva el último estado bueno conocido).
+// CREDENTIAL_REQUIRED (falta configuración) y un 5xx sin código reconocido caen fuera de este
+// conjunto a propósito: no son un rechazo de la licencia, así que no deben forzar solo lectura
+// (pedido explícito de lic-core; ver test-license-lifecycle.ts).
 const HARD_REJECTIONS = new Set(["INVALID_LICENSE", "INSTANCE_NOT_FOUND", "FINGERPRINT_MISMATCH", "SUBSCRIPTION_CANCELED"]);
+
+export function isHardRejection(code: string | undefined | null): boolean {
+  return !!code && HARD_REJECTIONS.has(code);
+}
 
 export interface LicenseSnapshot {
   mode: "CCI1" | "LEGACY";
@@ -25,6 +33,7 @@ export interface LicenseSnapshot {
   readOnly: boolean;
   customerName: string | null;
   lastValidatedAt: Date | null;
+  clockSkewDetected: boolean;
 }
 
 let publicKeyPem: string | null = null;
@@ -120,6 +129,10 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
       );
       return;
     }
+    // T-053: una validación exitosa es la fuente más confiable de "qué hora es": sube el punto
+    // más alto visto con el reloj del servidor y con la fecha de emisión de la licencia.
+    const serverTime = typeof data.serverTime === "string" ? new Date(data.serverTime) : undefined;
+    const newMaxSeenAt = maxDate(row?.maxSeenAt, serverTime, new Date(rawPayload.issuedAt));
     await models.LicenseState.upsert({
       id: SINGLETON_ID,
       licenseToken: token,
@@ -127,12 +140,13 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
       serverStatus: typeof data.status === "string" ? data.status : null,
       graceEndsAt: data.graceEndsAt ? new Date(data.graceEndsAt) : graceEndsAt(new Date(rawPayload.expiresAt), rawPayload.graceDays),
       activeStations,
+      maxSeenAt: newMaxSeenAt,
       lastValidatedAt: new Date(),
       lastError: null,
     });
   } catch (error: any) {
     const code = error.response?.data?.code;
-    if (code && HARD_REJECTIONS.has(code)) {
+    if (isHardRejection(code)) {
       // El servidor rechaza la licencia activamente (no es un problema de red).
       await forceReadOnly(`${code}: ${error.response?.data?.message ?? error.message}`);
       return;
@@ -144,7 +158,21 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
   }
 }
 
-export async function getSnapshot(models: AppModels): Promise<LicenseSnapshot> {
+// Throttle del log (en memoria, no en BD): basta con avisar una vez por hora aunque el estado se
+// consulte en cada mutation.
+let lastSkewWarningAt = 0;
+function warnClockSkew(maxSeenAt: Date, localNow: Date): void {
+  if (Date.now() - lastSkewWarningAt < HOUR_MS) return;
+  lastSkewWarningAt = Date.now();
+  const daysBehind = Math.floor((maxSeenAt.getTime() - localNow.getTime()) / DAY_MS);
+  console.warn(
+    `[licencia] reloj local desfasado ${daysBehind} día(s) detrás de la última hora confiable vista (maxSeenAt=${maxSeenAt.toISOString()}, reloj local=${localNow.toISOString()})`
+  );
+}
+
+// `localNow` es un parámetro (no siempre `new Date()`) para poder probar un reloj atrasado sin
+// tocar el reloj real del proceso.
+export async function getSnapshot(models: AppModels, localNow: Date = new Date()): Promise<LicenseSnapshot> {
   const activeStations = await countActiveStations(models);
   const base = {
     activeStations,
@@ -155,6 +183,7 @@ export async function getSnapshot(models: AppModels): Promise<LicenseSnapshot> {
     daysRemaining: null,
     customerName: null,
     lastValidatedAt: null,
+    clockSkewDetected: false,
   };
 
   if (!isCciMode()) {
@@ -162,12 +191,30 @@ export async function getSnapshot(models: AppModels): Promise<LicenseSnapshot> {
   }
 
   const row = await models.LicenseState.findByPk(SINGLETON_ID);
-  const payload = await verifiedPayload(row?.licenseToken ?? null);
-  if (!payload) {
-    return { mode: "CCI1", status: "READ_ONLY", readOnly: true, ...base, lastValidatedAt: row?.lastValidatedAt ?? null };
+  const storedMaxSeenAt = row?.maxSeenAt ?? null;
+  const skewed = isClockSkewed(localNow, storedMaxSeenAt);
+  if (skewed) warnClockSkew(storedMaxSeenAt ?? new Date(0), localNow);
+
+  // T-053: nunca calcular con una hora anterior a la más alta ya vista (el reloj local atrasado
+  // después de un avance ya visto no tiene efecto). Se persiste como mucho una vez por hora —no
+  // en cada mutation— y nunca retrocede.
+  const now = effectiveNow(localNow, storedMaxSeenAt);
+  if (row && localNow.getTime() - (storedMaxSeenAt?.getTime() ?? 0) >= HOUR_MS) {
+    await row.update({ maxSeenAt: localNow });
   }
 
-  const now = new Date();
+  const payload = await verifiedPayload(row?.licenseToken ?? null);
+  if (!payload) {
+    return {
+      mode: "CCI1",
+      status: "READ_ONLY",
+      readOnly: true,
+      ...base,
+      clockSkewDetected: skewed,
+      lastValidatedAt: row?.lastValidatedAt ?? null,
+    };
+  }
+
   const expiresAt = new Date(payload.expiresAt);
   let status = computeStatus(expiresAt, payload.graceDays, now);
   if (row!.serverStatus === "READ_ONLY") status = "READ_ONLY"; // rechazo explícito del servidor prevalece
@@ -184,6 +231,7 @@ export async function getSnapshot(models: AppModels): Promise<LicenseSnapshot> {
     daysRemaining: daysUntil(expiresAt, now),
     customerName: payload.customerName,
     lastValidatedAt: row!.lastValidatedAt,
+    clockSkewDetected: skewed,
   };
 }
 

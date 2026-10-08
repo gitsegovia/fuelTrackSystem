@@ -18,6 +18,7 @@ type LicenseStatusInfo {
   readOnly: Boolean!
   customerName: String
   lastValidatedAt: DateTime
+  clockSkewDetected: Boolean! # true si el reloj local está más de 24h detrás de la última hora confiable vista
 }
 
 extend type Query {
