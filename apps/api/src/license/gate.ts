@@ -19,8 +19,9 @@ function guardMutation(field: string, resolve: AnyResolver): AnyResolver {
   };
 }
 
-// Se aplica como la capa más externa: una instalación en solo lectura no puede escribir sin
-// importar quién pida la operación, así que no depende de la autenticación ni de la idempotencia.
+// Se aplica después de la autorización (para no filtrar el estado de la licencia a quien no
+// tiene sesión) y antes de la idempotencia (para que una mutation bloqueada no quede APPLIED).
+// Ver el orden completo en graphql/index.ts.
 export function applyLicenseGate(resolvers: IResolvers<any>[]): IResolvers<any>[] {
   return resolvers.map((map: any) => {
     if (!map.Mutation) return map;
