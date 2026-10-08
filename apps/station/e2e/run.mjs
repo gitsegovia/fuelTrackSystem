@@ -47,7 +47,8 @@ async function main() {
   // 4. Fase A y permisos por cargo (T-044). Pase lo que pase, el finally apaga los procesos.
   const testCode = await run('node', [join(here, 'offline-e2e.mjs')])
   const permisosCode = await run('node', [join(here, 'permisos-e2e.mjs')])
-  return testCode || permisosCode
+  const licenciaCode = await run('node', [join(here, 'licencia-e2e.mjs')])
+  return testCode || permisosCode || licenciaCode
 }
 
 process.on('SIGINT', () => {
