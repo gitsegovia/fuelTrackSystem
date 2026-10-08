@@ -21,6 +21,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DataTable } from '@/components/shared/DataTable'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageInvoicePayments } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -106,7 +107,8 @@ export default function InvoicePaymentDetailPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const router = useRouter()
   const { user } = useAuth()
-  const canPay = canManageInvoicePayments(user)
+  const { license } = useLicense()
+  const canPay = canManageInvoicePayments(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 

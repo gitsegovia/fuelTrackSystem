@@ -11,6 +11,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -33,7 +34,8 @@ interface FuelType {
 export default function FuelTypesPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const canManage = canManageCatalogs(user)
+  const { license } = useLicense()
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ fuelTypes: FuelType[] }>(QUERIES.fuelTypes)

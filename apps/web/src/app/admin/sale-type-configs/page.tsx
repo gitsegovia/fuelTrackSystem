@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageSaleTypes } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -38,7 +39,8 @@ const saleTypeLabels: Record<string, string> = {
 export default function SaleTypeConfigsPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const canManage = canManageSaleTypes(user)
+  const { license } = useLicense()
+  const canManage = canManageSaleTypes(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ saleTypeConfigs: SaleTypeConfig[] }>(QUERIES.saleTypeConfigs)

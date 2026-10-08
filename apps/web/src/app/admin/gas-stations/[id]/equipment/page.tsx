@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,8 @@ export default function EquipmentPage() {
   const searchParams = useSearchParams()
   const expandIslandParam = searchParams.get('expandIsland')
   const { user } = useAuth()
-  const canWrite = canManageCatalogs(user)
+  const { license } = useLicense()
+  const canWrite = canManageCatalogs(user) && !license?.readOnly
 
   const [expandedIslands, setExpandedIslands] = useState<Set<string>>(new Set())
   const [expandedDispensers, setExpandedDispensers] = useState<Set<string>>(new Set())

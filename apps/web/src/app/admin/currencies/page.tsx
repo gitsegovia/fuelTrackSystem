@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageCatalogs, canEditCurrencyRate } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -28,8 +29,9 @@ interface Currency {
 export default function CurrenciesPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const canManage = canManageCatalogs(user)
-  const canEdit = canEditCurrencyRate(user)
+  const { license } = useLicense()
+  const canManage = canManageCatalogs(user) && !license?.readOnly
+  const canEdit = canEditCurrencyRate(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ currencies: Currency[] }>(QUERIES.currencies)

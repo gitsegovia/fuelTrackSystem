@@ -9,6 +9,8 @@ import { toast } from 'sonner'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { MUTATIONS, QUERIES } from '@/services/graphql/gql/gasStation'
 import { useAuth } from '@/hooks/useAuth'
+import { useLicense } from '@/context/LicenseContext'
+import { licenseStationLimitMessage } from '@/lib/license-messages'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +28,8 @@ type FormData = z.infer<typeof schema>
 export default function NewGasStationPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { license } = useLicense()
+  const atStationLimit = license?.maxStations != null && license.activeStations >= license.maxStations
   const [createGasStation, { loading }] = useMutation(MUTATIONS.createGasStation, {
     refetchQueries: [{ query: QUERIES.gasStations }],
   })
@@ -68,6 +72,12 @@ export default function NewGasStationPage() {
         }
       />
 
+      {atStationLimit && (
+        <p className="text-sm text-destructive">
+          {licenseStationLimitMessage(license?.maxStations ?? null)}
+        </p>
+      )}
+
       <Card>
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
@@ -99,7 +109,7 @@ export default function NewGasStationPage() {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <Button type="submit" disabled={loading || !user}>
+              <Button type="submit" disabled={loading || !user || atStationLimit}>
                 {loading && <Loader2 className="size-4 animate-spin" />}
                 {loading ? 'Guardando...' : 'Crear estación'}
               </Button>

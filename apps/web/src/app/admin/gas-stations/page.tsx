@@ -5,6 +5,8 @@ import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
+import { licenseStationLimitMessage } from '@/lib/license-messages'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, Wrench } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -35,7 +37,9 @@ interface GasStation {
 export default function GasStationsPage() {
   const router = useRouter()
   const { user } = useAuth()
-  const canManage = canManageCatalogs(user)
+  const { license } = useLicense()
+  const atStationLimit = license?.maxStations != null && license.activeStations >= license.maxStations
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ gasStations: GasStation[] }>(QUERIES.gasStations)
@@ -115,12 +119,24 @@ export default function GasStationsPage() {
         title="Estaciones"
         description="Gestiona las estaciones de servicio"
         action={canManage ? (
-          <Button onClick={() => router.push('/admin/gas-stations/new')} size="sm">
+          <Button
+            onClick={() => router.push('/admin/gas-stations/new')}
+            size="sm"
+            disabled={atStationLimit}
+            title={atStationLimit ? licenseStationLimitMessage(license?.maxStations ?? null) : undefined}
+          >
             <Plus className="size-4" />
             Nueva estación
           </Button>
         ) : undefined}
       />
+
+      {license?.maxStations != null && (
+        <p className="text-sm text-muted-foreground">
+          {license.activeStations} de {license.maxStations} estaciones
+          {atStationLimit && ' — tope del plan alcanzado'}
+        </p>
+      )}
 
       <DataTable columns={columns} data={data?.gasStations ?? []} loading={loading} />
 
