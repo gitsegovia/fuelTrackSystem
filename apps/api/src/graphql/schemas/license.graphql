@@ -1,0 +1,25 @@
+# T-050: estado de la licencia CCI1 para los avisos de web y station.
+enum LicenseStatus {
+  ACTIVE
+  DUE_SOON
+  GRACE
+  READ_ONLY
+}
+
+type LicenseStatusInfo {
+  mode: String! # "CCI1" o "LEGACY" (instalación sin clave pública configurada, sin restricciones)
+  status: LicenseStatus # null en modo LEGACY
+  plan: String
+  maxStations: Int
+  activeStations: Int!
+  expiresAt: DateTime
+  graceEndsAt: DateTime
+  daysRemaining: Int
+  readOnly: Boolean!
+  customerName: String
+  lastValidatedAt: DateTime
+}
+
+extend type Query {
+  licenseStatus: LicenseStatusInfo!
+}
