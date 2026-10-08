@@ -8,6 +8,9 @@ export interface LicenseStateAttributes {
   serverStatus: string | null;
   graceEndsAt: Date | null;
   activeStations: number | null;
+  // T-053: la hora más alta vista (serverTime, issuedAt o el reloj local), para que atrasar el
+  // reloj del servidor y cortar la red no rejuvenezca la licencia. Nunca retrocede.
+  maxSeenAt: Date | null;
   lastValidatedAt: Date | null;
   lastError: string | null;
   createdAt: Date;
@@ -22,6 +25,7 @@ interface LicenseStateCreationAttributes
     | "serverStatus"
     | "graceEndsAt"
     | "activeStations"
+    | "maxSeenAt"
     | "lastValidatedAt"
     | "lastError"
     | "createdAt"
@@ -38,6 +42,7 @@ export class LicenseState
   public serverStatus!: string | null;
   public graceEndsAt!: Date | null;
   public activeStations!: number | null;
+  public maxSeenAt!: Date | null;
   public lastValidatedAt!: Date | null;
   public lastError!: string | null;
 
@@ -70,6 +75,10 @@ export function initialize(sequelize: Sequelize): ModelStatic<LicenseState> {
       },
       activeStations: {
         type: DataTypes.INTEGER,
+        allowNull: true,
+      },
+      maxSeenAt: {
+        type: DataTypes.DATE,
         allowNull: true,
       },
       lastValidatedAt: {

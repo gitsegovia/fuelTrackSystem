@@ -2,7 +2,8 @@
 // Uso: node --loader ts-node/esm --experimental-specifier-resolution=node scripts/test-license-lifecycle.ts
 import { generateKeyPairSync, sign } from "node:crypto";
 import { verifyCciLicense } from "../src/license/cciLicense";
-import { computeStatus } from "../src/license/lifecycle";
+import { computeStatus, effectiveNow, isClockSkewed, maxDate } from "../src/license/lifecycle";
+import { isHardRejection } from "../src/license/service";
 
 let failures = 0;
 const check = (label: string, ok: boolean) => {
@@ -71,6 +72,36 @@ check("vence hoy -> DUE_SOON", statusOf(0) === "DUE_SOON");
 check("vencida hace 3 días (gracia de 7) -> GRACE", statusOf(-3) === "GRACE");
 check("vencida hace exactamente 7 días (gracia de 7) -> GRACE", statusOf(-7) === "GRACE");
 check("vencida hace 10 días (gracia de 7) -> READ_ONLY", statusOf(-10) === "READ_ONLY");
+
+// 7. T-053: atrasar el reloj no rejuvenece la licencia; CREDENTIAL_REQUIRED y un 5xx no fuerzan
+// solo lectura.
+check("maxDate elige la fecha más alta entre varias, ignorando undefined/null", maxDate(undefined, null, new Date(now.getTime() - DAY), new Date(now.getTime() + DAY)).getTime() === now.getTime() + DAY);
+check("maxDate sin ninguna fecha da la época unix", maxDate(undefined, null).getTime() === 0);
+
+check("effectiveNow usa el reloj local si va adelante de maxSeenAt", effectiveNow(new Date(now.getTime() + DAY), new Date(now.getTime())).getTime() === now.getTime() + DAY);
+check("effectiveNow usa maxSeenAt si el reloj local está atrasado", effectiveNow(new Date(now.getTime() - 30 * DAY), new Date(now.getTime())).getTime() === now.getTime());
+
+check("desfase de minutos no activa clockSkewDetected", !isClockSkewed(now, new Date(now.getTime() + 10 * 60 * 1000)));
+check("desfase de exactamente 24h no activa clockSkewDetected (el límite es 'más de')", !isClockSkewed(now, new Date(now.getTime() + 24 * 60 * 60 * 1000)));
+check("desfase de más de 24h activa clockSkewDetected", isClockSkewed(now, new Date(now.getTime() + 25 * 60 * 60 * 1000)));
+
+// Escenario del criterio: licencia que vence mañana, con maxSeenAt ya adelantado 40 días (se vio
+// pasar ese tiempo antes de que alguien atrasara el reloj) y el reloj local retrocedido a medio
+// día después de emitida. No debe volver a ACTIVE ni a DUE_SOON: el avance ya visto manda.
+{
+  const issuedAt = now;
+  const expiresAt = new Date(now.getTime() + DAY); // vence "mañana"
+  const maxSeenAt = new Date(now.getTime() + 40 * DAY); // ya se vio pasar ese tiempo
+  const rolledBackClock = new Date(now.getTime() + 12 * 60 * 60 * 1000); // reloj atrasado a medio día tras emitida
+  const status = computeStatus(expiresAt, 7, effectiveNow(rolledBackClock, maxSeenAt));
+  check("reloj atrasado tras ver pasar 40 días -> no vuelve a ACTIVE/DUE_SOON (READ_ONLY)", status === "READ_ONLY");
+  void issuedAt;
+}
+
+check("CREDENTIAL_REQUIRED no es un rechazo duro (no fuerza solo lectura)", !isHardRejection("CREDENTIAL_REQUIRED"));
+check("un 5xx sin código reconocido no es un rechazo duro", !isHardRejection(undefined));
+check("INVALID_LICENSE sí es un rechazo duro", isHardRejection("INVALID_LICENSE"));
+check("SUBSCRIPTION_CANCELED sí es un rechazo duro", isHardRejection("SUBSCRIPTION_CANCELED"));
 
 console.log(`\n${failures === 0 ? "todas las comprobaciones pasaron" : `${failures} comprobación(es) fallaron`}`);
 process.exit(failures > 0 ? 1 : 0);
