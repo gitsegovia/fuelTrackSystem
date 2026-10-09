@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Gauge, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { STATION_INACTIVE_LOGIN_MESSAGE, graphQLErrorCode } from '@/lib/graphql-errors'
 import { useAuth } from '@/hooks/useAuth'
 
 const loginSchema = z.object({
@@ -24,7 +25,10 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     await login(data, (err: unknown) => {
-      const msg = err instanceof Error ? err.message : 'Credenciales incorrectas.'
+      const msg =
+        graphQLErrorCode(err) === 'STATION_INACTIVE'
+          ? STATION_INACTIVE_LOGIN_MESSAGE
+          : err instanceof Error ? err.message : 'Credenciales incorrectas.'
       toast.error(msg)
     })
     setIsLoading(false)

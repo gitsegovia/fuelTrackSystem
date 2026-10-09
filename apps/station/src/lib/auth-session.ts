@@ -1,7 +1,7 @@
 import type { useApolloClient } from '@apollo/client/react'
 import { MUTATIONS } from '@/services/graphql/gql/login'
 import { isNetworkDown } from './apollo-client'
-import { graphQLErrorCode } from './graphql-errors'
+import { STATION_INACTIVE_LOGIN_MESSAGE, graphQLErrorCode } from './graphql-errors'
 import type { AuthUser } from '@/types/auth'
 
 type ApolloClientInstance = ReturnType<typeof useApolloClient>
@@ -22,12 +22,14 @@ export type SessionErrorCode =
   | 'REFRESH_TOKEN_REUSED'
   | 'SESSION_REVOKED'
   | 'SESSION_EXPIRED'
+  | 'STATION_INACTIVE'
 
 const SESSION_ERROR_CODES = new Set<SessionErrorCode>([
   'INVALID_REFRESH_TOKEN',
   'REFRESH_TOKEN_REUSED',
   'SESSION_REVOKED',
   'SESSION_EXPIRED',
+  'STATION_INACTIVE',
 ])
 
 export class SessionEndedError extends Error {
@@ -101,6 +103,8 @@ function sessionEndedMessage(code: SessionErrorCode): string {
       return 'La sesión fue cerrada. Inicia sesión otra vez.'
     case 'INVALID_REFRESH_TOKEN':
       return 'La sesión ya no es válida. Inicia sesión otra vez.'
+    case 'STATION_INACTIVE':
+      return STATION_INACTIVE_LOGIN_MESSAGE
   }
 }
 
