@@ -34,7 +34,11 @@ export function LicenseBanner() {
     main = (
       <div className="flex items-center gap-2 bg-muted border-b px-4 py-1.5 text-xs shrink-0">
         <KeyRound className="size-3.5 text-muted-foreground shrink-0" />
-        <span className="text-muted-foreground">La licencia vence el {day(license.expiresAt)}.</span>
+        <span className="text-muted-foreground">
+          {license.trial
+            ? `La prueba gratis termina el ${day(license.expiresAt)}. Después el sistema pasa a solo lectura.`
+            : `La licencia vence el ${day(license.expiresAt)}.`}
+        </span>
       </div>
     )
   }

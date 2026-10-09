@@ -12,6 +12,7 @@ export const QUERIES = {
         daysRemaining
         readOnly
         clockSkewDetected
+        trial
       }
     }
   `,
