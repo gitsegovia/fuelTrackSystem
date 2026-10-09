@@ -23,18 +23,22 @@ function makeToken(payload: Record<string, unknown>, key = privateKey): string {
 
 const DAY = 86_400_000;
 const now = new Date("2026-10-08T00:00:00.000Z");
+// T-058: payload v2 (contrato v2 de cci-licensing) — "limits"/"authorized" en vez de
+// "maxStations", y "trial".
 const base = {
-  v: 1,
+  v: 2,
   kid: "test",
   customerId: "c1",
   customerName: "Demo C.A.",
   instanceId: "i1",
   product: "fueltrack",
   plan: "CHAIN",
-  maxStations: 3,
   modality: "SAAS" as const,
   fingerprint: "fp-test",
   graceDays: 7,
+  trial: false,
+  limits: { stations: 3 },
+  authorized: { stations: ["s1", "s2", "s3"] },
   issuedAt: now.toISOString(),
 };
 
@@ -47,8 +51,8 @@ check("firma válida verifica y devuelve el payload", validPayload?.customerId =
 const [prefix, body, sig] = validToken.split(".");
 check("firma reemplazada por basura no verifica", verifyCciLicense(`${prefix}.${body}.${"A".repeat(86)}`, publicKeyPem) === null);
 
-// 3. Payload alterado conservando la firma original (simula editar maxStations a mano).
-const tamperedBody = Buffer.from(JSON.stringify({ ...base, maxStations: 999, expiresAt: base.issuedAt })).toString("base64url");
+// 3. Payload alterado conservando la firma original (simula editar limits.stations a mano).
+const tamperedBody = Buffer.from(JSON.stringify({ ...base, limits: { stations: 999 }, expiresAt: base.issuedAt })).toString("base64url");
 check("payload alterado con la firma de otro payload no verifica", verifyCciLicense(`CCI1.${tamperedBody}.${sig}`, publicKeyPem) === null);
 
 // 4. Clave pública equivocada (otra instancia o configuración incorrecta).
@@ -59,6 +63,10 @@ check("verificación con la clave pública equivocada falla", verifyCciLicense(v
 // 5. Formato inválido.
 check("token sin tres partes no verifica", verifyCciLicense("CCI1.solo-dos-partes", publicKeyPem) === null);
 check("prefijo distinto de CCI1 no verifica", verifyCciLicense(`XXXX.${body}.${sig}`, publicKeyPem) === null);
+
+// 5b. T-058, corte limpio: una licencia "v: 1", aunque la firma sea válida, ya no se acepta.
+const v1Token = makeToken({ ...base, v: 1, maxStations: 3, expiresAt: new Date(now.getTime() + 30 * DAY).toISOString() });
+check("licencia v:1 con firma válida no verifica (corte limpio v1 -> v2)", verifyCciLicense(v1Token, publicKeyPem) === null);
 
 // 6. Umbrales de estado (mismo criterio que cci-licensing/src/lifecycle/lifecycle.ts).
 const statusOf = (expiresInDays: number) => {
@@ -72,6 +80,16 @@ check("vence hoy -> DUE_SOON", statusOf(0) === "DUE_SOON");
 check("vencida hace 3 días (gracia de 7) -> GRACE", statusOf(-3) === "GRACE");
 check("vencida hace exactamente 7 días (gracia de 7) -> GRACE", statusOf(-7) === "GRACE");
 check("vencida hace 10 días (gracia de 7) -> READ_ONLY", statusOf(-10) === "READ_ONLY");
+
+// 6b. T-058: una prueba gratis tiene graceDays=0 (sin período de gracia) — pasa de DUE_SOON
+// directo a READ_ONLY al llegar a expiresAt, nunca GRACE.
+const trialStatusOf = (expiresInDays: number) => {
+  const token = makeToken({ ...base, trial: true, graceDays: 0, limits: { stations: 1 }, authorized: { stations: ["s1"] }, expiresAt: new Date(now.getTime() + expiresInDays * DAY).toISOString() });
+  const payload = verifyCciLicense(token, publicKeyPem)!;
+  return computeStatus(new Date(payload.expiresAt), payload.graceDays, now);
+};
+check("prueba gratis, vence en 3 días -> DUE_SOON", trialStatusOf(3) === "DUE_SOON");
+check("prueba gratis, vencida hace 2 días (sin gracia) -> READ_ONLY, nunca GRACE", trialStatusOf(-2) === "READ_ONLY");
 
 // 7. T-053: atrasar el reloj no rejuvenece la licencia; CREDENTIAL_REQUIRED y un 5xx no fuerzan
 // solo lectura.
@@ -102,6 +120,10 @@ check("CREDENTIAL_REQUIRED no es un rechazo duro (no fuerza solo lectura)", !isH
 check("un 5xx sin código reconocido no es un rechazo duro", !isHardRejection(undefined));
 check("INVALID_LICENSE sí es un rechazo duro", isHardRejection("INVALID_LICENSE"));
 check("SUBSCRIPTION_CANCELED sí es un rechazo duro", isHardRejection("SUBSCRIPTION_CANCELED"));
+// T-058: SUBSCRIPTION_SUSPENDED fuerza solo lectura igual que CANCELED; INVALID_USAGE es un error
+// de FuelTrack (informe mal formado), nunca fuerza solo lectura.
+check("SUBSCRIPTION_SUSPENDED sí es un rechazo duro", isHardRejection("SUBSCRIPTION_SUSPENDED"));
+check("INVALID_USAGE no es un rechazo duro (no fuerza solo lectura)", !isHardRejection("INVALID_USAGE"));
 
 // 8. T-055: createDebouncer (usado por scheduleImmediateRevalidation tras desactivar/reactivar
 // una estación). Delays cortos: no hace falta mockear el reloj.

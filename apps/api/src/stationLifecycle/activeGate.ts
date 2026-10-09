@@ -1,5 +1,6 @@
 import { GraphQLError } from "graphql";
 import { AppModels } from "../interfaces/models";
+import { getAuthorizedStationIds } from "../license/service";
 
 // D-19 (propuesta provisional de ft-core, todavía abierta con José — ver fueltrack-vault,
 // 80-dudas/Dudas para Jose.md): el día a día de una estación desactivada se bloquea; sus reportes
@@ -29,6 +30,13 @@ export function stationInactiveError(): GraphQLError {
   return new GraphQLError("La estación está desactivada.", { extensions: { code: "STATION_INACTIVE" } });
 }
 
+export function stationNotLicensedError(): GraphQLError {
+  return new GraphQLError(
+    "Esta estación no está habilitada en la licencia. Contacta a Core Code Innovation.",
+    { extensions: { code: "STATION_NOT_LICENSED" } }
+  );
+}
+
 // `stationIds` ya las resolvió la autorización (assertReferencesInScope): no se repiten consultas
 // para encontrar a qué estación pertenece cada referencia, solo se revisa si alguna está inactiva.
 export async function assertStationsActive(
@@ -39,4 +47,20 @@ export async function assertStationsActive(
   if (stationIds.size === 0 || !STATION_ACTIVE_REQUIRED_OPS.has(field)) return;
   const inactive = await models.GasStation.count({ where: { id: [...stationIds], active: false } });
   if (inactive > 0) throw stationInactiveError();
+}
+
+// T-058: misma lista de operaciones que D-19 (STATION_ACTIVE_REQUIRED_OPS) — una estación activa
+// pero no autorizada por la clave "stations" de la licencia vigente no puede operar. Si
+// `authorized` nunca se informó (getAuthorizedStationIds devuelve null), no se bloquea por esto.
+export async function assertStationsLicensed(
+  models: AppModels,
+  field: string,
+  stationIds: Set<string>
+): Promise<void> {
+  if (stationIds.size === 0 || !STATION_ACTIVE_REQUIRED_OPS.has(field)) return;
+  const authorized = await getAuthorizedStationIds(models);
+  if (!authorized) return;
+  for (const id of stationIds) {
+    if (!authorized.has(id)) throw stationNotLicensedError();
+  }
 }

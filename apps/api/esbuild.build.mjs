@@ -25,14 +25,23 @@ rmSync("dist", { recursive: true, force: true });
 // T-055: reactivate-station.ts es la única forma de reactivar una estación (sin mutation
 // GraphQL, decisión de José: solo CCI Innovation puede hacerlo, corriendo este script con
 // acceso al servidor) — mismo motivo para un tercer entry point.
+// T-058: validate-license.ts fuerza una validación contra CCI Licencias (paso (c) del flujo de
+// reactivación del contrato v2, o para cualquier otro motivo que no quiera esperar al ciclo
+// diario) — cuarto entry point, mismo motivo.
 // Con varios entryPoints, esbuild usa el ancestro común (src/) como base y espeja la
 // estructura bajo outdir: src/app.ts → dist/app.js, src/scripts/bootstrap-admin.ts →
 // dist/scripts/bootstrap-admin.js, src/scripts/reactivate-station.ts →
-// dist/scripts/reactivate-station.js. Sin "splitting" (no hace falta: son procesos
+// dist/scripts/reactivate-station.js, src/scripts/validate-license.ts →
+// dist/scripts/validate-license.js. Sin "splitting" (no hace falta: son procesos
 // separados, cada uno con su propio bundle completo, sin código compartido en tiempo de
 // ejecución — duplicar el grafo de módulos entre ellos es aceptable a este tamaño).
 await build({
-  entryPoints: ["src/app.ts", "src/scripts/bootstrap-admin.ts", "src/scripts/reactivate-station.ts"],
+  entryPoints: [
+    "src/app.ts",
+    "src/scripts/bootstrap-admin.ts",
+    "src/scripts/reactivate-station.ts",
+    "src/scripts/validate-license.ts",
+  ],
   outdir: "dist",
   bundle: true,
   platform: "node",
@@ -50,5 +59,5 @@ await build({
 cpSync("src/graphql/schemas", "dist/schemas", { recursive: true });
 
 console.log(
-  "Build de producción listo: dist/app.js, dist/scripts/bootstrap-admin.js, dist/scripts/reactivate-station.js + dist/schemas/"
+  "Build de producción listo: dist/app.js, dist/scripts/bootstrap-admin.js, dist/scripts/reactivate-station.js, dist/scripts/validate-license.js + dist/schemas/"
 );
