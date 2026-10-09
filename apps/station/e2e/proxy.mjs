@@ -8,6 +8,8 @@
 //   /reject?op=Name                responder la operación Name con LICENSE_READ_ONLY (T-052)
 //   /reject/off                    dejar de rechazar
 //   /rejected                      cuántas veces se rechazó (para comprobar que no hubo reintentos)
+//   /count?op=Name                 contar los envíos de la operación Name (pasan a la API; T-057)
+//   /counted                       cuántos envíos se contaron
 import http from 'node:http'
 
 const PROXY_PORT = Number(process.env.E2E_PROXY_PORT ?? 4501)
@@ -18,6 +20,8 @@ let up = true
 let fakeLicense = null
 let rejectOp = null
 let rejectedCount = 0
+let countOp = null
+let countedCount = 0
 
 const DAY = 86_400_000
 
@@ -71,7 +75,7 @@ http
       req.socket.destroy()
       return
     }
-    if (req.method !== 'POST' || (!fakeLicense && !rejectOp)) return forward(req, res)
+    if (req.method !== 'POST' || (!fakeLicense && !rejectOp && !countOp)) return forward(req, res)
 
     const chunks = []
     req.on('data', (c) => chunks.push(c))
@@ -89,6 +93,7 @@ http
           errors: [{ message: 'Licencia vencida (simulada por el proxy E2E)', extensions: { code: 'LICENSE_READ_ONLY' } }],
         })
       }
+      if (countOp && op === countOp) countedCount++
       forward(req, res, body)
     })
   })
@@ -104,6 +109,9 @@ http
     if (url.pathname === '/reject') { rejectOp = url.searchParams.get('op'); rejectedCount = 0 }
     if (url.pathname === '/reject/off') rejectOp = null
     if (url.pathname === '/rejected') return res.end(String(rejectedCount))
+    if (url.pathname === '/count') { countOp = url.searchParams.get('op'); countedCount = 0 }
+    if (url.pathname === '/count/off') countOp = null
+    if (url.pathname === '/counted') return res.end(String(countedCount))
     res.end(up ? 'up' : 'down')
   })
   .listen(CONTROL_PORT, () => console.log(`control :${CONTROL_PORT}`))
