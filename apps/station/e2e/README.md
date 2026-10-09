@@ -40,6 +40,9 @@ que el proxy simula el modo CCI1: `GET /license?status=DUE_SOON|GRACE|READ_ONLY[
 tres franjas, el aviso de reloj, que READ_ONLY oculta las escrituras y se ve tras recargar sin red,
 y que una operación encolada que vuelve con `LICENSE_READ_ONLY` va a conflictos con un solo envío
 mientras la siguiente de la cola se aplica.
+Con el contrato v2 (T-060) también cubre la prueba gratis (`/license?status=DUE_SOON&trial=1`) y
+`STATION_NOT_LICENSED` (`/reject?op=…&code=STATION_NOT_LICENSED`): en la cola (un solo envío, a
+conflictos), en `RefreshSession` (cierra la sesión con el aviso y la cola intacta) y en `Login`.
 
 Al final corre `e2e/estacion-e2e.mjs` (T-057, D-19) sobre la Estación Sur: `bombero1.sur` encola
 una medición sin red, el admin desactiva Sur con `deactivateGasStation` (antes se cierran por SQL sus
