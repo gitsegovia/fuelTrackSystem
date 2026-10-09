@@ -88,7 +88,7 @@ try {
       console.log(JSON.stringify({ outcome: "BOOTED_BUT_LOGIN_FAILED", error: login.errors[0].message }, null, 2));
     } else {
       const status = await gql(
-        `{ licenseStatus { mode status plan maxStations activeStations expiresAt graceEndsAt daysRemaining readOnly customerName lastValidatedAt clockSkewDetected } }`,
+        `{ licenseStatus { mode status plan maxStations activeStations expiresAt graceEndsAt daysRemaining readOnly customerName lastValidatedAt clockSkewDetected trial authorizedStationIds unauthorizedStationIds } }`,
         {},
         login.data.login.token
       );

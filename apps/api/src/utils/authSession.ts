@@ -7,6 +7,7 @@ import { Context } from "../interfaces";
 import { User } from "../models/user";
 import { RefreshToken } from "../models/refreshToken";
 import { UserRole, UserType } from "./types";
+import { getAuthorizedStationIds } from "../license/service";
 
 // Sesión ADR-014: access token JWT corto + refresh token opaco rotativo.
 // Una AuthSession es la familia; cada RefreshToken emitido es un eslabón. El tope absoluto
@@ -17,7 +18,8 @@ export type SessionErrorCode =
   | "REFRESH_TOKEN_REUSED"
   | "SESSION_REVOKED"
   | "SESSION_EXPIRED"
-  | "STATION_INACTIVE";
+  | "STATION_INACTIVE"
+  | "STATION_NOT_LICENSED";
 
 const MESSAGES: Record<SessionErrorCode, string> = {
   INVALID_REFRESH_TOKEN: "Refresh token inválido.",
@@ -25,20 +27,22 @@ const MESSAGES: Record<SessionErrorCode, string> = {
   SESSION_REVOKED: "La sesión fue cerrada. Inicia sesión otra vez.",
   SESSION_EXPIRED: "La sesión superó su duración máxima. Inicia sesión otra vez.",
   STATION_INACTIVE: "Tu estación está desactivada. Contacta al administrador.",
+  STATION_NOT_LICENSED: "Esta estación no está habilitada en la licencia. Contacta a Core Code Innovation.",
 };
 
 export function sessionError(code: SessionErrorCode): GraphQLError {
   return new GraphQLError(MESSAGES[code], { extensions: { code } });
 }
 
-// D-19 (propuesta provisional, T-055): los usuarios de una estación desactivada no pueden entrar
-// ni renovar sesión. Admin y Administrativo (alcance de empresa) no se ven afectados — mismo
-// criterio que el alcance de empresa de T-053 para ese cargo.
+// D-19 (T-055): los usuarios de una estación desactivada no pueden entrar ni renovar sesión.
+// T-058: lo mismo para una estación activa pero no autorizada por la licencia (contrato v2).
+// Admin y Administrativo (alcance de empresa) no se ven afectados en ninguno de los dos casos —
+// mismo criterio que el alcance de empresa de T-053 para ese cargo.
 function isCompanyScoped(user: Pick<User, "role" | "userType">): boolean {
   return user.role === UserRole.ADMIN || user.userType === UserType.ADMINISTRATIVE;
 }
 
-async function assertStationActiveForSession(
+async function assertStationAllowedForSession(
   ctx: Context,
   user: User,
   t?: Transaction
@@ -48,7 +52,10 @@ async function assertStationActiveForSession(
     transaction: t,
     attributes: ["active"],
   });
-  return station && !station.active ? "STATION_INACTIVE" : null;
+  if (station && !station.active) return "STATION_INACTIVE";
+  const authorized = await getAuthorizedStationIds(ctx.models);
+  if (authorized && !authorized.has(user.gasStationId)) return "STATION_NOT_LICENSED";
+  return null;
 }
 
 export interface AuthPayload {
@@ -87,7 +94,7 @@ async function issueRefreshToken(ctx: Context, sessionId: string, t: Transaction
 }
 
 export async function startSession(ctx: Context, user: User): Promise<AuthPayload> {
-  const stationError = await assertStationActiveForSession(ctx, user);
+  const stationError = await assertStationAllowedForSession(ctx, user);
   if (stationError) throw sessionError(stationError);
   return ctx.sequelize.transaction(async (t) => {
     const session = await ctx.models.AuthSession.create(
@@ -153,7 +160,7 @@ export async function rotateSession(ctx: Context, refreshToken: string): Promise
 
       const user = await ctx.models.User.findByPk(session.userId, { transaction: t });
       if (!user) return "INVALID_REFRESH_TOKEN";
-      const stationError = await assertStationActiveForSession(ctx, user, t);
+      const stationError = await assertStationAllowedForSession(ctx, user, t);
       if (stationError) return stationError;
 
       const next = await issueRefreshToken(ctx, session.id, t);

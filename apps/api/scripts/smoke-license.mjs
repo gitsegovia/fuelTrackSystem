@@ -29,7 +29,7 @@ if (login.errors) throw new Error(`login: ${login.errors[0].message}`);
 const token = login.data.login.token;
 const companyId = login.data.login.user.company.id;
 
-const statusRes = await gql(`{ licenseStatus { mode status plan maxStations activeStations expiresAt graceEndsAt daysRemaining readOnly customerName lastValidatedAt clockSkewDetected } }`, {}, token);
+const statusRes = await gql(`{ licenseStatus { mode status plan maxStations activeStations expiresAt graceEndsAt daysRemaining readOnly customerName lastValidatedAt clockSkewDetected trial authorizedStationIds unauthorizedStationIds } }`, {}, token);
 if (statusRes.errors) throw new Error(`licenseStatus: ${statusRes.errors[0].message}`);
 const status = statusRes.data.licenseStatus;
 console.log("licenseStatus:", JSON.stringify(status));

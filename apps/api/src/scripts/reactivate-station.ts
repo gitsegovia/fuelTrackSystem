@@ -10,6 +10,12 @@
  * nada. Valida con CCI Licencias enseguida después de reactivar (sin el antirrebote de 30s de las
  * mutations: esta es una sola corrida de un script, no una ráfaga de llamadas que haya que juntar).
  *
+ * T-058 (contrato v2): reactivar en FuelTrack no autoriza la estación en CCI Licencias — un id
+ * liberado no vuelve a entrar solo, aunque haya cupo (ADR-012 de cci-licensing). El orden completo
+ * es: (a) este script reactiva y valida, la estación queda activa pero "no autorizada"; (b) José
+ * la reautoriza en el panel de CCI Licencias; (c) se corre `validate-license` para que FuelTrack
+ * reciba la licencia con la estación ya autorizada. El script explica esto al terminar.
+ *
  * Uso en contenedor de desarrollo:
  *   docker compose exec api node --loader ts-node/esm \
  *     --experimental-specifier-resolution=node \
@@ -88,9 +94,25 @@ async function main() {
   );
 
   if (isCciMode()) {
-    await fetchAndStore(models).catch((e) =>
-      console.warn("No se pudo validar con CCI Licencias ahora; se reintentará en el próximo ciclo:", e.message)
-    );
+    const validated = await fetchAndStore(models)
+      .then(() => true)
+      .catch((e) => {
+        console.warn("No se pudo validar con CCI Licencias ahora; se reintentará en el próximo ciclo:", e.message);
+        return false;
+      });
+
+    if (validated) {
+      const snapshot = await getSnapshot(models);
+      const stillUnauthorized = snapshot.unauthorizedStationIds.includes(station.id);
+      console.log(
+        `\n${stillUnauthorized ? "Importante" : "Listo"}: la estación quedó activa en FuelTrack, pero ` +
+          `CCI Licencias ${stillUnauthorized ? "todavía no la autoriza" : "ya la tiene autorizada"}. ` +
+          `Un id liberado no vuelve a entrar solo, aunque haya cupo. Pasos:\n` +
+          `  1) listo — ya corriste este script, que reactivó y validó.\n` +
+          `  2) ${stillUnauthorized ? "Falta: " : "(no hace falta) "}reautorizá "${station.name}" en el panel de CCI Licencias (con cupo disponible).\n` +
+          `  3) ${stillUnauthorized ? "Falta: " : "(no hace falta) "}corré "npm run validate-license" para que FuelTrack reciba la licencia con la estación autorizada.`
+      );
+    }
   }
 
   await sequelize.close();

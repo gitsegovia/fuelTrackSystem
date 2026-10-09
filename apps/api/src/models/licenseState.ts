@@ -11,6 +11,10 @@ export interface LicenseStateAttributes {
   // T-053: la hora más alta vista (serverTime, issuedAt o el reloj local), para que atrasar el
   // reloj del servidor y cortar la red no rejuvenezca la licencia. Nunca retrocede.
   maxSeenAt: Date | null;
+  // T-058: ids de "stations" que la última respuesta de validate marcó fuera de `authorized`
+  // (liberados o nunca autorizados). Es metadata de la respuesta, no del payload firmado, así que
+  // no vive dentro de `payload`.
+  unauthorizedStations: string[] | null;
   lastValidatedAt: Date | null;
   lastError: string | null;
   createdAt: Date;
@@ -26,6 +30,7 @@ interface LicenseStateCreationAttributes
     | "graceEndsAt"
     | "activeStations"
     | "maxSeenAt"
+    | "unauthorizedStations"
     | "lastValidatedAt"
     | "lastError"
     | "createdAt"
@@ -43,6 +48,7 @@ export class LicenseState
   public graceEndsAt!: Date | null;
   public activeStations!: number | null;
   public maxSeenAt!: Date | null;
+  public unauthorizedStations!: string[] | null;
   public lastValidatedAt!: Date | null;
   public lastError!: string | null;
 
@@ -79,6 +85,10 @@ export function initialize(sequelize: Sequelize): ModelStatic<LicenseState> {
       },
       maxSeenAt: {
         type: DataTypes.DATE,
+        allowNull: true,
+      },
+      unauthorizedStations: {
+        type: DataTypes.JSONB,
         allowNull: true,
       },
       lastValidatedAt: {

@@ -10,7 +10,7 @@ type LicenseStatusInfo {
   mode: String! # "CCI1" o "LEGACY" (instalación sin clave pública configurada, sin restricciones)
   status: LicenseStatus # null en modo LEGACY
   plan: String
-  maxStations: Int
+  maxStations: Int # T-058: sale de limits.stations del contrato v2 (mismo nombre, no cambia)
   activeStations: Int!
   expiresAt: DateTime
   graceEndsAt: DateTime
@@ -19,6 +19,9 @@ type LicenseStatusInfo {
   customerName: String
   lastValidatedAt: DateTime
   clockSkewDetected: Boolean! # true si el reloj local está más de 24h detrás de la última hora confiable vista
+  trial: Boolean! # T-058: prueba gratis vigente (contrato v2, sin período de gracia)
+  authorizedStationIds: [UUID!]! # T-058: estaciones autorizadas por la licencia vigente (clave "stations")
+  unauthorizedStationIds: [UUID!]! # T-058: activas que no están autorizadas; bloquean sus mutations y login
 }
 
 extend type Query {
