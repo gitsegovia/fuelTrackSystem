@@ -41,7 +41,14 @@ tres franjas, el aviso de reloj, que READ_ONLY oculta las escrituras y se ve tra
 y que una operación encolada que vuelve con `LICENSE_READ_ONLY` va a conflictos con un solo envío
 mientras la siguiente de la cola se aplica.
 
-El código de salida es 0 solo si pasan los tres scripts.
+Al final corre `e2e/estacion-e2e.mjs` (T-057, D-19) sobre la Estación Sur: `bombero1.sur` encola
+una medición sin red, el admin desactiva Sur con `deactivateGasStation` (antes se cierran por SQL sus
+turnos y tickets abiertos), la medición vuelve con `STATION_INACTIVE` y va a conflictos con un solo
+envío (`GET /count?op=…` y `/counted` del proxy), la renovación con `STATION_INACTIVE` cierra la
+sesión con el aviso y la cola intacta, y `cajero.sur` ve el aviso en el login. Al terminar reactiva
+Sur por SQL (la API no tiene mutation de reactivación).
+
+El código de salida es 0 solo si pasan los cuatro scripts.
 
 ## Fase B: sesión con token corto — también un solo comando
 

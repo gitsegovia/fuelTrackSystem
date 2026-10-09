@@ -9,9 +9,12 @@ export function graphQLErrorCode(err: unknown): string | null {
 
 export const FORBIDDEN_MESSAGE = 'Tu usuario no tiene permiso para esta operación.'
 export const LICENSE_READ_ONLY_MESSAGE = 'La licencia del sistema está vencida; la operación no se aplicó.'
+export const STATION_INACTIVE_OPERATION_MESSAGE = 'La estación fue desactivada; la operación no se aplicó.'
+export const STATION_INACTIVE_LOGIN_MESSAGE = 'Tu estación está desactivada. Contacta al administrador.'
 
-/** Errores que reenviar no cambia: van directo a conflictos, sin reintentos (T-044, T-052). */
+/** Errores que reenviar no cambia: van directo a conflictos, sin reintentos (T-044, T-052, T-057). */
 export const NON_RETRYABLE_MESSAGES: Record<string, string> = {
   FORBIDDEN: FORBIDDEN_MESSAGE,
   LICENSE_READ_ONLY: LICENSE_READ_ONLY_MESSAGE,
+  STATION_INACTIVE: STATION_INACTIVE_OPERATION_MESSAGE,
 }

@@ -40,7 +40,7 @@ export const MUTATIONS = {
     ${AUTH_PAYLOAD_FRAGMENT}
   `,
   // ADR-014: rota el refresh token. Errores (extensions.code): INVALID_REFRESH_TOKEN,
-  // REFRESH_TOKEN_REUSED, SESSION_REVOKED, SESSION_EXPIRED — los cuatro piden re-login.
+  // REFRESH_TOKEN_REUSED, SESSION_REVOKED, SESSION_EXPIRED y STATION_INACTIVE (D-19): todos piden re-login.
   refreshSession: gql`
     mutation RefreshSession($refreshToken: String!) {
       refreshSession(refreshToken: $refreshToken) {

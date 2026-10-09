@@ -73,7 +73,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ADR-014: mientras haya sesión, revisa periódicamente si el access token está por vencer
   // y lo renueva con margen (auth-session.ts). Si el servidor dice que hay que re-loguearse
-  // (los 4 códigos de refreshSession), el callback de abajo cierra la sesión sin tocar la cola.
+  // (los códigos de refreshSession, también STATION_INACTIVE), el callback de abajo cierra la
+  // sesión sin tocar la cola.
   useEffect(() => {
     if (!user) return
     const check = () => {

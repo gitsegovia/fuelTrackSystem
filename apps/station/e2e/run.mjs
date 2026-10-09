@@ -48,7 +48,8 @@ async function main() {
   const testCode = await run('node', [join(here, 'offline-e2e.mjs')])
   const permisosCode = await run('node', [join(here, 'permisos-e2e.mjs')])
   const licenciaCode = await run('node', [join(here, 'licencia-e2e.mjs')])
-  return testCode || permisosCode || licenciaCode
+  const estacionCode = await run('node', [join(here, 'estacion-e2e.mjs')])
+  return testCode || permisosCode || licenciaCode || estacionCode
 }
 
 process.on('SIGINT', () => {
