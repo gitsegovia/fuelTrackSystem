@@ -58,7 +58,7 @@ export default function InvoicesPage() {
   )
 
   const { data: stationsData } = useQuery<{
-    gasStations: { id: string; name: string; code: string; company: { id: string } }[]
+    gasStations: { id: string; name: string; code: string; active: boolean; company: { id: string } }[]
   }>(GasStationQueries.gasStations)
   const stations = (stationsData?.gasStations ?? []).filter(
     (s) => (!user?.company?.id || s.company.id === user.company.id)
@@ -192,7 +192,7 @@ export default function InvoicesPage() {
         >
           {!stationScoped && <option value="">Todas mis estaciones</option>}
           {stations.map((s) => (
-            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+            <option key={s.id} value={s.id}>{s.name} ({s.code}){!s.active && ' — Desactivada'}</option>
           ))}
         </select>
       </div>

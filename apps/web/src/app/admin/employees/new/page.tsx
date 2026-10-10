@@ -41,7 +41,8 @@ export default function NewEmployeePage() {
   const { user } = useAuth()
 
   const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
   const [create, { loading }] = useMutation(MUTATIONS.createEmployeeWithUser, {
     refetchQueries: [{ query: QUERIES.employees }, { query: UserQueries.users }],

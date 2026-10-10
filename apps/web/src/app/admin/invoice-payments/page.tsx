@@ -32,7 +32,7 @@ const STATUS_CONFIG = {
   PAID: { label: 'Pagada', className: 'text-emerald-600 border-emerald-500/40 bg-emerald-50' },
 }
 
-type GasStation = { id: string; name: string; code: string }
+type GasStation = { id: string; name: string; code: string; active: boolean }
 
 type InvoiceBalance = {
   totalAmount: string
@@ -216,7 +216,7 @@ export default function InvoicePaymentsPage() {
           >
             {!stationScoped && <option value="">Seleccionar estación…</option>}
             {stations.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name}{!s.active && ' — Desactivada'}</option>
             ))}
           </select>
         </div>

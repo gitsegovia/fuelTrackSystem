@@ -45,7 +45,8 @@ export default function NewUserPage() {
   const { user } = useAuth()
 
   const { data: stationsData } = useQuery<{ gasStations: GasStation[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
 
   const [createUser, { loading }] = useMutation(MUTATIONS.createUser, {

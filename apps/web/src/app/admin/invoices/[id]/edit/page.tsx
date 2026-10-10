@@ -59,7 +59,7 @@ export default function EditInvoicePage() {
   const router = useRouter()
 
   const { data, loading: fetching } = useQuery<{ invoice: any }>(QUERIES.invoice, { variables: { id }, skip: !id })
-  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations)
+  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations, { variables: { active: true } })
   const { data: currenciesData } = useQuery<{ currencies: { id: string; name: string; symbol: string }[] }>(CurrencyQueries.currencies)
   const [update, { loading }] = useMutation(MUTATIONS.updateInvoice, {
     refetchQueries: [{ query: QUERIES.invoices }],

@@ -66,7 +66,8 @@ export default function EditUserPage() {
   })
 
   const { data: stationsData } = useQuery<{ gasStations: GasStation[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
 
   const [updateUser, { loading: saving }] = useMutation(MUTATIONS.updateUser, {
