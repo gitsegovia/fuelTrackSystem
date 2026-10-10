@@ -15,6 +15,33 @@
 
 import { spawn } from "node:child_process";
 import { writeFileSync, existsSync } from "node:fs";
+import pg from "pg";
+
+// T-061 (contrato v2): además de licenseStatus, se lee license_states.lastError directamente de
+// la BD — es la única forma de ver el código exacto (FINGERPRINT_MISMATCH, SUBSCRIPTION_CANCELED,
+// SUBSCRIPTION_SUSPENDED, INSTANCE_NOT_FOUND…) cuando el rechazo pasa ANTES de guardar ninguna
+// licencia (la API queda en modo 402 y no hay GraphQL para consultarlo). lastError nunca trae la
+// licenseKey (lo construye forceReadOnly en license/service.ts con "${code}: ${mensaje}").
+async function readLicenseStateRow() {
+  const client = new pg.Client({
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    database: process.env.DB_DATABASE,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASS,
+  });
+  try {
+    await client.connect();
+    const { rows } = await client.query(
+      'SELECT "serverStatus", "lastError", "lastValidatedAt" FROM license_states LIMIT 1'
+    );
+    return rows[0] ?? null;
+  } catch (e) {
+    return { readError: e.message };
+  } finally {
+    await client.end().catch(() => {});
+  }
+}
 
 const required = ["LICENSE_KEY", "LICENSE_SERVER_URL", "LICENSE_PUBLIC_KEY", "DB_HOST", "DB_PORT", "DB_DATABASE", "DB_USER", "DB_PASS"];
 const missing = required.filter((k) => !process.env[k]);
@@ -79,20 +106,21 @@ async function gql(query, variables = {}, token) {
 }
 
 try {
+  const licenseStateRow = await readLicenseStateRow();
   if (invalidLicenseMode) {
     const probe = await fetch(API_URL).catch(() => null);
-    console.log(JSON.stringify({ outcome: "INVALID_LICENSE_MODE", httpStatus: probe?.status ?? null }, null, 2));
+    console.log(JSON.stringify({ outcome: "INVALID_LICENSE_MODE", httpStatus: probe?.status ?? null, licenseStateRow }, null, 2));
   } else {
     const login = await gql(`mutation { login(input: { username: "admin.petronorte", password: "Demo1234!" }) { token } }`);
     if (login.errors) {
-      console.log(JSON.stringify({ outcome: "BOOTED_BUT_LOGIN_FAILED", error: login.errors[0].message }, null, 2));
+      console.log(JSON.stringify({ outcome: "BOOTED_BUT_LOGIN_FAILED", error: login.errors[0].message, licenseStateRow }, null, 2));
     } else {
       const status = await gql(
         `{ licenseStatus { mode status plan maxStations activeStations expiresAt graceEndsAt daysRemaining readOnly customerName lastValidatedAt clockSkewDetected trial authorizedStationIds unauthorizedStationIds } }`,
         {},
         login.data.login.token
       );
-      console.log(JSON.stringify({ outcome: "BOOTED", licenseStatus: status.data?.licenseStatus }, null, 2));
+      console.log(JSON.stringify({ outcome: "BOOTED", licenseStatus: status.data?.licenseStatus, licenseStateRow }, null, 2));
     }
   }
 } finally {
