@@ -220,6 +220,11 @@ export default function EditInvoicePage() {
                 <Label>Estación *</Label>
                 <select {...register('gasStationId')} className={selectClass}>
                   <option value="">Seleccionar...</option>
+                  {data?.invoice?.receivingGasStation && !data.invoice.receivingGasStation.active && (
+                    <option value={data.invoice.receivingGasStation.id} disabled>
+                      {data.invoice.receivingGasStation.name} — Desactivada
+                    </option>
+                  )}
                   {stationsData?.gasStations.map((s) => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                   ))}

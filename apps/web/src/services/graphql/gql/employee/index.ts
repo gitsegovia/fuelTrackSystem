@@ -8,7 +8,7 @@ const EMPLOYEE_FRAGMENT = gql`
     position
     createdAt
     user { id username role }
-    gasStation { id name }
+    gasStation { id name active }
   }
 `
 

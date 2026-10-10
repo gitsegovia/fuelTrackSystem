@@ -33,6 +33,8 @@ const authErrorLink = onError(({ error }) => {
     else if (code === 'LICENSE_READ_ONLY' || code === 'LICENSE_STATION_LIMIT') onLicenseError?.(code)
     else if (code === 'STATION_INACTIVE') {
       toast.error('La estación está desactivada; solo se puede consultar su histórico.')
+    } else if (code === 'STATION_NOT_LICENSED') {
+      toast.error('Esta estación no está habilitada en la licencia. Contacta a Core Code Innovation.')
     }
   })
 })

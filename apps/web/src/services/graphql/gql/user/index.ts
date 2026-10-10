@@ -8,7 +8,7 @@ const USER_FRAGMENT = gql`
     userType
     createdAt
     company { id name }
-    assignedGasStation { id name }
+    assignedGasStation { id name active }
   }
 `
 

@@ -37,17 +37,37 @@ export function LicenseBanner() {
 
   if (!license || license.mode !== 'CCI1') return null
 
+  const days = license.daysRemaining
+  const plural = days === 1 ? '' : 's'
+
   return (
     <>
+      {license.trial && license.status === 'ACTIVE' && (
+        <Strip tone="info" icon={Info}>
+          Período de prueba — termina el {fmt(license.expiresAt)}.
+        </Strip>
+      )}
       {license.status === 'READ_ONLY' && <Strip tone="error" icon={Ban}>{LICENSE_READ_ONLY_MESSAGE}</Strip>}
       {license.status === 'GRACE' && (
         <Strip tone="warning" icon={AlertTriangle}>
           La licencia venció el {fmt(license.expiresAt)}; el sistema pasa a solo lectura el {fmt(license.graceEndsAt)}.
         </Strip>
       )}
-      {license.status === 'DUE_SOON' && (
+      {license.status === 'DUE_SOON' && license.trial && (
         <Strip tone="info" icon={Info}>
-          La licencia vence en {license.daysRemaining} día{license.daysRemaining === 1 ? '' : 's'}.
+          Período de prueba: termina en {days} día{plural} ({fmt(license.expiresAt)}). Al terminar, el sistema
+          pasa a solo lectura, sin período de gracia.
+        </Strip>
+      )}
+      {license.status === 'DUE_SOON' && !license.trial && (
+        <Strip tone="info" icon={Info}>
+          La licencia vence en {days} día{plural}.
+        </Strip>
+      )}
+      {license.unauthorizedStationIds.length > 0 && isAdminRole(user) && (
+        <Strip tone="warning" icon={AlertTriangle}>
+          {license.unauthorizedStationIds.length} estaciones activas no están habilitadas en tu licencia y no
+          pueden operar.
         </Strip>
       )}
       {license.clockSkewDetected && isAdminRole(user) && (

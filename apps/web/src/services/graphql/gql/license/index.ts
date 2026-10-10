@@ -16,6 +16,9 @@ export const QUERIES = {
         customerName
         lastValidatedAt
         clockSkewDetected
+        trial
+        authorizedStationIds
+        unauthorizedStationIds
       }
     }
   `,

@@ -109,6 +109,11 @@ export default function EditSaleTypeConfigPage() {
               <Label>Estación *</Label>
               <select {...register('gasStationId')} className={selectClass}>
                 <option value="">Seleccionar estación...</option>
+                {data?.saleTypeConfig?.gasStation && !data.saleTypeConfig.gasStation.active && (
+                  <option value={data.saleTypeConfig.gasStation.id} disabled>
+                    {data.saleTypeConfig.gasStation.name} — Desactivada
+                  </option>
+                )}
                 {stationsData?.gasStations.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}

@@ -33,7 +33,7 @@ interface User {
   role: string
   userType: string
   company: { id: string; name: string }
-  assignedGasStation: { id: string; name: string } | null
+  assignedGasStation: { id: string; name: string; active: boolean } | null
 }
 
 interface GasStation {
@@ -193,6 +193,11 @@ export default function EditUserPage() {
               <Label htmlFor="gasStationId">Estación asignada</Label>
               <select id="gasStationId" className={selectClass} {...register('gasStationId')}>
                 <option value="">Sin asignar</option>
+                {data?.user?.assignedGasStation && !data.user.assignedGasStation.active && (
+                  <option value={data.user.assignedGasStation.id} disabled>
+                    {data.user.assignedGasStation.name} — Desactivada
+                  </option>
+                )}
                 {stationsData?.gasStations.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
