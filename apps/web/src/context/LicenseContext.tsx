@@ -20,6 +20,9 @@ export interface LicenseStatusInfo {
   customerName: string | null
   lastValidatedAt: string | null
   clockSkewDetected: boolean
+  trial: boolean
+  authorizedStationIds: string[]
+  unauthorizedStationIds: string[]
 }
 
 interface LicenseContextValue {

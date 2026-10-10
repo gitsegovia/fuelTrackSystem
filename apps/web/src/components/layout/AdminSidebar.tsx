@@ -108,9 +108,16 @@ export function AdminSidebar() {
             <p className="text-xs text-sidebar-foreground/70">
               Plan {license.plan ?? '—'} · {license.customerName ?? '—'}
             </p>
-            <p className="text-xs text-sidebar-foreground/70">
-              Vence: {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
-            </p>
+            {license.trial && (
+              <p className="text-xs text-amber-500">
+                Período de prueba — termina el {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+              </p>
+            )}
+            {!license.trial && (
+              <p className="text-xs text-sidebar-foreground/70">
+                Vence: {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+              </p>
+            )}
             <p className="text-xs text-sidebar-foreground/50">
               Última validación: {license.lastValidatedAt ? format(new Date(license.lastValidatedAt), 'dd/MM/yyyy HH:mm') : '—'}
             </p>

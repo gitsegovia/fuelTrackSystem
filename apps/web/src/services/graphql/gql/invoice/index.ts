@@ -18,7 +18,7 @@ const INVOICE_FRAGMENT = gql`
     costPerLiter
     status
     createdAt
-    receivingGasStation { id name }
+    receivingGasStation { id name active }
     currency { id name symbol }
     dispatchReceptions {
       id receivedLiters receptionDate
