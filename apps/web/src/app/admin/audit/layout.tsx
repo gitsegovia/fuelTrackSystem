@@ -32,9 +32,9 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
   const searchParams = useSearchParams()
   const { user } = useAuth()
 
-  const { data } = useQuery<{ gasStations: { id: string; name: string; code: string; company: { id: string } }[] }>(
-    GasStationQueries.gasStations
-  )
+  const { data } = useQuery<{
+    gasStations: { id: string; name: string; code: string; active: boolean; company: { id: string } }[]
+  }>(GasStationQueries.gasStations)
 
   const stationScoped = isStationScoped(user)
   const stations = (data?.gasStations ?? []).filter(
@@ -43,7 +43,7 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
   )
 
   const selectedId = (stationScoped ? user?.assignedGasStation?.id : searchParams.get('stationId'))
-    ?? stations[0]?.id ?? ''
+    ?? stations.find((s) => s.active)?.id ?? stations[0]?.id ?? ''
 
   function onStationChange(id: string) {
     const params = new URLSearchParams(searchParams.toString())
@@ -76,7 +76,7 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
             disabled={stationScoped}
           >
             {stations.map((s) => (
-              <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+              <option key={s.id} value={s.id}>{s.name} ({s.code}){!s.active && ' — Desactivada'}</option>
             ))}
           </select>
         </div>

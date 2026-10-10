@@ -42,7 +42,7 @@ type FormData = z.infer<typeof schema>
 export default function NewSaleTypeConfigPage() {
   const router = useRouter()
 
-  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations)
+  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations, { variables: { active: true } })
   const { data: fuelTypesData } = useQuery<{ fuelTypes: { id: string; name: string }[] }>(FuelTypeQueries.fuelTypes)
   const { data: currenciesData } = useQuery<{ currencies: { id: string; name: string; symbol: string }[] }>(CurrencyQueries.currencies)
   const [create, { loading }] = useMutation(MUTATIONS.createSaleTypeConfig, {

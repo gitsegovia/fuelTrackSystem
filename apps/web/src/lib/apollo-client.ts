@@ -31,6 +31,9 @@ const authErrorLink = onError(({ error }) => {
     if (code === 'UNAUTHENTICATED') onUnauthenticated?.()
     else if (code === 'FORBIDDEN') toast.error('No tienes permiso para realizar esta acción.')
     else if (code === 'LICENSE_READ_ONLY' || code === 'LICENSE_STATION_LIMIT') onLicenseError?.(code)
+    else if (code === 'STATION_INACTIVE') {
+      toast.error('La estación está desactivada; solo se puede consultar su histórico.')
+    }
   })
 })
 

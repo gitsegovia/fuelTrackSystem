@@ -46,7 +46,7 @@ export default function EditSaleTypeConfigPage() {
   const router = useRouter()
 
   const { data, loading: fetching } = useQuery<{ saleTypeConfig: any }>(QUERIES.saleTypeConfig, { variables: { id }, skip: !id })
-  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations)
+  const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(GasStationQueries.gasStations, { variables: { active: true } })
   const { data: fuelTypesData } = useQuery<{ fuelTypes: { id: string; name: string }[] }>(FuelTypeQueries.fuelTypes)
   const { data: currenciesData } = useQuery<{ currencies: { id: string; name: string; symbol: string }[] }>(CurrencyQueries.currencies)
   const [update, { loading }] = useMutation(MUTATIONS.updateSaleTypeConfig, {

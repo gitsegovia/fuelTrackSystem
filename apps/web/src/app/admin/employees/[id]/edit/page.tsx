@@ -49,7 +49,8 @@ export default function EditEmployeePage() {
     { variables: { id }, skip: !id }
   )
   const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
   const [updateEmployee, { loading: savingEmployee }] = useMutation(MUTATIONS.updateEmployee, {
     refetchQueries: [{ query: QUERIES.employees }],

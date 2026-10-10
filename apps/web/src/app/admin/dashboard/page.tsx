@@ -107,7 +107,7 @@ export default function DashboardPage() {
   const { data: companies, loading: l1 } = useQuery<{ companies: { id: string }[] }>(CompanyQueries.companies, {
     skip: !canViewCompanies(user),
   })
-  const { data: stations, loading: l2 } = useQuery<{ gasStations: { id: string; name: string; company: { id: string } }[] }>(GasStationQueries.gasStations)
+  const { data: stations, loading: l2 } = useQuery<{ gasStations: { id: string; name: string; active: boolean; company: { id: string } }[] }>(GasStationQueries.gasStations)
   const { data: users, loading: l3 } = useQuery<{ users: { id: string }[] }>(UserQueries.users, {
     skip: !canManagePeople(user),
   })
@@ -231,7 +231,7 @@ export default function DashboardPage() {
         >
           {!stationScoped && <option value="">Todas las estaciones</option>}
           {visibleStations.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
+            <option key={s.id} value={s.id}>{s.name}{!s.active && ' (Desactivada)'}</option>
           ))}
         </select>
         <div className="flex rounded-lg border overflow-hidden">
