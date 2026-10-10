@@ -5,7 +5,8 @@
 //   /down | /up | /state           cortar o restablecer la red
 //   /license?status=S[&skew=1]     responder LicenseStatus como modo CCI1 con estado S (T-052)
 //   /license/off                   dejar pasar LicenseStatus a la API (LEGACY en el stack de verificación)
-//   /reject?op=Name                responder la operación Name con LICENSE_READ_ONLY (T-052)
+//   /license?...&trial=1           además, marcarla como prueba gratis (contrato v2, T-060)
+//   /reject?op=Name[&code=C]       responder la operación Name con el código C (default LICENSE_READ_ONLY, T-052/T-060)
 //   /reject/off                    dejar de rechazar
 //   /rejected                      cuántas veces se rechazó (para comprobar que no hubo reintentos)
 //   /count?op=Name                 contar los envíos de la operación Name (pasan a la API; T-057)
@@ -19,13 +20,14 @@ const API_PORT = Number(process.env.E2E_API_PORT ?? 4500)
 let up = true
 let fakeLicense = null
 let rejectOp = null
+let rejectCode = 'LICENSE_READ_ONLY'
 let rejectedCount = 0
 let countOp = null
 let countedCount = 0
 
 const DAY = 86_400_000
 
-function licenseFor(status, skew) {
+function licenseFor(status, skew, trial) {
   const now = Date.now()
   const shape = {
     ACTIVE: { expiresAt: now + 90 * DAY, graceEndsAt: now + 97 * DAY, daysRemaining: 90, readOnly: false },
@@ -42,6 +44,7 @@ function licenseFor(status, skew) {
     daysRemaining: shape.daysRemaining,
     readOnly: shape.readOnly,
     clockSkewDetected: skew,
+    trial,
   }
 }
 
@@ -84,13 +87,13 @@ http
       let op = null
       try { op = JSON.parse(body).operationName } catch {}
       if (fakeLicense && op === 'LicenseStatus') {
-        return reply(req, res, { data: { licenseStatus: licenseFor(fakeLicense.status, fakeLicense.skew) } })
+        return reply(req, res, { data: { licenseStatus: licenseFor(fakeLicense.status, fakeLicense.skew, fakeLicense.trial) } })
       }
       if (rejectOp && op === rejectOp) {
         rejectedCount++
         return reply(req, res, {
           data: null,
-          errors: [{ message: 'Licencia vencida (simulada por el proxy E2E)', extensions: { code: 'LICENSE_READ_ONLY' } }],
+          errors: [{ message: `${rejectCode} (simulado por el proxy E2E)`, extensions: { code: rejectCode } }],
         })
       }
       if (countOp && op === countOp) countedCount++
@@ -104,9 +107,19 @@ http
     const url = new URL(req.url, 'http://control')
     if (url.pathname === '/down') up = false
     if (url.pathname === '/up') up = true
-    if (url.pathname === '/license') fakeLicense = { status: url.searchParams.get('status'), skew: url.searchParams.get('skew') === '1' }
+    if (url.pathname === '/license') {
+      fakeLicense = {
+        status: url.searchParams.get('status'),
+        skew: url.searchParams.get('skew') === '1',
+        trial: url.searchParams.get('trial') === '1',
+      }
+    }
     if (url.pathname === '/license/off') fakeLicense = null
-    if (url.pathname === '/reject') { rejectOp = url.searchParams.get('op'); rejectedCount = 0 }
+    if (url.pathname === '/reject') {
+      rejectOp = url.searchParams.get('op')
+      rejectCode = url.searchParams.get('code') ?? 'LICENSE_READ_ONLY'
+      rejectedCount = 0
+    }
     if (url.pathname === '/reject/off') rejectOp = null
     if (url.pathname === '/rejected') return res.end(String(rejectedCount))
     if (url.pathname === '/count') { countOp = url.searchParams.get('op'); countedCount = 0 }

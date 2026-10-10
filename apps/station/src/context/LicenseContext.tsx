@@ -12,6 +12,8 @@ export interface LicenseInfo {
   daysRemaining: number | null
   readOnly: boolean
   clockSkewDetected: boolean
+  /** Prueba gratis (contrato v2, T-058): sin gracia, al vencer pasa directo a solo lectura. */
+  trial: boolean
 }
 
 interface LicenseContextValue {
