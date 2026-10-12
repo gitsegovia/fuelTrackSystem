@@ -8,8 +8,7 @@ import {
   UpdateUserInput,
   LoginInput,
 } from "../../interfaces";
-import { ArgsType, ParentType, UserRole } from "../../utils/types";
-import { hasRole, isAuthenticated } from "../../middleware/authorization";
+import { ArgsType, ParentType } from "../../utils/types";
 import { User as UserModel } from "src/models/user";
 import { belongsTo, hasOne } from "../helpers/dataloaders";
 
@@ -47,8 +46,6 @@ const userResolver: IResolvers<Context> = {
       { id }: { id: string },
       context: Context
     ) => {
-      hasRole(context.user, UserRole.ADMIN);
-
       const user = await context.models.User.findByPk(id, {
         include: [
           { model: context.models.Company, as: "company" },
@@ -73,14 +70,6 @@ const userResolver: IResolvers<Context> = {
         input;
       if (!username || !password) {
         throw new Error("Username and password are required.");
-      }
-
-      if (role && (role === UserRole.ADMIN || role === UserRole.MANAGER)) {
-        const totalUsers = await context.models.User.count();
-        if (totalUsers > 0) {
-          isAuthenticated(context.user);
-          hasRole(context.user, UserRole.ADMIN);
-        }
       }
 
       const existingUser = await context.models.User.findOne({

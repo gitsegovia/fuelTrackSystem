@@ -25,10 +25,12 @@ export interface GasStationAttributes {
   code: string;
   address: string;
   companyId: string;
+  // T-055 (ADR-004 de CCI Licencias): desactivar es la forma de bajar de plan sin borrar nada.
+  active: boolean;
 }
 
 interface GasStationCreationAttributes
-  extends Optional<GasStationAttributes, "id"> {}
+  extends Optional<GasStationAttributes, "id" | "active"> {}
 
 export class GasStation
   extends Model<GasStationAttributes, GasStationCreationAttributes>
@@ -39,6 +41,7 @@ export class GasStation
   public code!: string;
   public address!: string;
   public companyId!: string;
+  public active!: boolean;
 
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -141,6 +144,11 @@ export function initialize(sequelize: Sequelize): ModelStatic<GasStation> {
         },
         onUpdate: "CASCADE",
         onDelete: "CASCADE",
+      },
+      active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
       },
     },
     {

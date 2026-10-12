@@ -14,6 +14,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
 import { TICKET_STATUS_LABELS, PAYMENT_MODE_LABELS, canPay, canDispatch, isOpenTicket } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
+import { useCan } from '@/hooks/useCan'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
 import { upsertInCachedList } from '@/lib/offline-cache'
 import { useOffline } from '@/context/OfflineContext'
@@ -90,6 +91,7 @@ export default function TicketDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDo = useCan()
   const { isOnline } = useOffline()
   const gasStationId = user?.assignedGasStation?.id ?? ''
   const [showDispatch, setShowDispatch] = useState(false)
@@ -476,8 +478,8 @@ export default function TicketDetailPage() {
   }
 
   const open = isOpenTicket(ticket.status)
-  const showDispatchAction = open && canDispatch(ticket.paymentMode, ticket.status)
-  const showPaymentAction = open && canPay(ticket.paymentMode, ticket.status)
+  const showDispatchAction = open && canDo('dispatchTicket') && canDispatch(ticket.paymentMode, ticket.status)
+  const showPaymentAction = open && canDo('payTicket') && canPay(ticket.paymentMode, ticket.status)
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -766,14 +768,14 @@ export default function TicketDetailPage() {
         </div>
       )}
 
-      {open && (
+      {open && canDo('cancelTicket') && (
         <Button variant="outline" className="w-full" onClick={() => setConfirmCancel(true)} disabled={canceling}>
           <XCircle className="size-4" /> Cancelar ticket
         </Button>
       )}
 
       {/* Diferencial y devolución (solo COMPLETED) */}
-      {completed && differential && (
+      {completed && differential && canDo('viewDifferential') && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Diferencial a favor de la estación</CardTitle>
@@ -811,7 +813,7 @@ export default function TicketDetailPage() {
               </div>
             )}
 
-            {pendingRefundInBase > 0.001 && (
+            {pendingRefundInBase > 0.001 && canDo('refundTicket') && (
               <>
                 <Button variant="outline" size="sm" className="w-full" onClick={() => setShowRefund(!showRefund)}>
                   <Undo2 className="size-4" /> Registrar devolución

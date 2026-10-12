@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import { Plus } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { useCan } from '@/hooks/useCan'
 import { QUERIES } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -22,6 +23,7 @@ type Shift = {
 export default function ShiftsPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDo = useCan()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees, {
@@ -70,7 +72,7 @@ export default function ShiftsPage() {
         title="Turnos"
         description="Historial de turnos de la estación"
         action={
-          !employee ? undefined : (
+          !employee || !canDo('openOwnShift') ? undefined : (
             <Button size="sm" onClick={() => navigate('/shifts/new')}>
               <Plus className="size-4" /> Iniciar turno
             </Button>

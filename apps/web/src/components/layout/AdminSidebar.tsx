@@ -2,9 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { format } from 'date-fns'
 import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { canAccessRoute, isAdminRole } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
@@ -46,6 +49,7 @@ const navGroups = [
 export function AdminSidebar() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+  const { license } = useLicense()
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -61,14 +65,17 @@ export function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
-        {navGroups.map((group, i) => (
+        {navGroups.map((group, i) => {
+          const items = group.items.filter(({ href }) => canAccessRoute(user, href))
+          if (items.length === 0) return null
+          return (
           <div key={i} className="space-y-0.5">
             {group.label && (
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
                 {group.label}
               </p>
             )}
-            {group.items.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, icon: Icon }) => {
               const active = pathname.startsWith(href)
               return (
                 <Link
@@ -87,8 +94,36 @@ export function AdminSidebar() {
               )
             })}
           </div>
-        ))}
+          )
+        })}
       </nav>
+
+      {isAdminRole(user) && license?.mode === 'CCI1' && (
+        <>
+          <Separator className="bg-sidebar-border" />
+          <div className="px-5 py-3 space-y-0.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/40">
+              Licencia
+            </p>
+            <p className="text-xs text-sidebar-foreground/70">
+              Plan {license.plan ?? '—'} · {license.customerName ?? '—'}
+            </p>
+            {license.trial && (
+              <p className="text-xs text-amber-500">
+                Período de prueba — termina el {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+              </p>
+            )}
+            {!license.trial && (
+              <p className="text-xs text-sidebar-foreground/70">
+                Vence: {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+              </p>
+            )}
+            <p className="text-xs text-sidebar-foreground/50">
+              Última validación: {license.lastValidatedAt ? format(new Date(license.lastValidatedAt), 'dd/MM/yyyy HH:mm') : '—'}
+            </p>
+          </div>
+        </>
+      )}
 
       <Separator className="bg-sidebar-border" />
 

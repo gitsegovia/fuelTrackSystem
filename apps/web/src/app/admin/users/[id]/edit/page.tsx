@@ -2,6 +2,8 @@
 
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { isAdminRole } from '@/lib/permissions'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -31,7 +33,7 @@ interface User {
   role: string
   userType: string
   company: { id: string; name: string }
-  assignedGasStation: { id: string; name: string } | null
+  assignedGasStation: { id: string; name: string; active: boolean } | null
 }
 
 interface GasStation {
@@ -56,6 +58,7 @@ type FormData = z.infer<typeof schema>
 export default function EditUserPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const { user } = useAuth()
 
   const { data, loading: fetching } = useQuery<{ user: User | null }>(QUERIES.user, {
     variables: { id },
@@ -63,7 +66,8 @@ export default function EditUserPage() {
   })
 
   const { data: stationsData } = useQuery<{ gasStations: GasStation[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
 
   const [updateUser, { loading: saving }] = useMutation(MUTATIONS.updateUser, {
@@ -167,8 +171,8 @@ export default function EditUserPage() {
               <div className="space-y-1.5">
                 <Label htmlFor="role">Rol *</Label>
                 <select id="role" className={selectClass} {...register('role')}>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="MANAGER">Gerente</option>
+                  {isAdminRole(user) && <option value="ADMIN">Administrador</option>}
+                  {isAdminRole(user) && <option value="MANAGER">Gerente</option>}
                   <option value="EMPLOYEE">Empleado</option>
                 </select>
               </div>
@@ -189,6 +193,11 @@ export default function EditUserPage() {
               <Label htmlFor="gasStationId">Estación asignada</Label>
               <select id="gasStationId" className={selectClass} {...register('gasStationId')}>
                 <option value="">Sin asignar</option>
+                {data?.user?.assignedGasStation && !data.user.assignedGasStation.active && (
+                  <option value={data.user.assignedGasStation.id} disabled>
+                    {data.user.assignedGasStation.name} — Desactivada
+                  </option>
+                )}
                 {stationsData?.gasStations.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}

@@ -29,6 +29,7 @@ import { initialize as initOfflineMutationLog } from "./offlineMutationLog";
 import { initialize as initAuthSession } from "./authSession";
 import { initialize as initRefreshToken } from "./refreshToken";
 import { initialize as initTicketRefund } from "./ticketRefund";
+import { initialize as initLicenseState } from "./licenseState";
 
 const models: AppModels = {
   Company: initCompany(sequelize),
@@ -58,6 +59,7 @@ const models: AppModels = {
   AuthSession: initAuthSession(sequelize),
   RefreshToken: initRefreshToken(sequelize),
   TicketRefund: initTicketRefund(sequelize),
+  LicenseState: initLicenseState(sequelize),
 };
 
 //Defined associations

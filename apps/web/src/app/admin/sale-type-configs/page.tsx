@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageSaleTypes } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -35,6 +38,9 @@ const saleTypeLabels: Record<string, string> = {
 
 export default function SaleTypeConfigsPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { license } = useLicense()
+  const canManage = canManageSaleTypes(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ saleTypeConfigs: SaleTypeConfig[] }>(QUERIES.saleTypeConfigs)
@@ -91,7 +97,7 @@ export default function SaleTypeConfigsPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button variant="ghost" size="icon-sm"
             onClick={() => router.push(`/admin/sale-type-configs/${row.original.id}/edit`)}>
@@ -112,11 +118,11 @@ export default function SaleTypeConfigsPage() {
       <PageHeader
         title="Tipos de venta"
         description="Configuración de precios por estación, combustible y modalidad de venta"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/sale-type-configs/new')} size="sm">
             <Plus className="size-4" /> Nueva configuración
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.saleTypeConfigs ?? []} loading={loading} />

@@ -11,7 +11,11 @@
         "build": "node esbuild.build.mjs",
         "seed": "node --loader ts-node/esm --experimental-specifier-resolution=node src/seeders/seed.ts",
         "bootstrap": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/bootstrap-admin.ts --",
-        "bootstrap:prod": "node dist/scripts/bootstrap-admin.js --"
+        "bootstrap:prod": "node dist/scripts/bootstrap-admin.js --",
+        "reactivate-station": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/reactivate-station.ts --",
+        "reactivate-station:prod": "node dist/scripts/reactivate-station.js --",
+        "validate-license": "node --loader ts-node/esm --experimental-specifier-resolution=node src/scripts/validate-license.ts",
+        "validate-license:prod": "node dist/scripts/validate-license.js"
     },
     "keywords": [
         "nodejs",

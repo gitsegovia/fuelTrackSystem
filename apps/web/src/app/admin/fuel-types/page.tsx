@@ -9,6 +9,9 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/fuelType'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { Button } from '@/components/ui/button'
 import {
   AlertDialog,
@@ -30,6 +33,9 @@ interface FuelType {
 
 export default function FuelTypesPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { license } = useLicense()
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ fuelTypes: FuelType[] }>(QUERIES.fuelTypes)
@@ -64,7 +70,7 @@ export default function FuelTypesPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button
             variant="ghost"
@@ -91,12 +97,12 @@ export default function FuelTypesPage() {
       <PageHeader
         title="Tipos de combustible"
         description="Gestiona los tipos de combustible y sus costos"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/fuel-types/new')} size="sm">
             <Plus className="size-4" />
             Nuevo tipo
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.fuelTypes ?? []} loading={loading} />

@@ -21,6 +21,8 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { useAuth } from '@/hooks/useAuth'
+import { canDeleteAuditPeriod } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { cn } from '@/lib/utils'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -211,6 +213,7 @@ function MonthlyCloseForm({
   onRecalc,
   creating,
   recalcing,
+  readOnly,
 }: {
   stationId: string
   closes: AuditPeriodClose[]
@@ -218,6 +221,7 @@ function MonthlyCloseForm({
   onRecalc: (id: string) => void
   creating: boolean
   recalcing: boolean
+  readOnly: boolean
 }) {
   const now = new Date()
   // Ofrecer los últimos 12 meses (excluye el mes actual incompleto como default)
@@ -309,7 +313,7 @@ function MonthlyCloseForm({
             size="sm"
             variant="outline"
             onClick={() => onRecalc(existingClose!.id)}
-            disabled={recalcing}
+            disabled={recalcing || readOnly}
           >
             {recalcing ? <Loader2 className="size-4 animate-spin mr-1" /> : <RefreshCw className="size-4 mr-1" />}
             Recalcular borrador
@@ -318,7 +322,7 @@ function MonthlyCloseForm({
           <Button
             size="sm"
             onClick={() => onCreated(selectedMonth)}
-            disabled={creating}
+            disabled={creating || readOnly}
           >
             {creating ? <Loader2 className="size-4 animate-spin mr-1" /> : <Calendar className="size-4 mr-1" />}
             Calcular cierre mensual
@@ -344,9 +348,11 @@ type ManualFormData = z.infer<typeof manualSchema>
 function ManualCloseForm({
   onCreated,
   creating,
+  readOnly,
 }: {
   onCreated: (start: string, end: string) => void
   creating: boolean
+  readOnly: boolean
 }) {
   const { register, handleSubmit, formState: { errors } } = useForm<ManualFormData>({
     resolver: zodResolver(manualSchema),
@@ -373,7 +379,7 @@ function ManualCloseForm({
         </div>
       </div>
       <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={creating}>
+        <Button type="submit" size="sm" disabled={creating || readOnly}>
           {creating ? <Loader2 className="size-4 animate-spin mr-1" /> : <CalendarDays className="size-4 mr-1" />}
           Calcular cierre manual
         </Button>
@@ -396,9 +402,9 @@ function CloseCard({
   close: AuditPeriodClose
   expanded: boolean
   onToggle: () => void
-  onConfirm: () => void
-  onRecalc: () => void
-  onDelete: () => void
+  onConfirm?: () => void
+  onRecalc?: () => void
+  onDelete?: () => void
   recalcing: boolean
 }) {
   const isDraft = close.status === 'DRAFT'
@@ -450,15 +456,21 @@ function CloseCard({
 
           {isDraft && (
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" title="Recalcular snapshot" onClick={onRecalc} disabled={recalcing}>
-                <RefreshCw className={cn('size-4', recalcing && 'animate-spin')} />
-              </Button>
-              <Button variant="ghost" size="icon" title="Confirmar cierre (inmutable)" onClick={onConfirm}>
-                <Lock className="size-4 text-primary" />
-              </Button>
-              <Button variant="ghost" size="icon" title="Eliminar borrador" onClick={onDelete}>
-                <Trash2 className="size-4 text-destructive" />
-              </Button>
+              {onRecalc && (
+                <Button variant="ghost" size="icon" title="Recalcular snapshot" onClick={onRecalc} disabled={recalcing}>
+                  <RefreshCw className={cn('size-4', recalcing && 'animate-spin')} />
+                </Button>
+              )}
+              {onConfirm && (
+                <Button variant="ghost" size="icon" title="Confirmar cierre (inmutable)" onClick={onConfirm}>
+                  <Lock className="size-4 text-primary" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button variant="ghost" size="icon" title="Eliminar borrador" onClick={onDelete}>
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -499,6 +511,7 @@ function CloseCard({
 export default function AuditCierresPage() {
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { license } = useLicense()
   const stationId = searchParams.get('stationId') ?? ''
 
   const [mode, setMode] = useState<'MONTHLY' | 'MANUAL'>('MONTHLY')
@@ -684,12 +697,14 @@ export default function AuditCierresPage() {
                 onRecalc={handleRecalc}
                 creating={creatingMode === 'MONTHLY'}
                 recalcing={!!recalcingId}
+                readOnly={!!license?.readOnly}
               />
             )}
             {mode === 'MANUAL' && (
               <ManualCloseForm
                 onCreated={handleCreateManual}
                 creating={creatingMode === 'MANUAL'}
+                readOnly={!!license?.readOnly}
               />
             )}
           </CardContent>
@@ -716,9 +731,9 @@ export default function AuditCierresPage() {
             close={close}
             expanded={expandedId === close.id}
             onToggle={() => setExpandedId(expandedId === close.id ? null : close.id)}
-            onConfirm={() => setConfirmId(close.id)}
-            onRecalc={() => handleRecalc(close.id)}
-            onDelete={() => setDeleteId(close.id)}
+            onConfirm={license?.readOnly ? undefined : () => setConfirmId(close.id)}
+            onRecalc={license?.readOnly ? undefined : () => handleRecalc(close.id)}
+            onDelete={canDeleteAuditPeriod(user) && !license?.readOnly ? () => setDeleteId(close.id) : undefined}
             recalcing={recalcingId === close.id}
           />
         ))}

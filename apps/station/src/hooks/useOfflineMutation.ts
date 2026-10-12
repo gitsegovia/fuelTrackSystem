@@ -6,6 +6,9 @@ import { onMutationQueued } from '@/lib/apollo-client'
 import { sendOrQueue } from '@/lib/offline-sync'
 import { useOffline } from '@/context/OfflineContext'
 import { getDeviceFingerprint, getStoredUserId } from '@/lib/device-fingerprint'
+import { withSessionRetry } from '@/lib/auth-session'
+import { NON_RETRYABLE_MESSAGES, graphQLErrorCode } from '@/lib/graphql-errors'
+import { QUERIES as LicenseQueries } from '@/services/graphql/gql/license'
 
 // ── Tipos públicos ────────────────────────────────────────────────────────────
 
@@ -128,15 +131,26 @@ export function useOfflineMutation<TData = unknown>(
           deviceFingerprint: getDeviceFingerprint(),
           isNetworkError,
           send: async ({ variables: vars, headers }) => {
-            const result = await apolloClient.mutate<TData>({
-              mutation,
-              variables: vars as Record<string, any>,
-              refetchQueries: baseOptionsRef.current?.refetchQueries as any,
-              // skipOfflineLink: si la red cae mid-flight, sendOrQueue encola con el mismo id;
-              // el OfflineLink no debe duplicar el encolado.
-              context: { skipOfflineLink: true, headers },
-            })
-            return result.data ?? null
+            try {
+              const result = await withSessionRetry(apolloClient, () =>
+                apolloClient.mutate<TData>({
+                  mutation,
+                  variables: vars as Record<string, any>,
+                  refetchQueries: baseOptionsRef.current?.refetchQueries as any,
+                  // skipOfflineLink: si la red cae mid-flight, sendOrQueue encola con el mismo id;
+                  // el OfflineLink no debe duplicar el encolado.
+                  context: { skipOfflineLink: true, headers },
+                })
+              )
+              return result.data ?? null
+            } catch (err) {
+              const code = graphQLErrorCode(err)
+              if (code === 'LICENSE_READ_ONLY') {
+                apolloClient.refetchQueries({ include: [LicenseQueries.licenseStatus] }).catch(() => {})
+              }
+              if (code && NON_RETRYABLE_MESSAGES[code]) throw new Error(NON_RETRYABLE_MESSAGES[code])
+              throw err
+            }
           },
         })
 

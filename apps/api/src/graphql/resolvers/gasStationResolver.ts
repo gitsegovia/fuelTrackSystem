@@ -1,14 +1,22 @@
 import { IResolvers } from "@graphql-tools/utils";
+import { GraphQLError } from "graphql";
 import { Context } from "../../interfaces";
 import { AppModels } from "../../interfaces/models";
 import { GasStation as GasStationModel } from "src/models/gasStation";
+import { SalesTicketStatus } from "../../utils/types";
+import { Op } from "sequelize";
 import { belongsTo } from "../helpers/dataloaders";
 
 const gasStationResolver: IResolvers<Context> = {
   Query: {
-    // Obtener todas las estaciones de servicio
-    gasStations: async (_parent, _args, context: { models: AppModels }) => {
+    // Sin "active": todas (para reportes). Con active: true/false: solo esas (para selectores).
+    gasStations: async (
+      _parent,
+      { active }: { active?: boolean },
+      context: { models: AppModels }
+    ) => {
       return context.models.GasStation.findAll({
+        where: active === undefined ? {} : { active },
         include: [{ model: context.models.Company, as: "company" }], // Incluimos la compañía asociada
       });
     },
@@ -62,6 +70,31 @@ const gasStationResolver: IResolvers<Context> = {
         where: { id },
       });
       return deleted > 0;
+    },
+    // T-055 (ADR-004 de CCI Licencias): bajar de plan desactivando en vez de borrar.
+    deactivateGasStation: async (_parent, { id }: { id: string }, context: Context) => {
+      const gasStation = await context.models.GasStation.findByPk(id);
+      if (!gasStation) throw new Error("Gas Station not found.");
+      if (!gasStation.active) return gasStation; // idempotente: ya estaba desactivada
+
+      const openShifts = await context.models.EmployeeShift.count({
+        where: { gasStationId: id, shiftEndTime: null },
+      });
+      const openTickets = await context.models.SalesTicket.count({
+        where: {
+          gasStationId: id,
+          status: { [Op.notIn]: [SalesTicketStatus.COMPLETED, SalesTicketStatus.CANCELED] },
+        },
+      });
+      if (openShifts > 0 || openTickets > 0) {
+        throw new GraphQLError(
+          `La estación tiene ${openShifts} turno(s) abierto(s) y ${openTickets} ticket(s) sin completar.`,
+          { extensions: { code: "STATION_HAS_OPEN_WORK", openShifts, openTickets } }
+        );
+      }
+
+      await gasStation.update({ active: false });
+      return gasStation;
     },
   },
   // Resolvers para campos específicos que son relaciones (si no se precargan en la consulta principal)

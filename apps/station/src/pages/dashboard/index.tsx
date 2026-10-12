@@ -7,6 +7,7 @@ import { QUERIES as ShiftQueries } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
+import { useCan } from '@/hooks/useCan'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -16,6 +17,7 @@ import { es } from 'date-fns/locale'
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
+  const canDo = useCan()
   const gasStationId = user?.assignedGasStation?.id ?? ''
 
   const { data: empData } = useQuery<{ employees: any[] }>(EmployeeQueries.employees)
@@ -63,9 +65,11 @@ export default function DashboardPage() {
               <Button size="sm" onClick={() => navigate(`/shifts/${activeShift.id}`)}>
                 Ver turno
               </Button>
-              <Button size="sm" variant="outline" onClick={() => navigate(`/tickets/new?shiftId=${activeShift.id}`)}>
-                <Plus className="size-4" /> Nuevo ticket
-              </Button>
+              {canDo('emitTicket') && (
+                <Button size="sm" variant="outline" onClick={() => navigate(`/tickets/new?shiftId=${activeShift.id}`)}>
+                  <Plus className="size-4" /> Nuevo ticket
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -77,9 +81,11 @@ export default function DashboardPage() {
               <p className="font-medium text-sm">Sin turno activo</p>
               <p className="text-xs text-muted-foreground mt-0.5">Inicia un turno para comenzar a operar</p>
             </div>
-            <Button size="sm" onClick={() => navigate('/shifts/new')}>
-              <Clock className="size-4" /> Iniciar turno
-            </Button>
+            {canDo('openOwnShift') && (
+              <Button size="sm" onClick={() => navigate('/shifts/new')}>
+                <Clock className="size-4" /> Iniciar turno
+              </Button>
+            )}
           </CardContent>
         </Card>
       )}

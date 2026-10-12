@@ -24,6 +24,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,10 +39,11 @@ type DeleteTarget = { type: 'island' | 'dispenser' | 'nozzle' | 'tank'; id: stri
 
 // ─── Nozzle list (lazy-loaded per dispenser) ──────────────────────────────────
 
-function NozzleList({ dispenserId, stationId, islandId, onEdit, onDelete }: {
+function NozzleList({ dispenserId, stationId, islandId, canWrite, onEdit, onDelete }: {
   dispenserId: string
   stationId: string
   islandId: string
+  canWrite: boolean
   onEdit: (id: string) => void
   onDelete: (target: DeleteTarget) => void
 }) {
@@ -66,22 +70,28 @@ function NozzleList({ dispenserId, stationId, islandId, onEdit, onDelete }: {
             <Badge variant={nozzle.isOperational ? 'default' : 'secondary'} className="text-xs">
               {nozzle.isOperational ? 'Operativa' : 'Inactiva'}
             </Badge>
-            <Button variant="ghost" size="icon-sm" onClick={() => onEdit(nozzle.id)}>
-              <Pencil className="size-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
-              onClick={() => onDelete({ type: 'nozzle', id: nozzle.id, name: nozzle.name, dispenserId })}>
-              <Trash2 className="size-3.5" />
-            </Button>
+            {canWrite && (
+              <>
+                <Button variant="ghost" size="icon-sm" onClick={() => onEdit(nozzle.id)}>
+                  <Pencil className="size-3.5" />
+                </Button>
+                <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
+                  onClick={() => onDelete({ type: 'nozzle', id: nozzle.id, name: nozzle.name, dispenserId })}>
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </>
+            )}
           </div>
         ))
       )}
-      <div className="px-12 py-2 border-t border-border/40">
-        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
-          onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/new?dispenserId=${dispenserId}&expandIsland=${islandId}`)}>
-          <Plus className="size-3.5" /> Añadir boquilla
-        </Button>
-      </div>
+      {canWrite && (
+        <div className="px-12 py-2 border-t border-border/40">
+          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
+            onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/new?dispenserId=${dispenserId}&expandIsland=${islandId}`)}>
+            <Plus className="size-3.5" /> Añadir boquilla
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -93,6 +103,9 @@ export default function EquipmentPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const expandIslandParam = searchParams.get('expandIsland')
+  const { user } = useAuth()
+  const { license } = useLicense()
+  const canWrite = canManageCatalogs(user) && !license?.readOnly
 
   const [expandedIslands, setExpandedIslands] = useState<Set<string>>(new Set())
   const [expandedDispensers, setExpandedDispensers] = useState<Set<string>>(new Set())
@@ -202,14 +215,18 @@ export default function EquipmentPage() {
             onClick={() => router.push(navTo(`tanks/${row.original.id}/receptions`))}>
             <History className="size-4" />
           </Button>
-          <Button variant="ghost" size="icon-sm"
-            onClick={() => router.push(navTo(`tanks/${row.original.id}/edit`))}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
-            onClick={() => setDeleteTarget({ type: 'tank', id: row.original.id, name: row.original.name })}>
-            <Trash2 className="size-4" />
-          </Button>
+          {canWrite && (
+            <>
+              <Button variant="ghost" size="icon-sm"
+                onClick={() => router.push(navTo(`tanks/${row.original.id}/edit`))}>
+                <Pencil className="size-4" />
+              </Button>
+              <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
+                onClick={() => setDeleteTarget({ type: 'tank', id: row.original.id, name: row.original.name })}>
+                <Trash2 className="size-4" />
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
@@ -233,10 +250,12 @@ export default function EquipmentPage() {
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Layers className="size-4 text-muted-foreground" /> Islas y Dispensadores
           </h2>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-            onClick={() => router.push(navTo('pump-islands/new'))}>
-            <Plus className="size-3.5" /> Nueva isla
-          </Button>
+          {canWrite && (
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+              onClick={() => router.push(navTo('pump-islands/new'))}>
+              <Plus className="size-3.5" /> Nueva isla
+            </Button>
+          )}
         </div>
 
         {islandsLoading ? (
@@ -245,10 +264,12 @@ export default function EquipmentPage() {
           <div className="rounded-lg border border-dashed border-border p-8 text-center">
             <Layers className="size-8 mx-auto mb-2 text-muted-foreground/50" />
             <p className="text-sm text-muted-foreground">No hay islas registradas</p>
-            <Button size="sm" variant="outline" className="mt-3 text-xs gap-1.5"
-              onClick={() => router.push(navTo('pump-islands/new'))}>
-              <Plus className="size-3.5" /> Crear primera isla
-            </Button>
+            {canWrite && (
+              <Button size="sm" variant="outline" className="mt-3 text-xs gap-1.5"
+                onClick={() => router.push(navTo('pump-islands/new'))}>
+                <Plus className="size-3.5" /> Crear primera isla
+              </Button>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-border overflow-hidden">
@@ -280,18 +301,22 @@ export default function EquipmentPage() {
                         {islandDispensers.length} disp.
                       </Badge>
                     </button>
-                    <Button variant="ghost" size="icon-sm"
-                      onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
-                      <Plus className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm"
-                      onClick={() => router.push(navTo(`pump-islands/${island.id}/edit?expandIsland=${island.id}`))}>
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
-                      onClick={() => setDeleteTarget({ type: 'island', id: island.id, name: island.name })}>
-                      <Trash2 className="size-4" />
-                    </Button>
+                    {canWrite && (
+                      <>
+                        <Button variant="ghost" size="icon-sm"
+                          onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
+                          <Plus className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm"
+                          onClick={() => router.push(navTo(`pump-islands/${island.id}/edit?expandIsland=${island.id}`))}>
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget({ type: 'island', id: island.id, name: island.name })}>
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
 
                   {/* Dispensers accordion */}
@@ -322,14 +347,18 @@ export default function EquipmentPage() {
                                     {disp.isOperational ? 'Operativo' : 'Inactivo'}
                                   </Badge>
                                 </button>
-                                <Button variant="ghost" size="icon-sm"
-                                  onClick={() => router.push(navTo(`dispensers/${disp.id}/edit?expandIsland=${island.id}`))}>
-                                  <Pencil className="size-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
-                                  onClick={() => setDeleteTarget({ type: 'dispenser', id: disp.id, name: disp.name })}>
-                                  <Trash2 className="size-3.5" />
-                                </Button>
+                                {canWrite && (
+                                  <>
+                                    <Button variant="ghost" size="icon-sm"
+                                      onClick={() => router.push(navTo(`dispensers/${disp.id}/edit?expandIsland=${island.id}`))}>
+                                      <Pencil className="size-3.5" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive"
+                                      onClick={() => setDeleteTarget({ type: 'dispenser', id: disp.id, name: disp.name })}>
+                                      <Trash2 className="size-3.5" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
 
                               {/* Nozzles (lazy) */}
@@ -338,6 +367,7 @@ export default function EquipmentPage() {
                                   dispenserId={disp.id}
                                   stationId={stationId}
                                   islandId={island.id}
+                                  canWrite={canWrite}
                                   onEdit={(nozzleId) => router.push(navTo(`nozzles/${nozzleId}/edit?expandIsland=${island.id}`))}
                                   onDelete={setDeleteTarget}
                                 />
@@ -346,12 +376,14 @@ export default function EquipmentPage() {
                           )
                         })
                       )}
-                      <div className="px-8 py-2 border-t border-border/50">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
-                          onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
-                          <Plus className="size-3.5" /> Añadir dispensador
-                        </Button>
-                      </div>
+                      {canWrite && (
+                        <div className="px-8 py-2 border-t border-border/50">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
+                            onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
+                            <Plus className="size-3.5" /> Añadir dispensador
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -367,10 +399,12 @@ export default function EquipmentPage() {
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Droplets className="size-4 text-muted-foreground" /> Tanques
           </h2>
-          <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
-            onClick={() => router.push(navTo('tanks/new'))}>
-            <Plus className="size-3.5" /> Nuevo tanque
-          </Button>
+          {canWrite && (
+            <Button size="sm" variant="outline" className="h-8 text-xs gap-1.5"
+              onClick={() => router.push(navTo('tanks/new'))}>
+              <Plus className="size-3.5" /> Nuevo tanque
+            </Button>
+          )}
         </div>
 
         <DataTable columns={tankColumns} data={tanks} loading={tanksLoading} />

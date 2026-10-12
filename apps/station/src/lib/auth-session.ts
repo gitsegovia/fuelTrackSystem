@@ -1,7 +1,7 @@
 import type { useApolloClient } from '@apollo/client/react'
-import { CombinedGraphQLErrors } from '@apollo/client/errors'
 import { MUTATIONS } from '@/services/graphql/gql/login'
 import { isNetworkDown } from './apollo-client'
+import { STATION_BLOCKED_LOGIN_MESSAGES, graphQLErrorCode } from './graphql-errors'
 import type { AuthUser } from '@/types/auth'
 
 type ApolloClientInstance = ReturnType<typeof useApolloClient>
@@ -22,12 +22,16 @@ export type SessionErrorCode =
   | 'REFRESH_TOKEN_REUSED'
   | 'SESSION_REVOKED'
   | 'SESSION_EXPIRED'
+  | 'STATION_INACTIVE'
+  | 'STATION_NOT_LICENSED'
 
 const SESSION_ERROR_CODES = new Set<SessionErrorCode>([
   'INVALID_REFRESH_TOKEN',
   'REFRESH_TOKEN_REUSED',
   'SESSION_REVOKED',
   'SESSION_EXPIRED',
+  'STATION_INACTIVE',
+  'STATION_NOT_LICENSED',
 ])
 
 export class SessionEndedError extends Error {
@@ -87,11 +91,8 @@ export function setSessionEndedCallback(fn: (err: SessionEndedError) => void) {
 }
 
 function extractSessionErrorCode(err: unknown): SessionErrorCode | null {
-  if (!CombinedGraphQLErrors.is(err)) return null
-  const code = err.errors[0]?.extensions?.code
-  return typeof code === 'string' && SESSION_ERROR_CODES.has(code as SessionErrorCode)
-    ? (code as SessionErrorCode)
-    : null
+  const code = graphQLErrorCode(err)
+  return code && SESSION_ERROR_CODES.has(code as SessionErrorCode) ? (code as SessionErrorCode) : null
 }
 
 function sessionEndedMessage(code: SessionErrorCode): string {
@@ -104,12 +105,23 @@ function sessionEndedMessage(code: SessionErrorCode): string {
       return 'La sesión fue cerrada. Inicia sesión otra vez.'
     case 'INVALID_REFRESH_TOKEN':
       return 'La sesión ya no es válida. Inicia sesión otra vez.'
+    case 'STATION_INACTIVE':
+    case 'STATION_NOT_LICENSED':
+      return STATION_BLOCKED_LOGIN_MESSAGES[code]
   }
 }
 
 // ── Refresh ──────────────────────────────────────────────────────────────────
 
 let inTabRefresh: Promise<void> | null = null
+
+/** Cierra la sesión local, avisa a la UI (login con aviso) y devuelve el error para lanzarlo. */
+export function expireSession(code: SessionErrorCode): SessionEndedError {
+  const ended = new SessionEndedError(code, sessionEndedMessage(code))
+  clearSession()
+  onSessionEnded?.(ended)
+  return ended
+}
 
 /**
  * Renueva el access token si está por vencer y hay red. Debe llamarse antes de operar y
@@ -125,13 +137,25 @@ let inTabRefresh: Promise<void> | null = null
  */
 export async function ensureFreshAccessToken(client: ApolloClientInstance): Promise<void> {
   if (isAccessTokenFresh()) return
-  if (!getRefreshToken() || !navigator.onLine) return
+  return startRefresh(client, false)
+}
+
+/**
+ * Renueva aunque el reloj diga que el access token sigue vigente: el servidor lo rechazó
+ * (UNAUTHENTICATED, T-042 — p. ej. sesión revocada desde otro lado).
+ */
+export async function forceRefreshAccessToken(client: ApolloClientInstance): Promise<void> {
+  return startRefresh(client, true)
+}
+
+function startRefresh(client: ApolloClientInstance, force: boolean): Promise<void> {
+  if (!getRefreshToken() || !navigator.onLine) return Promise.resolve()
 
   const run = async () => {
     if (navigator.locks) {
-      await navigator.locks.request(REFRESH_LOCK, () => doRefresh(client))
+      await navigator.locks.request(REFRESH_LOCK, () => doRefresh(client, force))
     } else {
-      await doRefresh(client)
+      await doRefresh(client, force)
     }
   }
   if (!inTabRefresh) {
@@ -142,9 +166,28 @@ export async function ensureFreshAccessToken(client: ApolloClientInstance): Prom
   return inTabRefresh
 }
 
-async function doRefresh(client: ApolloClientInstance): Promise<void> {
+/**
+ * Operación online con sesión rechazada: renueva y reintenta una vez. Si el reintento vuelve a
+ * fallar con UNAUTHENTICATED, la sesión termina (pide login; la cola offline no se toca).
+ */
+export async function withSessionRetry<T>(client: ApolloClientInstance, send: () => Promise<T>): Promise<T> {
+  try {
+    return await send()
+  } catch (err) {
+    if (graphQLErrorCode(err) !== 'UNAUTHENTICATED') throw err
+  }
+  await forceRefreshAccessToken(client)
+  try {
+    return await send()
+  } catch (err) {
+    if (graphQLErrorCode(err) === 'UNAUTHENTICATED') throw expireSession('INVALID_REFRESH_TOKEN')
+    throw err
+  }
+}
+
+async function doRefresh(client: ApolloClientInstance, force: boolean): Promise<void> {
   // Otra pestaña (o una llamada que esperó el lock en esta) pudo haber renovado ya.
-  if (isAccessTokenFresh()) return
+  if (!force && isAccessTokenFresh()) return
   const refreshToken = getRefreshToken()
   if (!refreshToken) return
 
@@ -159,12 +202,7 @@ async function doRefresh(client: ApolloClientInstance): Promise<void> {
     if (data?.refreshSession) saveSession(data.refreshSession)
   } catch (err) {
     const code = extractSessionErrorCode(err)
-    if (code) {
-      const ended = new SessionEndedError(code, sessionEndedMessage(code))
-      clearSession()
-      onSessionEnded?.(ended)
-      throw ended
-    }
+    if (code) throw expireSession(code)
     if (!isNetworkDown(err)) throw err
     // Error de red: se deja el refresh actual intacto (T-019 lo tolera dentro de su
     // ventana de gracia) y se reintenta en el próximo llamado.

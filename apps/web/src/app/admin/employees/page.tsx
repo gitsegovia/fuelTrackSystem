@@ -11,6 +11,7 @@ import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { useLicense } from '@/context/LicenseContext'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -28,6 +29,8 @@ interface Employee {
 
 export default function EmployeesPage() {
   const router = useRouter()
+  const { license } = useLicense()
+  const canManage = !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ employees: Employee[] }>(QUERIES.employees)
@@ -74,7 +77,7 @@ export default function EmployeesPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button variant="ghost" size="icon-sm"
             onClick={() => router.push(`/admin/employees/${row.original.id}/edit`)}>
@@ -95,11 +98,11 @@ export default function EmployeesPage() {
       <PageHeader
         title="Empleados"
         description="Perfiles de empleados vinculados a usuarios del sistema"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/employees/new')} size="sm">
             <Plus className="size-4" /> Nuevo empleado
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.employees ?? []} loading={loading} />

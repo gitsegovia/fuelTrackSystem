@@ -20,6 +20,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { DataTable } from '@/components/shared/DataTable'
 import { useAuth } from '@/hooks/useAuth'
+import { canManageInvoicePayments } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { cn } from '@/lib/utils'
 import type { ColumnDef } from '@tanstack/react-table'
 
@@ -105,6 +107,8 @@ export default function InvoicePaymentDetailPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const router = useRouter()
   const { user } = useAuth()
+  const { license } = useLicense()
+  const canPay = canManageInvoicePayments(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
 
@@ -150,7 +154,7 @@ export default function InvoicePaymentDetailPage() {
     { header: 'Registrado por', cell: ({ row }) => row.original.recordedBy.username },
     {
       id: 'actions',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canPay ? null : (
         <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
           <Trash2 className="size-4 text-destructive" />
         </Button>
@@ -281,7 +285,7 @@ export default function InvoicePaymentDetailPage() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Historial de pagos</h2>
-          {balance.paymentStatus !== 'PAID' && (
+          {canPay && balance.paymentStatus !== 'PAID' && (
             <Button size="sm" onClick={() => setShowForm(!showForm)}>
               <Plus className="size-4" />
               {showForm ? 'Cancelar' : 'Registrar pago'}

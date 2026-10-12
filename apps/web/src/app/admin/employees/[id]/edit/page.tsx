@@ -49,7 +49,8 @@ export default function EditEmployeePage() {
     { variables: { id }, skip: !id }
   )
   const { data: stationsData } = useQuery<{ gasStations: { id: string; name: string }[] }>(
-    GasStationQueries.gasStations
+    GasStationQueries.gasStations,
+    { variables: { active: true } }
   )
   const [updateEmployee, { loading: savingEmployee }] = useMutation(MUTATIONS.updateEmployee, {
     refetchQueries: [{ query: QUERIES.employees }],
@@ -178,6 +179,11 @@ export default function EditEmployeePage() {
               <Label>Estación asignada *</Label>
               <select {...register('gasStationId')} className={selectClass}>
                 <option value="">Seleccionar estación...</option>
+                {data?.employee?.gasStation && !data.employee.gasStation.active && (
+                  <option value={data.employee.gasStation.id} disabled>
+                    {data.employee.gasStation.name} — Desactivada
+                  </option>
+                )}
                 {stationsData?.gasStations.map((s) => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}

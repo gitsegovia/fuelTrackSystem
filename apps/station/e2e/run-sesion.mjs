@@ -12,7 +12,9 @@ const stationDir = join(here, '..')
 const PROXY_URL = process.env.E2E_PROXY_URL ?? 'http://localhost:4501/graphql'
 const API_URL = process.env.E2E_API_URL ?? 'http://localhost:4500/graphql'
 const PREVIEW_PORT = new URL(APP).port || '3001'
-const PORTS = [PREVIEW_PORT, 4501, 4502]
+const PROXY_PORT = new URL(PROXY_URL).port
+const CONTROL_PORT = new URL(PROXY_CONTROL).port
+const PORTS = [PREVIEW_PORT, PROXY_PORT, CONTROL_PORT]
 const children = []
 const start = makeSpawner(children, stationDir)
 const run = makeRunner(start)
@@ -68,7 +70,7 @@ async function main() {
   }
 
   // 2. Puertos libres (no se matan procesos ajenos).
-  for (const [port, label] of [[PREVIEW_PORT, 'station preview'], [4501, 'proxy'], [4502, 'control del proxy']]) {
+  for (const [port, label] of [[PREVIEW_PORT, 'station preview'], [PROXY_PORT, 'proxy'], [CONTROL_PORT, 'control del proxy']]) {
     if (await portBusy(Number(port))) {
       console.error(`El puerto ${port} (${label}) ya está en uso. Libéralo antes de correr el E2E.`)
       return 2

@@ -3,11 +3,16 @@ import { Sequelize } from "sequelize";
 import { UserRole, UserType } from "../utils/types";
 import { Loaders } from "../graphql/helpers/dataloaders";
 
+// Usuario autenticado de la request. Lo carga authz/index.ts desde la BD; el token solo aporta id y sesión.
 export interface AuthenticatedUser {
   id: string;
   username: string;
   role: UserRole;
-  sid?: string; // id de AuthSession; ausente en tokens emitidos antes de ADR-014
+  userType: UserType;
+  companyId: string;
+  gasStationId: string | null;
+  employeeId: string | null; // Employee del usuario, si tiene perfil de empleado
+  sid: string; // id de AuthSession
 }
 
 export interface OfflineSource {

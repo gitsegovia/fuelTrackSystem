@@ -43,6 +43,12 @@ runner.page = page
 page.on('pageerror', (e) => console.log('  [pageerror]', e.message))
 
 let shiftLocalId, ticketTotalStr, ticketCurrencySymbol, nozzleCount = 0, employeeId
+// Turnos que ya existían antes de la corrida (el seed puede ser reciente): el chequeo de
+// duplicados cuenta solo los creados por esta corrida.
+const seedShiftIds = psql(
+  `select coalesce(string_agg(es.id::text, ','), '') from employee_shifts es join employees e on e.id=es."employeeId" ` +
+  `join users u on u.id=e."userId" where u.username='${USER}'`
+).split(',').filter(Boolean).map((id) => `'${id}'`).join(',') || `'00000000-0000-0000-0000-000000000000'`
 let prepaidShiftId, prepaidTicketId
 
 await step('Login online y SW activo', async () => {
@@ -310,7 +316,7 @@ await step('BD: turno, lecturas, ticket, 2 pagos y medición con IDs reales, sin
   if (status !== 'COMPLETED' || Number(liters) !== 10) throw new Error(`ticket ${status} ${liters}`)
   if (psql(`select count(*) from payments where "salesTicketId"='${ticketId}'`) !== '2') throw new Error('pagos != 2')
   if (psql(`select count(*) from tank_measurements where "employeeShiftId"='${shiftId}'`) !== '1') throw new Error('medición no ligada al turno')
-  if (psql(`select count(*) from employee_shifts where "employeeId"='${employeeId}' and "createdAt" > now() - interval '1 hour'`) !== '1') {
+  if (psql(`select count(*) from employee_shifts where "employeeId"='${employeeId}' and id not in (${seedShiftIds})`) !== '1') {
     throw new Error('turnos duplicados')
   }
 })

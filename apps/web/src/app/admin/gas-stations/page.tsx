@@ -3,13 +3,21 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
+import { licenseStationLimitMessage } from '@/lib/license-messages'
 import { toast } from 'sonner'
-import { Plus, Pencil, Trash2, Wrench } from 'lucide-react'
+import { CombinedGraphQLErrors } from '@apollo/client/errors'
+import { Plus, Pencil, Trash2, Wrench, PowerOff } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/gasStation'
 import { DataTable } from '@/components/shared/DataTable'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,16 +34,26 @@ interface GasStation {
   name: string
   code: string
   address: string | null
+  active: boolean
   company: { id: string; name: string }
   createdAt: string
 }
 
 export default function GasStationsPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { license } = useLicense()
+  const atStationLimit = license?.maxStations != null && license.activeStations >= license.maxStations
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deactivateTarget, setDeactivateTarget] = useState<GasStation | null>(null)
+  const [confirmText, setConfirmText] = useState('')
 
   const { data, loading, refetch } = useQuery<{ gasStations: GasStation[] }>(QUERIES.gasStations)
   const [deleteGasStation, { loading: deleting }] = useMutation(MUTATIONS.deleteGasStation)
+  const [deactivateGasStation, { loading: deactivating }] = useMutation(MUTATIONS.deactivateGasStation, {
+    refetchQueries: [{ query: QUERIES.gasStations }],
+  })
 
   const handleDelete = async () => {
     if (!deleteId) return
@@ -47,6 +65,35 @@ export default function GasStationsPage() {
       toast.error('No se pudo eliminar la estación.')
     } finally {
       setDeleteId(null)
+    }
+  }
+
+  const closeDeactivateDialog = () => {
+    setDeactivateTarget(null)
+    setConfirmText('')
+  }
+
+  const handleDeactivate = async () => {
+    if (!deactivateTarget) return
+    try {
+      await deactivateGasStation({ variables: { id: deactivateTarget.id } })
+      toast.success('Estación desactivada.')
+      closeDeactivateDialog()
+    } catch (err) {
+      if (CombinedGraphQLErrors.is(err)) {
+        const code = err.errors[0]?.extensions?.code
+        if (code === 'STATION_HAS_OPEN_WORK') {
+          const { openShifts, openTickets } = err.errors[0].extensions as {
+            openShifts: number
+            openTickets: number
+          }
+          toast.error(
+            `No se puede desactivar: tiene ${openShifts} turnos abiertos y ${openTickets} tickets sin completar.`
+          )
+          return
+        }
+      }
+      toast.error('No se pudo desactivar la estación.')
     }
   }
 
@@ -73,35 +120,75 @@ export default function GasStationsPage() {
       ),
     },
     {
+      id: 'status',
+      header: 'Estado',
+      cell: ({ row }) => {
+        if (!row.original.active) {
+          return <Badge variant="secondary">Desactivada</Badge>
+        }
+        if (license?.unauthorizedStationIds?.includes(row.original.id)) {
+          return (
+            <Badge
+              variant="outline"
+              className="text-amber-700 border-amber-300 bg-amber-50"
+              title="Contacta a Core Code Innovation para habilitarla"
+            >
+              No habilitada en la licencia
+            </Badge>
+          )
+        }
+        return <Badge variant="default">Activa</Badge>
+      },
+    },
+    {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1 justify-end">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            title="Equipamiento"
-            onClick={() => router.push(`/admin/gas-stations/${row.original.id}/equipment`)}
-          >
-            <Wrench className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => router.push(`/admin/gas-stations/${row.original.id}/edit`)}
-          >
-            <Pencil className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setDeleteId(row.original.id)}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="size-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        if (!row.original.active) {
+          return (
+            <span className="text-xs text-muted-foreground">
+              Desactivada — para reactivarla, contacta a Core Code Innovation.
+            </span>
+          )
+        }
+        if (!canManage) return null
+        return (
+          <div className="flex items-center gap-1 justify-end">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Equipamiento"
+              onClick={() => router.push(`/admin/gas-stations/${row.original.id}/equipment`)}
+            >
+              <Wrench className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => router.push(`/admin/gas-stations/${row.original.id}/edit`)}
+            >
+              <Pencil className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              title="Desactivar"
+              onClick={() => setDeactivateTarget(row.original)}
+              className="text-destructive hover:text-destructive"
+            >
+              <PowerOff className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setDeleteId(row.original.id)}
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
@@ -110,13 +197,25 @@ export default function GasStationsPage() {
       <PageHeader
         title="Estaciones"
         description="Gestiona las estaciones de servicio"
-        action={
-          <Button onClick={() => router.push('/admin/gas-stations/new')} size="sm">
+        action={canManage ? (
+          <Button
+            onClick={() => router.push('/admin/gas-stations/new')}
+            size="sm"
+            disabled={atStationLimit}
+            title={atStationLimit ? licenseStationLimitMessage(license?.maxStations ?? null) : undefined}
+          >
             <Plus className="size-4" />
             Nueva estación
           </Button>
-        }
+        ) : undefined}
       />
+
+      {license?.maxStations != null && (
+        <p className="text-sm text-muted-foreground">
+          {license.activeStations} de {license.maxStations} estaciones
+          {atStationLimit && ' — tope del plan alcanzado'}
+        </p>
+      )}
 
       <DataTable columns={columns} data={data?.gasStations ?? []} loading={loading} />
 
@@ -136,6 +235,39 @@ export default function GasStationsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting ? 'Eliminando...' : 'Eliminar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deactivateTarget} onOpenChange={(open) => !open && closeDeactivateDialog()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Desactivar {deactivateTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La estación quedará solo como histórico: sus empleados no podrán entrar y no se
+              podrá operar sobre ella. <strong>Solo Core Code Innovation puede reactivarla.</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5 py-1">
+            <Label htmlFor="confirm-deactivate-name" className="text-xs text-muted-foreground">
+              Escribe <span className="font-medium text-foreground">{deactivateTarget?.name}</span> para confirmar
+            </Label>
+            <Input
+              id="confirm-deactivate-name"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeactivate}
+              disabled={deactivating || confirmText !== deactivateTarget?.name}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deactivating ? 'Desactivando...' : 'Desactivar estación'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

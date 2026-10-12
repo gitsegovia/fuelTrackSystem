@@ -15,6 +15,8 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/hooks/useAuth'
+import { isStationScoped } from '@/lib/permissions'
 import type { ColumnDef } from '@tanstack/react-table'
 
 const FUEL_KIND_LABELS: Record<string, string> = {
@@ -30,7 +32,7 @@ const STATUS_CONFIG = {
   PAID: { label: 'Pagada', className: 'text-emerald-600 border-emerald-500/40 bg-emerald-50' },
 }
 
-type GasStation = { id: string; name: string; code: string }
+type GasStation = { id: string; name: string; code: string; active: boolean }
 
 type InvoiceBalance = {
   totalAmount: string
@@ -102,7 +104,9 @@ const selectClass = cn(
 export default function InvoicePaymentsPage() {
   const router = useRouter()
   const now = new Date()
-  const [gasStationId, setGasStationId] = useState('')
+  const { user } = useAuth()
+  const stationScoped = isStationScoped(user)
+  const [gasStationId, setGasStationId] = useState(stationScoped ? user?.assignedGasStation?.id ?? '' : '')
   const [monthStr, setMonthStr] = useState(format(now, 'yyyy-MM'))
 
   const { startDate, endDate } = useMemo(() => {
@@ -114,7 +118,9 @@ export default function InvoicePaymentsPage() {
   }, [monthStr])
 
   const { data: stationsData } = useQuery<{ gasStations: GasStation[] }>(GAS_STATION_QUERIES.gasStations)
-  const stations = stationsData?.gasStations ?? []
+  const stations = (stationsData?.gasStations ?? []).filter(
+    (s) => !stationScoped || s.id === user?.assignedGasStation?.id
+  )
 
   const selectedStation = stations.find((s) => s.id === gasStationId)
 
@@ -206,10 +212,11 @@ export default function InvoicePaymentsPage() {
             value={gasStationId}
             onChange={(e) => setGasStationId(e.target.value)}
             className={selectClass}
+            disabled={stationScoped}
           >
-            <option value="">Seleccionar estación…</option>
+            {!stationScoped && <option value="">Seleccionar estación…</option>}
             {stations.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name}{!s.active && ' — Desactivada'}</option>
             ))}
           </select>
         </div>

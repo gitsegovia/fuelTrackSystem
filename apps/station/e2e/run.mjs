@@ -11,7 +11,9 @@ const stationDir = join(here, '..')
 const PROXY_URL = process.env.E2E_PROXY_URL ?? 'http://localhost:4501/graphql'
 const API_URL = process.env.E2E_API_URL ?? 'http://localhost:4500/graphql'
 const PREVIEW_PORT = new URL(APP).port || '3001'
-const PORTS = [PREVIEW_PORT, 4501, 4502]
+const PROXY_PORT = new URL(PROXY_URL).port
+const CONTROL_PORT = new URL(PROXY_CONTROL).port
+const PORTS = [PREVIEW_PORT, PROXY_PORT, CONTROL_PORT]
 const children = []
 const start = makeSpawner(children, stationDir)
 const run = makeRunner(start)
@@ -24,7 +26,7 @@ async function main() {
   }
 
   // 2. Puertos libres (no se matan procesos ajenos).
-  for (const [port, label] of [[PREVIEW_PORT, 'station preview'], [4501, 'proxy'], [4502, 'control del proxy']]) {
+  for (const [port, label] of [[PREVIEW_PORT, 'station preview'], [PROXY_PORT, 'proxy'], [CONTROL_PORT, 'control del proxy']]) {
     if (await portBusy(Number(port))) {
       console.error(`El puerto ${port} (${label}) ya está en uso. Libéralo antes de correr el E2E.`)
       return 2
@@ -42,9 +44,12 @@ async function main() {
   await waitFor(PROXY_CONTROL + '/state', 'proxy de control', 30_000)
   await waitFor(APP + '/login', 'station preview', 60_000, (code) => code === 200)
 
-  // 4. Fase A. Pase lo que pase, el finally apaga los procesos.
+  // 4. Fase A y permisos por cargo (T-044). Pase lo que pase, el finally apaga los procesos.
   const testCode = await run('node', [join(here, 'offline-e2e.mjs')])
-  return testCode
+  const permisosCode = await run('node', [join(here, 'permisos-e2e.mjs')])
+  const licenciaCode = await run('node', [join(here, 'licencia-e2e.mjs')])
+  const estacionCode = await run('node', [join(here, 'estacion-e2e.mjs')])
+  return testCode || permisosCode || licenciaCode || estacionCode
 }
 
 process.on('SIGINT', () => {

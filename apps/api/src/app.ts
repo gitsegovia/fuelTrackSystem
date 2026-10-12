@@ -5,13 +5,12 @@ import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHt
 import express from "express";
 import http from "http";
 import cors from "cors";
-import { Request, Response, NextFunction } from "express";
 import config from "./config";
 import { sequelize, models } from "./models";
 import { typeDefs, resolvers } from "./graphql";
-import { verifyToken } from "./middleware/auth";
-import { AuthenticatedUser, Context } from "./interfaces";
-import { validateLicense } from "./utils/licenseValidator";
+import { loadRequestUser } from "./authz";
+import { Context } from "./interfaces";
+import { bootLicense, startDailyRevalidation } from "./license/service";
 import { createLoaders } from "./graphql/helpers/dataloaders";
 
 // Plugin que persiste un log por cada mutation que llega desde la cola offline.
@@ -49,18 +48,7 @@ const offlineAuditPlugin: ApolloServerPlugin<Context> = {
   },
 };
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: AuthenticatedUser;
-    }
-  }
-}
-
 async function startApolloServer() {
-  // Primero, validamos la licencia. La aplicación no se detendrá si falla.
-  const isLicenseValid = await validateLicense();
-
   const app = express();
   const httpServer = http.createServer(app);
 
@@ -80,32 +68,31 @@ async function startApolloServer() {
 
   await server.start();
 
+  // La BD hace falta para validar la licencia (modo CCI1 guarda la última licencia verificada
+  // para poder arrancar sin red) y para todo lo demás, así que se conecta primero.
+  try {
+    await sequelize.authenticate();
+    console.log("Connection to database has been established successfully.");
+    await sequelize.sync({ alter: true });
+    console.log("Database synced!");
+  } catch (error) {
+    console.error("Unable to connect to the database: ", error);
+    process.exit(1);
+  }
+
+  const isLicenseValid = await bootLicense(models);
+
   if (isLicenseValid) {
-    // Si la licencia es válida, configuramos GraphQL y la lógica de la base de datos.
+    // Si la licencia es válida (o en modo CCI1, utilizable aunque esté en solo lectura),
+    // configuramos GraphQL.
     console.log("Configurando el servidor GraphQL...");
     app.use(
       "/graphql",
       cors<cors.CorsRequest>(),
       express.json(),
-      async (req: Request, res: Response, next: NextFunction) => {
-        try {
-          const authHeader = req.headers.authorization;
-          const token =
-            authHeader && authHeader.startsWith("Bearer ")
-              ? authHeader.split(" ")[1]
-              : null;
-
-          if (token) {
-            req.user = verifyToken(token);
-          }
-        } catch (error: any) {
-          console.error("Autthentication check error: ", error.message);
-        }
-        next();
-      },
       expressMiddleware(server, {
         context: async ({ req }) => {
-          const user = req.user || undefined;
+          const user = await loadRequestUser(models, req.headers.authorization);
 
           const createdByHeader = req.headers["x-offline-created-by"];
           const offlineSource = createdByHeader
@@ -123,16 +110,7 @@ async function startApolloServer() {
         },
       })
     );
-
-    try {
-      await sequelize.authenticate();
-      console.log("Connection to database has been established successfully.");
-      await sequelize.sync({ alter: true });
-      console.log("Database synced!");
-    } catch (error) {
-      console.error("Unable to connect to the database: ", error);
-      process.exit(1);
-    }
+    startDailyRevalidation(models);
   } else {
     // Si la licencia NO es válida, configuramos una respuesta para todas las rutas.
     console.log("Servidor iniciado en modo de licencia inválida.");

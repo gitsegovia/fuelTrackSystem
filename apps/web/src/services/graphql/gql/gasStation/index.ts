@@ -6,6 +6,7 @@ const GAS_STATION_FRAGMENT = gql`
     name
     code
     address
+    active
     createdAt
     company { id name }
   }
@@ -13,8 +14,8 @@ const GAS_STATION_FRAGMENT = gql`
 
 export const QUERIES = {
   gasStations: gql`
-    query GasStations {
-      gasStations { ...GasStationFields }
+    query GasStations($active: Boolean) {
+      gasStations(active: $active) { ...GasStationFields }
     }
     ${GAS_STATION_FRAGMENT}
   `,
@@ -43,5 +44,12 @@ export const MUTATIONS = {
     mutation DeleteGasStation($id: UUID!) {
       deleteGasStation(id: $id)
     }
+  `,
+  // Solo ADMIN. No hay mutation de reactivar: solo Core Code Innovation, por script de servidor.
+  deactivateGasStation: gql`
+    mutation DeactivateGasStation($id: UUID!) {
+      deactivateGasStation(id: $id) { ...GasStationFields }
+    }
+    ${GAS_STATION_FRAGMENT}
   `,
 }

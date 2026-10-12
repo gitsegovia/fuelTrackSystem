@@ -3,6 +3,7 @@ type GasStation {
   name: String!
   code: String!
   address: String
+  active: Boolean! # T-055: desactivada = histórico, no cuenta en el tope de la licencia
   company: Company! # Relación: Una estación pertenece a una compañía
   createdAt: DateTime!
   updatedAt: DateTime!
@@ -27,10 +28,14 @@ input UpdateGasStationInput {
   code: String
   address: String
   companyId: UUID
+  # Sin "active" a propósito: no se puede activar ni desactivar por aquí (ver deactivateGasStation
+  # y el script de servidor reactivate-station).
 }
 
 extend type Query {
-  gasStations: [GasStation!]!
+  # Sin "active", trae todas (los reportes muestran todas); los selectores para operar pasan
+  # active: true.
+  gasStations(active: Boolean): [GasStation!]!
   gasStation(id: UUID!): GasStation
 }
 
@@ -38,4 +43,8 @@ extend type Mutation {
   createGasStation(input: CreateGasStationInput!): GasStation!
   updateGasStation(id: UUID!, input: UpdateGasStationInput!): GasStation
   deleteGasStation(id: UUID!): Boolean!
+  # Solo ADMIN. Rechaza con STATION_HAS_OPEN_WORK si hay un turno abierto o tickets sin completar.
+  # Reactivar NO tiene mutation (decisión de José, 2026-10-08): solo Core Code Innovation puede
+  # hacerlo, con el script de servidor reactivate-station. Ni siquiera el ADMIN del cliente puede.
+  deactivateGasStation(id: UUID!): GasStation!
 }

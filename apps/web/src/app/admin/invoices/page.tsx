@@ -8,6 +8,8 @@ import { Plus, Pencil, Trash2, PackagePlus, Lock, Eye } from 'lucide-react'
 import { QUERIES, MUTATIONS } from '@/services/graphql/gql/invoice'
 import { QUERIES as GasStationQueries } from '@/services/graphql/gql/gasStation'
 import { useAuth } from '@/hooks/useAuth'
+import { isStationScoped } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
@@ -46,15 +48,21 @@ type Invoice = {
 export default function InvoicesPage() {
   const router = useRouter()
   const { user } = useAuth()
+  const { license } = useLicense()
+  const canWrite = !license?.readOnly
+  const stationScoped = isStationScoped(user)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const [closeId, setCloseId] = useState<string | null>(null)
-  const [selectedStationId, setSelectedStationId] = useState<string>('')
+  const [selectedStationId, setSelectedStationId] = useState<string>(
+    stationScoped ? user?.assignedGasStation?.id ?? '' : ''
+  )
 
   const { data: stationsData } = useQuery<{
-    gasStations: { id: string; name: string; code: string; company: { id: string } }[]
+    gasStations: { id: string; name: string; code: string; active: boolean; company: { id: string } }[]
   }>(GasStationQueries.gasStations)
   const stations = (stationsData?.gasStations ?? []).filter(
-    (s) => !user?.company?.id || s.company.id === user.company.id
+    (s) => (!user?.company?.id || s.company.id === user.company.id)
+      && (!stationScoped || s.id === user?.assignedGasStation?.id)
   )
 
   const queryVariables = {
@@ -113,7 +121,7 @@ export default function InvoicesPage() {
           <Button variant="ghost" size="icon" title="Ver detalle" onClick={() => router.push(`/admin/invoices/${row.original.id}`)}>
             <Eye className="size-4" />
           </Button>
-          {row.original.status === 'PENDING' && (
+          {canWrite && row.original.status === 'PENDING' && (
             <>
               <Button variant="ghost" size="icon" title="Registrar descarga" onClick={() => router.push(`/admin/invoices/${row.original.id}/reception/new`)}>
                 <PackagePlus className="size-4" />
@@ -123,12 +131,16 @@ export default function InvoicesPage() {
               </Button>
             </>
           )}
-          <Button variant="ghost" size="icon" onClick={() => router.push(`/admin/invoices/${row.original.id}/edit`)}>
-            <Pencil className="size-4" />
-          </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
-            <Trash2 className="size-4 text-destructive" />
-          </Button>
+          {canWrite && (
+            <>
+              <Button variant="ghost" size="icon" onClick={() => router.push(`/admin/invoices/${row.original.id}/edit`)}>
+                <Pencil className="size-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setDeleteId(row.original.id)}>
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
@@ -163,11 +175,11 @@ export default function InvoicesPage() {
       <PageHeader
         title="Facturas de despacho"
         description="Registros de combustible recibido de proveedores"
-        action={
+        action={canWrite ? (
           <Button size="sm" onClick={() => router.push('/admin/invoices/new')}>
             <Plus className="size-4" /> Nueva factura
           </Button>
-        }
+        ) : undefined}
       />
 
       <div className="flex items-end gap-2">
@@ -176,10 +188,11 @@ export default function InvoicesPage() {
           className={selectClass}
           value={selectedStationId}
           onChange={(e) => setSelectedStationId(e.target.value)}
+          disabled={stationScoped}
         >
-          <option value="">Todas mis estaciones</option>
+          {!stationScoped && <option value="">Todas mis estaciones</option>}
           {stations.map((s) => (
-            <option key={s.id} value={s.id}>{s.name} ({s.code})</option>
+            <option key={s.id} value={s.id}>{s.name} ({s.code}){!s.active && ' — Desactivada'}</option>
           ))}
         </select>
       </div>

@@ -10,7 +10,7 @@ const SALE_TYPE_CONFIG_FRAGMENT = gql`
     salePricePerLiter
     percentage
     createdAt
-    gasStation { id name }
+    gasStation { id name active }
     fuelType { id name }
     currency { id name symbol }
   }

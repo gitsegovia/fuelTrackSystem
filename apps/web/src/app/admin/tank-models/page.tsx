@@ -3,6 +3,9 @@
 import { useState } from 'react'
 import { useQuery, useMutation } from '@apollo/client/react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
+import { canManageCatalogs } from '@/lib/permissions'
+import { useLicense } from '@/context/LicenseContext'
 import { toast } from 'sonner'
 import { Plus, Pencil, Trash2, TableProperties } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -26,6 +29,9 @@ interface TankModel {
 
 export default function TankModelsPage() {
   const router = useRouter()
+  const { user } = useAuth()
+  const { license } = useLicense()
+  const canManage = canManageCatalogs(user) && !license?.readOnly
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const { data, loading, refetch } = useQuery<{ tankModels: TankModel[] }>(QUERIES.tankModels)
@@ -69,7 +75,7 @@ export default function TankModelsPage() {
     {
       id: 'actions',
       header: '',
-      cell: ({ row }) => (
+      cell: ({ row }) => !canManage ? null : (
         <div className="flex items-center gap-1 justify-end">
           <Button
             variant="ghost"
@@ -104,12 +110,12 @@ export default function TankModelsPage() {
       <PageHeader
         title="Modelos de Tanque"
         description="Catálogo de modelos de tanques disponibles"
-        action={
+        action={canManage ? (
           <Button onClick={() => router.push('/admin/tank-models/new')} size="sm">
             <Plus className="size-4" />
             Nuevo modelo
           </Button>
-        }
+        ) : undefined}
       />
 
       <DataTable columns={columns} data={data?.tankModels ?? []} loading={loading} />
