@@ -43,6 +43,16 @@ export function isClockSkewed(localNow: Date, maxSeenAt: Date | null | undefined
   return seen.getTime() - localNow.getTime() > CLOCK_SKEW_THRESHOLD_MS;
 }
 
+// T-062 (nombres opcionales, ADR-021 de cci-licensing): instanceLabel y cada entrada de
+// usage.<clave>.labels deben tener 1 a 80 caracteres, sin saltos de línea. null si no queda nada
+// aprovechable después de recortar (no se manda un nombre vacío).
+export function clampLabel(value: string | null | undefined, max = 80): string | null {
+  if (!value) return null;
+  const flat = value.replace(/\s*[\r\n]+\s*/g, " ").trim();
+  if (!flat) return null;
+  return flat.slice(0, max);
+}
+
 // T-055, criterio 4: varias llamadas seguidas (desactivar varias estaciones una tras otra) se
 // juntan en una sola ejecución de `fn`, con el último argumento recibido. Genérico y sin red ni
 // BD para poder probarlo con delays cortos.
