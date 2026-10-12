@@ -2,7 +2,7 @@
 // Uso: node --loader ts-node/esm --experimental-specifier-resolution=node scripts/test-license-lifecycle.ts
 import { generateKeyPairSync, sign } from "node:crypto";
 import { verifyCciLicense } from "../src/license/cciLicense";
-import { computeStatus, createDebouncer, effectiveNow, isClockSkewed, maxDate } from "../src/license/lifecycle";
+import { clampLabel, computeStatus, createDebouncer, effectiveNow, isClockSkewed, maxDate } from "../src/license/lifecycle";
 import { isHardRejection } from "../src/license/service";
 
 let failures = 0;
@@ -124,6 +124,16 @@ check("SUBSCRIPTION_CANCELED sí es un rechazo duro", isHardRejection("SUBSCRIPT
 // de FuelTrack (informe mal formado), nunca fuerza solo lectura.
 check("SUBSCRIPTION_SUSPENDED sí es un rechazo duro", isHardRejection("SUBSCRIPTION_SUSPENDED"));
 check("INVALID_USAGE no es un rechazo duro (no fuerza solo lectura)", !isHardRejection("INVALID_USAGE"));
+// T-062: 429 RATE_LIMITED es igual que un error de red — nunca fuerza solo lectura.
+check("RATE_LIMITED no es un rechazo duro (no fuerza solo lectura)", !isHardRejection("RATE_LIMITED"));
+
+// 7b. T-062: clampLabel (instanceLabel y usage.stations.labels) — 1 a 80 caracteres, sin saltos
+// de línea, null si no queda nada aprovechable.
+check("clampLabel recorta espacios y deja el texto tal cual si entra en 80", clampLabel("  Estación Sur  ") === "Estación Sur");
+check("clampLabel corta a 80 caracteres", clampLabel("x".repeat(100))?.length === 80);
+check("clampLabel colapsa saltos de línea a un espacio", clampLabel("Cliente\nDemo C.A.") === "Cliente Demo C.A.");
+check("clampLabel de vacío o solo espacios da null (no se manda un nombre vacío)", clampLabel("   ") === null);
+check("clampLabel de null/undefined da null", clampLabel(null) === null && clampLabel(undefined) === null);
 
 // 8. T-055: createDebouncer (usado por scheduleImmediateRevalidation tras desactivar/reactivar
 // una estación). Delays cortos: no hace falta mockear el reloj.

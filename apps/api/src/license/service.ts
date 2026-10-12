@@ -4,7 +4,7 @@ import { GraphQLError } from "graphql";
 import { AppModels } from "../interfaces/models";
 import { validateLicense as validateLegacyLicense } from "../utils/licenseValidator";
 import { CciLicensePayload, verifyCciLicense } from "./cciLicense";
-import { computeStatus, createDebouncer, daysUntil, effectiveNow, graceEndsAt, isClockSkewed, maxDate, LicenseStatus } from "./lifecycle";
+import { clampLabel, computeStatus, createDebouncer, daysUntil, effectiveNow, graceEndsAt, isClockSkewed, maxDate, LicenseStatus } from "./lifecycle";
 
 // Fila única: no hace falta buscarla por ningún criterio de negocio.
 const SINGLETON_ID = "00000000-0000-0000-0000-000000000001";
@@ -93,14 +93,28 @@ async function getFingerprint(): Promise<string> {
 // T-058: orden por `createdAt` ascendente (recomendado por el contrato v2 para que la primera
 // validación adopte las estaciones más antiguas primero). Única fuente para el conteo y para el
 // informe de uso: nunca truncada ni paginada, para que el informe sea siempre completo.
-async function listActiveStationIds(models: AppModels): Promise<string[]> {
+async function listActiveStations(models: AppModels): Promise<Array<{ id: string; name: string }>> {
   const rows = await models.GasStation.findAll({
     where: { active: true },
     order: [["createdAt", "ASC"]],
-    attributes: ["id"],
+    attributes: ["id", "name"],
     raw: true,
   });
-  return rows.map((r: any) => r.id as string);
+  return rows as unknown as Array<{ id: string; name: string }>;
+}
+
+async function listActiveStationIds(models: AppModels): Promise<string[]> {
+  return (await listActiveStations(models)).map((s) => s.id);
+}
+
+// T-062 (nombres opcionales): el nombre de la instancia por defecto es el de la primera empresa
+// conocida — en la práctica una instalación tiene una sola empresa cliente. `LICENSE_INSTANCE_LABEL`
+// manda si está configurada.
+async function defaultInstanceLabel(models: AppModels): Promise<string | null> {
+  const env = process.env.LICENSE_INSTANCE_LABEL;
+  if (env) return env;
+  const company = await models.Company.findOne({ order: [["createdAt", "ASC"]], attributes: ["name"] });
+  return company?.name ?? null;
 }
 
 async function countActiveStations(models: AppModels): Promise<number> {
@@ -144,7 +158,8 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
   // "un informe parcial nunca libera recursos" del contrato). Si listarlas falla, no se valida
   // nada: se deja que la excepción se propague al catch de abajo como error transitorio (se
   // conserva lo guardado), en vez de mandar un `usage` incompleto o inventado.
-  const stationIds = await listActiveStationIds(models);
+  const stations = await listActiveStations(models);
+  const stationIds = stations.map((s) => s.id);
   const activeStations = stationIds.length;
 
   // Mismo registro que usa el rechazo explícito del servidor (HARD_REJECTIONS): no es un
@@ -163,19 +178,54 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
       lastError,
     });
 
+  // T-062 (nombres opcionales, ADR-021): aditivo y nunca obligatorio — si no hay nombre
+  // aprovechable, simplemente no se manda esa clave. `labels` solo lleva los ids que también
+  // están en `ids` (los mismos `stationIds`), nunca más entradas que ids.
+  const labels = Object.fromEntries(
+    stations
+      .map((s) => [s.id, clampLabel(s.name)] as const)
+      .filter((entry): entry is [string, string] => entry[1] !== null)
+  );
+  const instanceLabel = clampLabel(await defaultInstanceLabel(models));
+
+  const credential: Record<string, unknown> = {};
+  if (row?.licenseToken) credential.license = row.licenseToken;
+  else if (licenseKey) credential.licenseKey = licenseKey;
+  else throw new Error("Falta LICENSE_KEY y no hay ninguna licencia guardada todavía.");
+
   // Corte limpio v1 -> v2: `activeStations` ya no existe en la petición, reemplazado por `usage`
   // con la clave "stations" de FuelTrack (ADR-009 de cci-licensing).
-  const body: Record<string, unknown> = {
+  const bodyWithNames: Record<string, unknown> = {
+    ...credential,
+    fingerprint,
+    version,
+    usage: { stations: { active: activeStations, ids: stationIds, ...(Object.keys(labels).length ? { labels } : {}) } },
+    ...(instanceLabel ? { instanceLabel } : {}),
+  };
+  // Mismo cuerpo, sin nombres: reintento ante INVALID_LABEL. "Un nombre nunca puede dejar sin
+  // validar" — la validación siempre sigue adelante, con o sin nombres.
+  const bodyWithoutNames: Record<string, unknown> = {
+    ...credential,
     fingerprint,
     version,
     usage: { stations: { active: activeStations, ids: stationIds } },
   };
-  if (row?.licenseToken) body.license = row.licenseToken;
-  else if (licenseKey) body.licenseKey = licenseKey;
-  else throw new Error("Falta LICENSE_KEY y no hay ninguna licencia guardada todavía.");
+
+  const postValidate = (body: Record<string, unknown>) =>
+    axios.post(`${licenseServerUrl}/v1/licenses/validate`, body, { timeout: 8000 });
 
   try {
-    const { data } = await axios.post(`${licenseServerUrl}/v1/licenses/validate`, body, { timeout: 8000 });
+    let data: any;
+    try {
+      ({ data } = await postValidate(bodyWithNames));
+    } catch (nameError: any) {
+      if (nameError.response?.data?.code !== "INVALID_LABEL") throw nameError;
+      console.warn(
+        "[licencia] el nombre de la instancia fue rechazado (INVALID_LABEL); reintentando sin nombres:",
+        nameError.response?.data?.message ?? nameError.message
+      );
+      ({ data } = await postValidate(bodyWithoutNames));
+    }
     const token = data.license as string;
     const rawPayload = publicKeyPem ? verifyCciLicense(token, publicKeyPem) : null;
     if (!rawPayload) {
@@ -223,11 +273,36 @@ export async function fetchAndStore(models: AppModels): Promise<void> {
       if (row) await row.update({ lastError: `INVALID_USAGE: ${detail}` });
       return;
     }
+    if (error.response?.status === 429 || code === "RATE_LIMITED") {
+      // T-062: igual que un error de red — no fuerza solo lectura y se conserva lo guardado. El
+      // próximo intento se programa después de Retry-After, sin pasar por el antirrebote de
+      // T-055 (que solo junta ráfagas de mutations; aquí el servidor ya dijo cuánto esperar).
+      const retryAfterSeconds = Number(
+        error.response?.data?.retryAfterSeconds ?? error.response?.headers?.["retry-after"] ?? 60
+      );
+      console.warn(`[licencia] límite de tasa (429): se reintenta en ${retryAfterSeconds}s, se sigue con lo guardado`);
+      if (row) await row.update({ lastError: `RATE_LIMITED: reintento en ${retryAfterSeconds}s` });
+      scheduleRateLimitRetry(models, retryAfterSeconds);
+      return;
+    }
     // Sin red u otro error transitorio: se conserva la última licencia guardada y se sigue
     // operando con la fecha local (criterio "arranque sin red con la licencia guardada").
     console.warn("[licencia] no se pudo validar contra CCI Licencias, se sigue con lo guardado:", error.message);
     if (row) await row.update({ lastError: error.message });
   }
+}
+
+// T-062: temporizador único (no debounced) para el reintento tras un 429 — a diferencia del
+// antirrebote de T-055 (que junta ráfagas de llamadas en una ventana fija de 30s), este espera
+// exactamente lo que pidió el servidor y no se reinicia si ya hay uno programado.
+let rateLimitRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleRateLimitRetry(models: AppModels, retryAfterSeconds: number): void {
+  if (rateLimitRetryTimer) return;
+  rateLimitRetryTimer = setTimeout(() => {
+    rateLimitRetryTimer = null;
+    fetchAndStore(models).catch((e) => console.warn("[licencia] reintento tras 429 falló:", e.message));
+  }, Math.max(1, retryAfterSeconds) * 1000);
 }
 
 // Throttle del log (en memoria, no en BD): basta con avisar una vez por hora aunque el estado se
