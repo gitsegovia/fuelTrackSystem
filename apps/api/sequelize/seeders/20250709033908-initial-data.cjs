@@ -41,15 +41,26 @@ module.exports = {
     const PWD = bcrypt.hashSync('Demo1234!', 10);
 
     // ─────────────────────────────────────────────────────────────────────────
-    // IDs fijos — deterministas para que down() sea confiable si se necesita
+    // IDs fijos dentro de esta corrida — una sola vez por variable, reutilizados en todos los
+    // inserts que los referencian (así quedan consistentes entre tablas). La mayoría son aleatorios
+    // de una corrida a otra (uuidv4()); las dos excepciones (stNorteId, stSurId) están marcadas
+    // abajo y son fijas también ENTRE corridas.
     // ─────────────────────────────────────────────────────────────────────────
 
     // Empresa
     const companyId = uuidv4();
 
-    // Estaciones
-    const stNorteId = uuidv4();
-    const stSurId   = uuidv4();
+    // Estaciones: ids FIJOS a propósito (T-064), a diferencia de todo lo demás en este seed.
+    // La demo online valida contra CCI Licencias (instancia G, atada a su fingerprint) y le informa
+    // estas dos estaciones por id; si cada `down -v` + `up` les diera un UUID nuevo, cada reset
+    // liberaría las estaciones viejas en CCI y sumaría otras, llenando el panel y el portal del
+    // cliente de estaciones "desactivadas". Con ids fijos, todo reset de la demo informa las mismas
+    // dos estaciones. Este seed solo corre en demo/dev (SEED_DB=true en docker-entrypoint.sh,
+    // condicionado además a que `companies` esté vacía); producción nunca lo corre — usa
+    // bootstrap-admin para crear el primer usuario y sus propias estaciones, con ids aleatorios
+    // reales, sin este problema.
+    const stNorteId = '32c626d2-03ad-4cae-b665-f41f4c60e82b';
+    const stSurId   = '56bdb1b2-a354-4b94-9851-1c4b53a0141a';
 
     // Monedas
     const usdId = uuidv4();
