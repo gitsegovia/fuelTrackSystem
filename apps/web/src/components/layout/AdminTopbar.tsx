@@ -1,6 +1,10 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { format } from 'date-fns'
 import { useAuth } from '@/hooks/useAuth'
+import { useLicense } from '@/context/LicenseContext'
+import { isAdminRole } from '@/lib/permissions'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -13,10 +17,14 @@ import { LogOut, User } from 'lucide-react'
 
 export function AdminTopbar() {
   const { user, logout } = useAuth()
+  const { license } = useLicense()
+  const router = useRouter()
 
   const initials = user?.username
     ? user.username.slice(0, 2).toUpperCase()
     : 'FT'
+
+  const showLicense = isAdminRole(user) && license?.mode === 'CCI1'
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-6">
@@ -32,13 +40,44 @@ export function AdminTopbar() {
             </AvatarFallback>
           </Avatar>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-64">
           <div className="px-2 py-1.5">
             <p className="text-sm font-medium">{user?.username}</p>
             <p className="text-xs text-muted-foreground">{user?.company?.name}</p>
           </div>
+          {showLicense && license && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 space-y-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
+                  Licencia
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Plan {license.plan ?? '—'} · {license.customerName ?? '—'}
+                </p>
+                {license.trial && (
+                  <p className="text-xs text-amber-500">
+                    Período de prueba — termina el {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+                  </p>
+                )}
+                {!license.trial && (
+                  <p className="text-xs text-muted-foreground">
+                    Vence: {license.expiresAt ? format(new Date(license.expiresAt), 'dd/MM/yyyy') : '—'}
+                  </p>
+                )}
+                {license.maxStations != null && (
+                  <p className="text-xs text-muted-foreground">
+                    Estaciones: {license.activeStations} de {license.maxStations}
+                  </p>
+                )}
+                <p className="text-xs text-muted-foreground/70">
+                  Última validación: {license.lastValidatedAt ? format(new Date(license.lastValidatedAt), 'dd/MM/yyyy HH:mm') : '—'}
+                </p>
+              </div>
+            </>
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="gap-2">
+          <DropdownMenuItem className="gap-2" onClick={() => router.push('/admin/profile')}>
             <User className="size-4" />
             Perfil
           </DropdownMenuItem>
