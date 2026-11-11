@@ -600,25 +600,40 @@ module.exports = {
   // ─────────────────────────────────────────────────────────────────────────
   down: async (queryInterface) => queryInterface.sequelize.transaction(async (transaction) => {
     const del = (table) => queryInterface.bulkDelete(table, null, { transaction });
-    await del('invoice_payments');
-    await del('dispatch_receptions');
-    await del('tank_measurements');
+
+    // Orden inverso de FKs (T-066). No solo las tablas que llena este seed: también las que se
+    // llenan por uso normal de la app y referencian lo sembrado (tickets, facturas, pagos,
+    // sesiones, logs offline, reembolsos, cierres de auditoría) — si quedan filas ahí, el borrado
+    // de users/gas_stations/currencies/etc. más abajo viola sus FKs. license_states también se
+    // borra: tras el undo, la siguiente validación contra CCI Licencias vuelve a adoptar las
+    // estaciones con los ids fijos de T-064, así que no se pierde nada.
+    await del('refresh_tokens');
+    await del('ticket_refunds');
     await del('payments');
-    await del('sales_tickets');
     await del('dispenser_readings');
+    await del('tank_measurements');
+    await del('invoice_payments');
+    await del('audit_period_closes');
+    await del('tank_assignments');
+    await del('offline_mutation_logs');
+    await del('license_states');
+    await del('auth_sessions');
+    await del('sales_tickets');
+    await del('dispatch_receptions');
     await del('employee_shifts');
     await del('dispenser_nozzles');
+    await del('invoices');
     await del('dispensers');
-    await del('pump_islands');
-    await del('tank_calibration_entries');
-    await del('tanks');
-    await del('tank_models');
-    await del('sale_type_configs');
     await del('employees');
+    await del('sale_type_configs');
+    await del('tanks');
+    await del('pump_islands');
     await del('users');
-    await del('currencies');
-    await del('fuel_types');
+    await del('tank_calibration_entries');
     await del('gas_stations');
+    await del('fuel_types');
+    await del('currencies');
+    await del('tank_models');
     await del('companies');
   })
 };
