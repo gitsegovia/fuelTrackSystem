@@ -1,0 +1,48 @@
+# Overlay CCI1 (OPCIONAL) — se suma al final de docker-compose.yml +
+# docker-compose.prod.yml + docker-compose.online.yml para que la demo
+# online valide su licencia contra CCI Licencias de desarrollo
+# (`cci-lic-dev`, instancia G, "Demo FuelTrack web") en modo CCI1, en vez del
+# servidor legado de `:4100` (T-065).
+#
+# Sin este overlay, la demo sigue exactamente igual que hoy (modo LEGACY,
+# CCILicenseServer en :4100) — no cambia nada por default.
+#
+# Uso (se agrega al final de la cadena de -f de la sección 4 del runbook):
+#   docker compose --env-file .env.online -f docker-compose.yml \
+#     -f docker-compose.prod.yml -f docker-compose.online.yml \
+#     -f docker-compose.online-cci.yml up -d --build
+#
+# Requiere:
+#   - `cci-lic-dev` ENCENDIDO antes del "up" (repo hermano `cci-licensing`:
+#     `npm run lic-dev -- up`). La red `cci-licencias-net` (nombre fijo) solo
+#     existe mientras `cci-lic-dev` está arriba. Si no existe, Compose
+#     **falla al levantar** ("network cci-licencias-net declared as
+#     external, but could not be found") — en ese caso, usar el comando sin
+#     este overlay (vuelve al modo legado).
+#   - `CCI_LICENSE_KEY` y `CCI_LICENSE_PUBLIC_KEY_FILE` en `.env.online` (ver
+#     `.env.online.example`). La `licenseKey` de la instancia G la entrega
+#     José fuera de cualquier archivo versionado — nunca va en
+#     `apps/api/.env.docker` (ese sigue con la clave del modo legado) ni en
+#     ningún commit.
+#
+# Qué pasa si se apaga `cci-lic-dev` después de arrancar: la API ya guardó la
+# última licencia válida en `license_states` y sigue funcionando con ella
+# (arranca y opera sin red); solo necesita la red para revalidar cada 24 h.
+# Si se reinicia `fueltrack-api` con `cci-lic-dev` apagado, usa la licencia
+# guardada igual (no hace falta la red en cada arranque, solo para validar).
+
+services:
+  api:
+    networks:
+      - cci-licencias-net
+    volumes:
+      - ${CCI_LICENSE_PUBLIC_KEY_FILE:-../cci-licensing/secrets/license-public.pem}:/run/secrets/license-public.pem:ro
+    environment:
+      LICENSE_SERVER_URL: http://cci-licencias-api:3000
+      LICENSE_PUBLIC_KEY_PATH: /run/secrets/license-public.pem
+      LICENSE_KEY: ${CCI_LICENSE_KEY}
+
+networks:
+  cci-licencias-net:
+    external: true
+    name: cci-licencias-net
