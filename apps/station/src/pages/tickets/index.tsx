@@ -72,7 +72,37 @@ export default function TicketsPage() {
         title="Tickets de venta"
         description="Todas las ventas de la estación"
       />
-      <DataTable columns={columns} data={tickets} loading={loading} />
+      <DataTable
+        columns={columns}
+        data={tickets}
+        loading={loading}
+        mobileCard={(t) => (
+          <button
+            type="button"
+            onClick={() => navigate(`/tickets/${t.id}`)}
+            className="w-full rounded-lg border bg-card p-3 text-left active:bg-muted/50"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="font-medium">
+                #{t.ticketNumber} · {t.fuelType.name}
+              </p>
+              <Badge variant="outline" className="shrink-0">
+                {TICKET_STATUS_LABELS[t.status] ?? t.status}
+              </Badge>
+            </div>
+            <div className="mt-1 flex items-end justify-between gap-2 text-sm">
+              <span className="text-muted-foreground">
+                {parseFloat(t.requestedLiters).toLocaleString()} L · {t.assignedSaleTypeConfig.saleTypeName}
+              </span>
+              <span className="font-semibold">
+                {t.assignedSaleTypeConfig.currency.symbol}{' '}
+                {parseFloat(t.totalAmountExpected).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{format(new Date(t.ticketIssueTime), 'HH:mm')}</p>
+          </button>
+        )}
+      />
     </div>
   )
 }
