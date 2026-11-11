@@ -79,7 +79,32 @@ export default function ShiftsPage() {
           )
         }
       />
-      <DataTable columns={columns} data={shifts} loading={loading} />
+      <DataTable
+        columns={columns}
+        data={shifts}
+        loading={loading}
+        mobileCard={(s) => (
+          <button
+            type="button"
+            onClick={() => navigate(`/shifts/${s.id}`)}
+            className="w-full rounded-lg border bg-card p-3 text-left active:bg-muted/50"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{s.employee.firstName} {s.employee.lastName}</p>
+                <p className="text-xs text-muted-foreground">{s.employeeRole}</p>
+              </div>
+              {s.shiftEndTime ? null : (
+                <Badge variant="outline" className="shrink-0 text-primary border-primary/40">Activo</Badge>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {format(new Date(s.shiftStartTime), 'dd/MM/yyyy HH:mm')}
+              {s.shiftEndTime ? ` → ${format(new Date(s.shiftEndTime), 'dd/MM/yyyy HH:mm')}` : ''}
+            </p>
+          </button>
+        )}
+      />
     </div>
   )
 }

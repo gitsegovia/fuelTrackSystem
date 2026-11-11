@@ -1,3 +1,4 @@
+import type * as React from 'react'
 import {
   flexRender,
   getCoreRowModel,
@@ -20,6 +21,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   loading?: boolean
   options?: Partial<TableOptions<TData>>
+  /** Si se da, debajo de md se muestran tarjetas en lugar de la tabla. */
+  mobileCard?: (row: TData) => React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
@@ -27,6 +30,7 @@ export function DataTable<TData, TValue>({
   data,
   loading = false,
   options = {},
+  mobileCard,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
@@ -35,8 +39,24 @@ export function DataTable<TData, TValue>({
     ...options,
   })
 
+  const rows = table.getRowModel().rows
+
+  const cards = mobileCard && (
+    <div className="space-y-2 md:hidden">
+      {loading ? (
+        Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 w-full rounded-lg" />)
+      ) : rows.length ? (
+        rows.map((row) => <div key={row.id}>{mobileCard(row.original)}</div>)
+      ) : (
+        <p className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">Sin resultados.</p>
+      )}
+    </div>
+  )
+
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
+    <>
+    {cards}
+    <div className={mobileCard ? 'hidden md:block rounded-lg border bg-card overflow-x-auto' : 'rounded-lg border bg-card overflow-x-auto'}>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -82,5 +102,6 @@ export function DataTable<TData, TValue>({
         </TableBody>
       </Table>
     </div>
+    </>
   )
 }
