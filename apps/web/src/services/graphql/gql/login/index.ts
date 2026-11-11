@@ -14,6 +14,12 @@ export const USER_FRAGMENT = gql`
       id
       name
     }
+    employeeProfile {
+      id
+      firstName
+      lastName
+      position
+    }
   }
 `
 

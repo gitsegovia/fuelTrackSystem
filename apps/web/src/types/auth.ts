@@ -20,6 +20,12 @@ export interface AuthUser {
     id: string
     name: string
   } | null
+  employeeProfile: {
+    id: string
+    firstName: string
+    lastName: string
+    position: string
+  } | null
 }
 
 export interface LoginParams {
