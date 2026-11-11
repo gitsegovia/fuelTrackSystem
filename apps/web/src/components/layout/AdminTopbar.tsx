@@ -15,6 +15,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { LogOut, User } from 'lucide-react'
 
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  MANAGER: 'Gerente',
+  EMPLOYEE: 'Empleado',
+}
+
 export function AdminTopbar() {
   const { user, logout } = useAuth()
   const { license } = useLicense()
@@ -43,6 +49,10 @@ export function AdminTopbar() {
         <DropdownMenuContent align="end" className="w-64">
           <div className="px-2 py-1.5">
             <p className="text-sm font-medium">{user?.username}</p>
+            <p className="text-xs text-muted-foreground">
+              {user?.role ? ROLE_LABELS[user.role] ?? user.role : ''}
+              {user?.userType ? ` · ${user.userType}` : ''}
+            </p>
             <p className="text-xs text-muted-foreground">{user?.company?.name}</p>
           </div>
           {showLicense && license && (

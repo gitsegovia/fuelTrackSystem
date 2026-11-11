@@ -2,11 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Building2, Fuel, Users, LogOut, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Building2, Fuel, Users, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { canAccessRoute } from '@/lib/permissions'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 
 const navGroups = [
@@ -46,7 +45,7 @@ const navGroups = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
@@ -61,7 +60,7 @@ export function AdminSidebar() {
       <Separator className="bg-sidebar-border" />
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-4">
+      <nav className="flex-1 overflow-y-auto overscroll-contain px-3 py-4 space-y-4 scrollbar-thin">
         {navGroups.map((group, i) => {
           const items = group.items.filter(({ href }) => canAccessRoute(user, href))
           if (items.length === 0) return null
@@ -94,27 +93,6 @@ export function AdminSidebar() {
           )
         })}
       </nav>
-
-      <Separator className="bg-sidebar-border" />
-
-      {/* User + Logout */}
-      <div className="px-3 py-4 space-y-2">
-        {user && (
-          <div className="px-3 py-2">
-            <p className="text-xs font-medium text-sidebar-foreground">{user.username}</p>
-            <p className="text-xs text-sidebar-foreground/50">{user.role}</p>
-          </div>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={logout}
-          className="w-full justify-start gap-3 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <LogOut className="size-4" />
-          Cerrar sesión
-        </Button>
-      </div>
     </aside>
   )
 }

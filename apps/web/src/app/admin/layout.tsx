@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="flex flex-1 flex-col overflow-hidden">
           <AdminTopbar />
           <LicenseBanner />
-          <main className="flex-1 overflow-y-auto p-6 bg-muted/20">
+          <main className="flex-1 overflow-y-auto overscroll-contain p-6 bg-muted/20 scrollbar-thin">
             {canAccessRoute(user, pathname) ? children : <AccessDenied />}
           </main>
         </div>
