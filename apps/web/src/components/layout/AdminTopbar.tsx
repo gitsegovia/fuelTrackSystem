@@ -21,6 +21,14 @@ const ROLE_LABELS: Record<string, string> = {
   EMPLOYEE: 'Empleado',
 }
 
+const USER_TYPE_LABELS: Record<string, string> = {
+  Administrator: 'Administrador',
+  Supervisor: 'Supervisor',
+  Cashier: 'Cajero',
+  FuelAttendant: 'Bombero',
+  Administrative: 'Administrativo',
+}
+
 export function AdminTopbar() {
   const { user, logout } = useAuth()
   const { license } = useLicense()
@@ -31,6 +39,10 @@ export function AdminTopbar() {
     : 'FT'
 
   const showLicense = isAdminRole(user) && license?.mode === 'CCI1'
+
+  const roleLabel = user?.role ? ROLE_LABELS[user.role] ?? user.role : ''
+  const userTypeLabel = user?.userType ? USER_TYPE_LABELS[user.userType] ?? user.userType : ''
+  const cargoLabel = userTypeLabel && userTypeLabel !== roleLabel ? userTypeLabel : null
 
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-6">
@@ -50,8 +62,8 @@ export function AdminTopbar() {
           <div className="px-2 py-1.5">
             <p className="text-sm font-medium">{user?.username}</p>
             <p className="text-xs text-muted-foreground">
-              {user?.role ? ROLE_LABELS[user.role] ?? user.role : ''}
-              {user?.userType ? ` · ${user.userType}` : ''}
+              {roleLabel}
+              {cargoLabel ? ` · ${cargoLabel}` : ''}
             </p>
             <p className="text-xs text-muted-foreground">{user?.company?.name}</p>
           </div>
