@@ -144,7 +144,7 @@ export default function EditInvoicePage() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Placa del camión *</Label>
                 <Input {...register('truckPlate')} aria-invalid={!!errors.truckPlate} />
@@ -156,7 +156,7 @@ export default function EditInvoicePage() {
                 {errors.tankPlate && <p className="text-xs text-destructive">{errors.tankPlate.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Nombre del chofer *</Label>
                 <Input {...register('driverName')} aria-invalid={!!errors.driverName} />
@@ -168,7 +168,7 @@ export default function EditInvoicePage() {
                 {errors.driverIdNumber && <p className="text-xs text-destructive">{errors.driverIdNumber.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Combustible *</Label>
                 <select {...register('fuelKind')} className={selectClass}>
@@ -179,7 +179,7 @@ export default function EditInvoicePage() {
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fecha de despacho *</Label>
                 <div className="flex items-center gap-2">
@@ -215,7 +215,7 @@ export default function EditInvoicePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Destino y montos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Estación *</Label>
                 <select {...register('gasStationId')} className={selectClass}>

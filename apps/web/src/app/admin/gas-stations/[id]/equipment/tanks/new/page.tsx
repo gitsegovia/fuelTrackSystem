@@ -105,7 +105,7 @@ export default function NewTankPage() {
               {errors.tankModelId && <p className="text-xs text-destructive">{errors.tankModelId.message}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="maxCapacityLiters">Capacidad máx. (L) *</Label>
                 <Input id="maxCapacityLiters" placeholder="10000" {...register('maxCapacityLiters')} aria-invalid={!!errors.maxCapacityLiters} />

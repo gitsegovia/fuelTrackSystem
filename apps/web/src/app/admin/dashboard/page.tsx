@@ -222,9 +222,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Controles: estación + rango */}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <select
-          className={selectClass}
+          className={cn(selectClass, 'w-full sm:w-auto')}
           value={selectedStationId}
           onChange={(e) => setSelectedStationId(e.target.value)}
           disabled={stationScoped}
@@ -281,7 +281,7 @@ export default function DashboardPage() {
 
       {loadingTickets ? (
         <div className="grid gap-4 lg:grid-cols-3">
-          <Skeleton className="h-72 col-span-2" />
+          <Skeleton className="h-72 lg:col-span-2" />
           <Skeleton className="h-72" />
         </div>
       ) : currentTicketCount === 0 ? (

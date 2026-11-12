@@ -128,17 +128,17 @@ export default function NewDispatchReceptionPage() {
 
       {invoice && (
         <div className={`rounded-lg border px-4 py-3 text-sm space-y-2 ${isClosed ? 'bg-muted border-muted-foreground/20' : 'bg-muted/30'}`}>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Estado</span>
             <span className={`font-medium ${isClosed ? 'text-muted-foreground' : 'text-primary'}`}>
               {isClosed ? 'Cerrada' : 'Pendiente'}
             </span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Litros facturados</span>
             <span>{totalLiters.toLocaleString()} L</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Ya recibidos</span>
             <span>{receivedLiters.toLocaleString()} L</span>
           </div>
@@ -207,7 +207,7 @@ export default function NewDispatchReceptionPage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Lecturas del tanque</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Altura inicial (cm) *</Label>
                 <Input type="number" step="0.1" placeholder="0.0" {...register('initialTankReadingCm')} aria-invalid={!!errors.initialTankReadingCm} />
@@ -219,7 +219,7 @@ export default function NewDispatchReceptionPage() {
                 {errors.finalTankReadingCm && <p className="text-xs text-destructive">{errors.finalTankReadingCm.message}</p>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Volumen inicial (L) *</Label>
                 <Input type="number" step="0.01" placeholder="0.00" {...register('initialTankVolumeLiters')} aria-invalid={!!errors.initialTankVolumeLiters} />

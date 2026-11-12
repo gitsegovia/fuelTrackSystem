@@ -129,7 +129,7 @@ export default function NewSaleTypeConfigPage() {
               {errors.currencyId && <p className="text-xs text-destructive">{errors.currencyId.message}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Precio por litro *</Label>
                 <Input type="number" step="0.0001" placeholder="0.0000" {...register('salePricePerLiter')} aria-invalid={!!errors.salePricePerLiter} />

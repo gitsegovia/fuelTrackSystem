@@ -92,7 +92,7 @@ export default function NewEmployeePage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Usuario *</Label>
                 <Input
@@ -114,7 +114,7 @@ export default function NewEmployeePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Rol *</Label>
                 <select {...register('role')} className={selectClass}>
@@ -157,7 +157,7 @@ export default function NewEmployeePage() {
               {errors.gasStationId && <p className="text-xs text-destructive">{errors.gasStationId.message}</p>}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Nombre *</Label>
                 <Input

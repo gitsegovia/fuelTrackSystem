@@ -167,7 +167,7 @@ export default function EditUserPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="role">Rol *</Label>
                 <select id="role" className={selectClass} {...register('role')}>

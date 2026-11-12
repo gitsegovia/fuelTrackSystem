@@ -63,15 +63,17 @@ function NozzleList({ dispenserId, stationId, islandId, canWrite, onEdit, onDele
         <p className="py-3 px-12 text-xs text-muted-foreground">Sin boquillas registradas</p>
       ) : (
         nozzles.map((nozzle) => (
-          <div key={nozzle.id} className="flex items-center gap-3 px-12 py-2 border-t border-border/40 hover:bg-muted/30 transition-colors">
-            <CircleDot className="size-3.5 shrink-0 text-muted-foreground" />
-            <span className="text-sm font-medium flex-1">{nozzle.name}</span>
-            <span className="text-xs text-muted-foreground">Lectura: {parseFloat(nozzle.currentMeterReading).toLocaleString()}</span>
-            <Badge variant={nozzle.isOperational ? 'default' : 'secondary'} className="text-xs">
-              {nozzle.isOperational ? 'Operativa' : 'Inactiva'}
-            </Badge>
+          <div key={nozzle.id} className="flex flex-col gap-2 px-6 py-2 border-t border-border/40 hover:bg-muted/30 transition-colors sm:flex-row sm:items-center sm:px-12">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <CircleDot className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="text-sm font-medium truncate">{nozzle.name}</span>
+              <span className="text-xs text-muted-foreground truncate">Lectura: {parseFloat(nozzle.currentMeterReading).toLocaleString()}</span>
+              <Badge variant={nozzle.isOperational ? 'default' : 'secondary'} className="ml-auto shrink-0 text-xs sm:ml-0">
+                {nozzle.isOperational ? 'Operativa' : 'Inactiva'}
+              </Badge>
+            </div>
             {canWrite && (
-              <>
+              <div className="flex items-center gap-1 self-end sm:self-auto">
                 <Button variant="ghost" size="icon-sm" onClick={() => onEdit(nozzle.id)}>
                   <Pencil className="size-3.5" />
                 </Button>
@@ -79,13 +81,13 @@ function NozzleList({ dispenserId, stationId, islandId, canWrite, onEdit, onDele
                   onClick={() => onDelete({ type: 'nozzle', id: nozzle.id, name: nozzle.name, dispenserId })}>
                   <Trash2 className="size-3.5" />
                 </Button>
-              </>
+              </div>
             )}
           </div>
         ))
       )}
       {canWrite && (
-        <div className="px-12 py-2 border-t border-border/40">
+        <div className="px-6 sm:px-12 py-2 border-t border-border/40">
           <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
             onClick={() => router.push(`/admin/gas-stations/${stationId}/equipment/nozzles/new?dispenserId=${dispenserId}&expandIsland=${islandId}`)}>
             <Plus className="size-3.5" /> Añadir boquilla
@@ -282,27 +284,27 @@ export default function EquipmentPage() {
                 <div key={island.id} className={cn(idx > 0 && 'border-t border-border')}>
                   {/* Island row */}
                   <div className={cn(
-                    'flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors',
+                    'flex flex-col gap-2 px-4 py-3 hover:bg-muted/30 transition-colors sm:flex-row sm:items-center',
                     isActive && 'border-l-2 border-l-amber-500 bg-amber-500/5'
                   )}>
                     <button
                       onClick={() => toggleIsland(island.id)}
-                      className="flex items-center gap-2 flex-1 text-left"
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
                       {islandOpen
                         ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
                         : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
                       <Layers className={cn('size-4 shrink-0', isActive ? 'text-amber-500' : 'text-primary')} />
-                      <span className="text-sm font-semibold">{island.name}</span>
+                      <span className="text-sm font-semibold truncate">{island.name}</span>
                       {island.description && (
                         <span className="text-xs text-muted-foreground truncate">— {island.description}</span>
                       )}
-                      <Badge variant="secondary" className="ml-auto text-xs">
+                      <Badge variant="secondary" className="ml-auto shrink-0 text-xs">
                         {islandDispensers.length} disp.
                       </Badge>
                     </button>
                     {canWrite && (
-                      <>
+                      <div className="flex items-center gap-1 self-end sm:self-auto">
                         <Button variant="ghost" size="icon-sm"
                           onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
                           <Plus className="size-4" />
@@ -315,7 +317,7 @@ export default function EquipmentPage() {
                           onClick={() => setDeleteTarget({ type: 'island', id: island.id, name: island.name })}>
                           <Trash2 className="size-4" />
                         </Button>
-                      </>
+                      </div>
                     )}
                   </div>
 
@@ -330,25 +332,25 @@ export default function EquipmentPage() {
                           return (
                             <div key={disp.id} className="border-t border-border/50">
                               {/* Dispenser row */}
-                              <div className="flex items-center gap-3 px-8 py-2.5 hover:bg-muted/20 transition-colors">
+                              <div className="flex flex-col gap-2 px-4 py-2.5 hover:bg-muted/20 transition-colors sm:flex-row sm:items-center sm:px-8">
                                 <button
                                   onClick={() => toggleDispenser(disp.id)}
-                                  className="flex items-center gap-2 flex-1 text-left"
+                                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
                                 >
                                   {dispOpen
                                     ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
                                     : <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />}
                                   <Gauge className="size-3.5 text-amber-500 shrink-0" />
-                                  <span className="text-sm font-medium">{disp.name}</span>
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-sm font-medium truncate">{disp.name}</span>
+                                  <span className="text-xs text-muted-foreground truncate">
                                     {disp.fuelType.name} · {disp.tank.name}
                                   </span>
-                                  <Badge variant={disp.isOperational ? 'default' : 'secondary'} className="ml-auto text-xs">
+                                  <Badge variant={disp.isOperational ? 'default' : 'secondary'} className="ml-auto shrink-0 text-xs">
                                     {disp.isOperational ? 'Operativo' : 'Inactivo'}
                                   </Badge>
                                 </button>
                                 {canWrite && (
-                                  <>
+                                  <div className="flex items-center gap-1 self-end sm:self-auto">
                                     <Button variant="ghost" size="icon-sm"
                                       onClick={() => router.push(navTo(`dispensers/${disp.id}/edit?expandIsland=${island.id}`))}>
                                       <Pencil className="size-3.5" />
@@ -357,7 +359,7 @@ export default function EquipmentPage() {
                                       onClick={() => setDeleteTarget({ type: 'dispenser', id: disp.id, name: disp.name })}>
                                       <Trash2 className="size-3.5" />
                                     </Button>
-                                  </>
+                                  </div>
                                 )}
                               </div>
 
@@ -377,7 +379,7 @@ export default function EquipmentPage() {
                         })
                       )}
                       {canWrite && (
-                        <div className="px-8 py-2 border-t border-border/50">
+                        <div className="px-4 sm:px-8 py-2 border-t border-border/50">
                           <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5"
                             onClick={() => router.push(navTo(`dispensers/new?pumpIslandId=${island.id}&expandIsland=${island.id}`))}>
                             <Plus className="size-3.5" /> Añadir dispensador

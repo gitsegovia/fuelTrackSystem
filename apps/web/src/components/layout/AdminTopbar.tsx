@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { LogOut, User } from 'lucide-react'
+import { AdminMobileNav } from '@/components/layout/AdminMobileNav'
+import { BrandMark } from '@/components/shared/BrandMark'
 
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: 'Administrador',
@@ -45,8 +47,12 @@ export function AdminTopbar() {
   const cargoLabel = userTypeLabel && userTypeLabel !== roleLabel ? userTypeLabel : null
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-6">
-      <div />
+    <header className="flex h-14 items-center justify-between border-b bg-background px-3 md:px-6">
+      <div className="flex items-center gap-1 md:hidden">
+        <AdminMobileNav />
+        <BrandMark size={28} textClassName="text-sm" />
+      </div>
+      <div className="hidden md:block" />
       <DropdownMenu>
         <DropdownMenuTrigger
           className="flex items-center gap-2 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"

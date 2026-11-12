@@ -125,14 +125,14 @@ export default function DiferencialAuditPage() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap gap-4 items-end">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="space-y-1">
           <Label htmlFor="startDate">Desde</Label>
-          <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
+          <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full sm:w-40" />
         </div>
         <div className="space-y-1">
           <Label htmlFor="endDate">Hasta</Label>
-          <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
+          <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full sm:w-40" />
         </div>
       </div>
 
@@ -142,7 +142,7 @@ export default function DiferencialAuditPage() {
         Montos en moneda base. Sin comisiones.
       </p>
 
-      <DataTable columns={columns} data={rows} loading={loading} />
+      <DataTable columns={columns} data={rows} loading={loading} mobileCards={false} />
     </div>
   )
 }

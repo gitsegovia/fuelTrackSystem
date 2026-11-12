@@ -205,13 +205,13 @@ export default function InvoicePaymentsPage() {
       />
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-4 items-end">
-        <div className="space-y-1.5 min-w-48">
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <div className="space-y-1.5 sm:min-w-48">
           <Label className="text-xs text-muted-foreground">Estación</Label>
           <select
             value={gasStationId}
             onChange={(e) => setGasStationId(e.target.value)}
-            className={selectClass}
+            className={cn(selectClass, 'w-full sm:w-auto')}
             disabled={stationScoped}
           >
             {!stationScoped && <option value="">Seleccionar estación…</option>}
@@ -226,7 +226,7 @@ export default function InvoicePaymentsPage() {
             type="month"
             value={monthStr}
             onChange={(e) => setMonthStr(e.target.value)}
-            className="h-8 w-36"
+            className="h-8 w-full sm:w-36"
           />
         </div>
       </div>

@@ -4,51 +4,14 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard, Building2, Fuel, Users, Droplets, Database, HardHat, Coins, Tag,
-  FileText, ShieldCheck, CreditCard, PanelLeftClose, PanelLeftOpen,
-} from 'lucide-react'
+import { PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { canAccessRoute } from '@/lib/permissions'
+import { adminNavGroups } from '@/lib/admin-nav'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { BrandMark } from '@/components/shared/BrandMark'
-
-const navGroups = [
-  {
-    label: null,
-    items: [
-      { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'Configuración',
-    items: [
-      { href: '/admin/companies', label: 'Empresas', icon: Building2 },
-      { href: '/admin/gas-stations', label: 'Estaciones', icon: Fuel },
-      { href: '/admin/fuel-types', label: 'Combustibles', icon: Droplets },
-      { href: '/admin/tank-models', label: 'Modelos de Tanque', icon: Database },
-      { href: '/admin/users', label: 'Usuarios', icon: Users },
-      { href: '/admin/employees', label: 'Empleados', icon: HardHat },
-      { href: '/admin/currencies', label: 'Monedas', icon: Coins },
-      { href: '/admin/sale-type-configs', label: 'Tipos de venta', icon: Tag },
-    ],
-  },
-  {
-    label: 'Operaciones',
-    items: [
-      { href: '/admin/invoices', label: 'Facturas', icon: FileText },
-      { href: '/admin/invoice-payments', label: 'Pagos de Facturas', icon: CreditCard },
-    ],
-  },
-  {
-    label: 'Auditoría',
-    items: [
-      { href: '/admin/audit', label: 'Auditoría', icon: ShieldCheck },
-    ],
-  },
-]
 
 // T-075 (_sidebar-plegable.md): clave de localStorage para recordar el estado
 // plegado/expandido entre recargas. Expandido por defecto.
@@ -69,7 +32,8 @@ export function AdminSidebar() {
   return (
     <aside
       className={cn(
-        'flex h-full flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 overflow-hidden',
+        // T-076: debajo de md la navegación es el drawer de AdminMobileNav, no este sidebar.
+        'hidden md:flex h-full flex-col bg-sidebar text-sidebar-foreground transition-[width] duration-200 overflow-hidden',
         collapsed ? 'w-16' : 'w-64',
       )}
     >
@@ -124,7 +88,7 @@ export function AdminSidebar() {
 
       {/* Nav */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-3 py-4 space-y-4 scrollbar-thin">
-        {navGroups.map((group, i) => {
+        {adminNavGroups.map((group, i) => {
           const items = group.items.filter(({ href }) => canAccessRoute(user, href))
           if (items.length === 0) return null
           return (
