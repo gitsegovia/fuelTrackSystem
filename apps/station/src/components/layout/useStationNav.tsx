@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Clock, Receipt, Gauge, Droplets, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, Clock, Receipt, Droplets, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useOffline } from '@/context/OfflineContext'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
@@ -12,8 +12,6 @@ export const navItems = [
   { to: '/tanks',     label: 'Tanques',          short: 'Tanques', icon: Droplets        },
   { to: '/sync',      label: 'Sincronización',   short: 'Sync',    icon: RefreshCw       },
 ]
-
-export { Gauge }
 
 /** Insignia de pendientes/errores y cierre de sesión con aviso, compartidos por sidebar y barras móviles. */
 export function useStationNav() {

@@ -2,7 +2,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
-import { navItems, Gauge, useStationNav } from './useStationNav'
+import { BrandLogo } from '@/components/shared/BrandLogo'
+import { navItems, useStationNav } from './useStationNav'
 
 /** Barra superior compacta (solo debajo de md). */
 export function MobileTopBar() {
@@ -11,16 +12,14 @@ export function MobileTopBar() {
 
   return (
     <header className="md:hidden flex shrink-0 items-center gap-2.5 bg-sidebar px-4 py-2 text-sidebar-foreground">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary">
-        <Gauge className="size-5 text-primary-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-tight">FuelTrack</span>
-        <span className="block truncate text-[11px] leading-tight text-sidebar-foreground/60">
-          {user?.assignedGasStation?.name}
-          {user ? ` · ${user.username}` : ''}
-        </span>
-      </div>
+      <BrandLogo
+        tone="dark"
+        className="min-w-0 flex-1"
+        symbolClassName="size-10"
+        textClassName="text-base"
+        subtitle={`${user?.assignedGasStation?.name ?? ''}${user ? ` · ${user.username}` : ''}`}
+        subtitleClassName="text-[11px] text-sidebar-foreground/60"
+      />
       <button
         onClick={handleLogout}
         aria-label="Cerrar sesión"
