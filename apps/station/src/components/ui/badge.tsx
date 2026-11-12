@@ -19,8 +19,26 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // Estado: fondo gris claro, borde negro de 1px y texto en negrita del color del estado (ver `tone`).
+        status:
+          "border-[#111827] bg-[#F1F3F5] font-semibold",
+      },
+      tone: {
+        success: "",
+        warning: "",
+        danger: "",
+        info: "",
+        neutral: "",
       },
     },
+    compoundVariants: [
+      { variant: "status", tone: "success", className: "text-[#15803D]" },
+      { variant: "status", tone: "warning", className: "text-[#B45309]" },
+      { variant: "status", tone: "danger", className: "text-[#B91C1C]" },
+      // #1E88E5 da 3,3:1 sobre el gris: se usa el azul más profundo para AA.
+      { variant: "status", tone: "info", className: "text-[#1565C0]" },
+      { variant: "status", tone: "neutral", className: "text-[#374151]" },
+    ],
     defaultVariants: {
       variant: "default",
     },
@@ -30,6 +48,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  tone,
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
@@ -37,7 +56,7 @@ function Badge({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
-        className: cn(badgeVariants({ variant }), className),
+        className: cn(badgeVariants({ variant, tone }), className),
       },
       props
     ),

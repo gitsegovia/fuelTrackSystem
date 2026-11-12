@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -169,22 +169,22 @@ function TankCard({
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {!hasVolume && (
-              <Badge variant="outline" className="text-xs text-muted-foreground">Sin medición</Badge>
+              <StatusBadge tone="neutral" className="text-xs">Sin medición</StatusBadge>
             )}
             {hasVolume && isCritical && (
-              <Badge variant="destructive" className="text-xs gap-1">
+              <StatusBadge tone="danger" className="text-xs gap-1">
                 <AlertTriangle className="size-3" /> Crítico
-              </Badge>
+              </StatusBadge>
             )}
             {hasVolume && isLow && !isCritical && (
-              <Badge className="text-xs gap-1 bg-amber-500 hover:bg-amber-500">
+              <StatusBadge tone="warning" className="text-xs gap-1">
                 <AlertTriangle className="size-3" /> Nivel bajo
-              </Badge>
+              </StatusBadge>
             )}
             {hasVolume && !isLow && (
-              <Badge variant="outline" className="text-xs gap-1 text-green-600 border-green-400/50">
+              <StatusBadge tone="success" className="text-xs gap-1">
                 <CheckCircle2 className="size-3" /> OK
-              </Badge>
+              </StatusBadge>
             )}
           </div>
         </div>

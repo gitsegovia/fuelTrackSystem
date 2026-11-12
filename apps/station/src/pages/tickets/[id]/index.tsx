@@ -12,7 +12,7 @@ import { QUERIES as RefundQueries, MUTATIONS as RefundMutations } from '@/servic
 import { QUERIES as CurrencyQueries } from '@/services/graphql/gql/currency'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as DispenserQueries } from '@/services/graphql/gql/dispenser'
-import { TICKET_STATUS_LABELS, PAYMENT_MODE_LABELS, canPay, canDispatch, isOpenTicket } from '@/lib/ticket-status'
+import { PAYMENT_MODE_LABELS, canPay, canDispatch, isOpenTicket } from '@/lib/ticket-status'
 import { useAuth } from '@/hooks/useAuth'
 import { useCan } from '@/hooks/useCan'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { TicketStatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { cn } from '@/lib/utils'
@@ -505,7 +505,7 @@ export default function TicketDetailPage() {
         <CardContent className="pt-4 space-y-3 text-sm">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Estado</span>
-            <Badge variant="outline">{TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
+            <TicketStatusBadge status={ticket.status} />
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Modo</span>

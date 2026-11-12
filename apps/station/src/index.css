@@ -69,8 +69,11 @@
   --brand-gradient: linear-gradient(135deg, #0EA5E9, #1E88E5 45%, #0F9D8F);
 }
 
-* {
-  border-color: var(--border);
+/* En @layer base para que las utilidades border-* de Tailwind v4 (capa utilities) puedan ganarle. */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
 }
 
 body {

@@ -7,6 +7,17 @@ export const TICKET_STATUS_LABELS: Record<string, string> = {
   CANCELED: 'Cancelado',
 }
 
+export type StatusTone = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
+
+/** Tono de la insignia de estado de cada estado de ticket. */
+export const TICKET_STATUS_TONES: Record<string, StatusTone> = {
+  ISSUED: 'neutral',
+  PAID: 'info',
+  DISPATCHED: 'warning',
+  COMPLETED: 'success',
+  CANCELED: 'danger',
+}
+
 export const PAYMENT_MODE_LABELS: Record<string, string> = {
   PREPAID: 'Prepago',
   POSTPAID: 'Postpago',

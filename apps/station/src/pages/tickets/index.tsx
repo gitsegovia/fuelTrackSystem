@@ -2,10 +2,9 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@apollo/client/react'
 import { useAuth } from '@/hooks/useAuth'
 import { QUERIES } from '@/services/graphql/gql/salesTicket'
-import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
-import { Badge } from '@/components/ui/badge'
+import { TicketStatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
@@ -49,7 +48,7 @@ export default function TicketsPage() {
     {
       header: 'Estado',
       cell: ({ row }) => (
-        <Badge variant="outline">{TICKET_STATUS_LABELS[row.original.status] ?? row.original.status}</Badge>
+        <TicketStatusBadge status={row.original.status} />
       ),
     },
     {
@@ -86,9 +85,7 @@ export default function TicketsPage() {
               <p className="font-medium">
                 #{t.ticketNumber} · {t.fuelType.name}
               </p>
-              <Badge variant="outline" className="shrink-0">
-                {TICKET_STATUS_LABELS[t.status] ?? t.status}
-              </Badge>
+              <TicketStatusBadge status={t.status} className="shrink-0" />
             </div>
             <div className="mt-1 flex items-end justify-between gap-2 text-sm">
               <span className="text-muted-foreground">

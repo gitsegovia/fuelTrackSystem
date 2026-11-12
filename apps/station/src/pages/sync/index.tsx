@@ -8,7 +8,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 
 const OPERATION_LABELS: Record<string, string> = {
   CreateEmployeeShift: 'Iniciar turno',
@@ -208,16 +208,16 @@ export default function SyncPage() {
                       <Meta item={item} />
                     </div>
                     {blocker ? (
-                      <Badge variant="outline" className="gap-1 text-xs">
+                      <StatusBadge tone={failedLocalIds.has(blocker) ? 'danger' : 'warning'} className="gap-1 text-xs">
                         <Link2 className="size-3" />
                         {failedLocalIds.has(blocker) ? 'Bloqueada por una operación con error' : 'Espera a otra operación'}
-                      </Badge>
+                      </StatusBadge>
                     ) : item.retries > 0 ? (
-                      <Badge variant="outline" className="text-xs text-amber-700 border-amber-400/50">
+                      <StatusBadge tone="warning" className="text-xs">
                         {item.retries} {item.retries === 1 ? 'intento fallido' : 'intentos fallidos'}
-                      </Badge>
+                      </StatusBadge>
                     ) : (
-                      <Badge variant="outline" className="text-xs">En cola</Badge>
+                      <StatusBadge tone="info" className="text-xs">En cola</StatusBadge>
                     )}
                   </div>
                   {item.lastError && (

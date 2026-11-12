@@ -6,7 +6,6 @@ import { QUERIES, MUTATIONS } from '@/services/graphql/gql/employeeShift'
 import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { QUERIES as TicketQueries } from '@/services/graphql/gql/salesTicket'
 import { QUERIES as ReadingQueries } from '@/services/graphql/gql/dispenserReading'
-import { TICKET_STATUS_LABELS } from '@/lib/ticket-status'
 import { useCan } from '@/hooks/useCan'
 import { useAuth } from '@/hooks/useAuth'
 import { useOfflineMutation } from '@/hooks/useOfflineMutation'
@@ -14,17 +13,9 @@ import { useOffline } from '@/context/OfflineContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge, TicketStatusBadge } from '@/components/shared/StatusBadge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { format } from 'date-fns'
-
-const STATUS_VARIANT: Record<string, 'default' | 'outline' | 'secondary' | 'destructive'> = {
-  ISSUED: 'secondary',
-  PAID: 'default',
-  DISPATCHED: 'default',
-  COMPLETED: 'outline',
-  CANCELED: 'destructive',
-}
 
 export default function ShiftDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -158,9 +149,9 @@ export default function ShiftDetailPage() {
         <CardContent className="pt-4 grid grid-cols-2 gap-4 text-sm">
           <div>
             <p className="text-muted-foreground text-xs">Estado</p>
-            <Badge variant={isActive ? 'default' : 'outline'} className="mt-1">
+            <StatusBadge tone={isActive ? 'info' : 'neutral'} className="mt-1">
               {isActive ? 'Activo' : 'Cerrado'}
-            </Badge>
+            </StatusBadge>
           </div>
           <div>
             <p className="text-muted-foreground text-xs">Hora de inicio</p>
@@ -252,9 +243,7 @@ export default function ShiftDetailPage() {
                     {t.assignedSaleTypeConfig.currency.symbol} {parseFloat(t.totalAmountExpected).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                 </div>
-                <Badge variant={STATUS_VARIANT[t.status] ?? 'outline'}>
-                  {TICKET_STATUS_LABELS[t.status] ?? t.status}
-                </Badge>
+                <TicketStatusBadge status={t.status} />
               </div>
             </Link>
           ))

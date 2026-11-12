@@ -8,7 +8,7 @@ import { QUERIES as EmployeeQueries } from '@/services/graphql/gql/employee'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { DataTable } from '@/components/shared/DataTable'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { StatusBadge } from '@/components/shared/StatusBadge'
 import type { ColumnDef } from '@tanstack/react-table'
 import { format } from 'date-fns'
 
@@ -54,7 +54,7 @@ export default function ShiftsPage() {
       cell: ({ row }) =>
         row.original.shiftEndTime
           ? format(new Date(row.original.shiftEndTime), 'dd/MM/yyyy HH:mm')
-          : <Badge variant="outline" className="text-primary border-primary/40">Activo</Badge>,
+          : <StatusBadge tone="info">Activo</StatusBadge>,
     },
     {
       id: 'actions',
@@ -95,7 +95,7 @@ export default function ShiftsPage() {
                 <p className="text-xs text-muted-foreground">{s.employeeRole}</p>
               </div>
               {s.shiftEndTime ? null : (
-                <Badge variant="outline" className="shrink-0 text-primary border-primary/40">Activo</Badge>
+                <StatusBadge tone="info" className="shrink-0">Activo</StatusBadge>
               )}
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
