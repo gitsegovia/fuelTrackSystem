@@ -46,7 +46,7 @@ const DASHBOARD_DAILY_TOTALS = gql`
   }
 `
 
-const CHART_COLORS = ['#F59E0B', '#3B82F6', '#10B981', '#8B5CF6', '#EF4444', '#F97316']
+const CHART_COLORS = ['#1E88E5', '#0F9D8F', '#0EA5E9', '#8B5CF6', '#EF4444', '#6366F1']
 
 const RANGES = [
   { label: '7 días', days: 7 },
@@ -423,10 +423,10 @@ export default function DashboardPage() {
                   <Line
                     type="monotone"
                     dataKey="tickets"
-                    stroke="#F59E0B"
+                    stroke="#1E88E5"
                     strokeWidth={2}
                     dot={false}
-                    activeDot={{ r: 4, fill: '#F59E0B' }}
+                    activeDot={{ r: 4, fill: '#1E88E5' }}
                   />
                 </LineChart>
               </ResponsiveContainer>

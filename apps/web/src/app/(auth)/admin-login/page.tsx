@@ -96,7 +96,12 @@ export default function AdminLoginPage() {
                 )}
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button
+                type="submit"
+                className="w-full"
+                style={{ backgroundImage: 'var(--brand-gradient)' }}
+                disabled={isLoading}
+              >
                 {isLoading && <Loader2 className="size-4 animate-spin" />}
                 {isLoading ? 'Ingresando...' : 'Ingresar'}
               </Button>

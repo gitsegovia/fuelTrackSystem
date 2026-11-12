@@ -45,7 +45,8 @@ export function AdminTopbar() {
   const cargoLabel = userTypeLabel && userTypeLabel !== roleLabel ? userTypeLabel : null
 
   return (
-    <header className="flex h-14 items-center justify-between border-b bg-background px-6">
+    <header className="relative flex h-14 items-center justify-between border-b bg-background px-6">
+      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: 'var(--brand-gradient)' }} />
       <div />
       <DropdownMenu>
         <DropdownMenuTrigger

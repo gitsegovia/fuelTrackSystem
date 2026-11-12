@@ -38,7 +38,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Estación360 theme: Zinc base + Amber primary */
+/* Estación360 theme (T-072, EXPERIMENTAL — paleta del logo, $BUS_PATH/tareas/_paleta-estacion360.md) */
 :root {
   --radius: 0.5rem;
   --background: oklch(1 0 0);
@@ -47,27 +47,31 @@
   --card-foreground: oklch(0.145 0.005 285);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0.005 285);
-  --primary: oklch(0.769 0.188 70);
-  --primary-foreground: oklch(0.145 0.005 285);
+  --primary: #1E88E5;
+  --primary-foreground: #FFFFFF;
   --secondary: oklch(0.967 0.001 286);
   --secondary-foreground: oklch(0.21 0.006 286);
-  --muted: oklch(0.967 0.001 286);
+  --muted: #F6F9FC;
   --muted-foreground: oklch(0.552 0.016 286);
   --accent: oklch(0.967 0.001 286);
   --accent-foreground: oklch(0.21 0.006 286);
   --destructive: oklch(0.577 0.245 27);
   --border: oklch(0.92 0.004 286);
   --input: oklch(0.92 0.004 286);
-  --ring: oklch(0.769 0.188 70);
-  /* Sidebar: dark zinc background, amber accents */
-  --sidebar: oklch(0.145 0.005 285);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.769 0.188 70);
-  --sidebar-primary-foreground: oklch(0.145 0.005 285);
-  --sidebar-accent: oklch(0.21 0.006 286);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286);
-  --sidebar-ring: oklch(0.769 0.188 70);
+  --ring: #1E88E5;
+  /* Marca: azul marino profundo (logo), acentos azul/degradado cian→azul→verde azulado */
+  --brand-cyan: #0EA5E9;
+  --brand-blue: #1E88E5;
+  --brand-teal: #0F9D8F;
+  --brand-gradient: linear-gradient(135deg, var(--brand-cyan), var(--brand-blue) 45%, var(--brand-teal));
+  --sidebar: #0B2238;
+  --sidebar-foreground: #E6F1FB;
+  --sidebar-primary: #1E88E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #123556;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #163B5C;
+  --sidebar-ring: #1E88E5;
 }
 
 .dark {
@@ -77,8 +81,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.21 0.006 286);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.769 0.188 70);
-  --primary-foreground: oklch(0.145 0.005 285);
+  --primary: #1E88E5;
+  --primary-foreground: #FFFFFF;
   --secondary: oklch(0.269 0.007 286);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0.007 286);
@@ -88,15 +92,19 @@
   --destructive: oklch(0.704 0.191 22);
   --border: oklch(0.269 0.007 286);
   --input: oklch(0.269 0.007 286);
-  --ring: oklch(0.769 0.188 70);
-  --sidebar: oklch(0.21 0.006 286);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.769 0.188 70);
-  --sidebar-primary-foreground: oklch(0.145 0.005 285);
-  --sidebar-accent: oklch(0.269 0.007 286);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286);
-  --sidebar-ring: oklch(0.769 0.188 70);
+  --ring: #1E88E5;
+  --brand-cyan: #0EA5E9;
+  --brand-blue: #1E88E5;
+  --brand-teal: #0F9D8F;
+  --brand-gradient: linear-gradient(135deg, var(--brand-cyan), var(--brand-blue) 45%, var(--brand-teal));
+  --sidebar: #0B2238;
+  --sidebar-foreground: #E6F1FB;
+  --sidebar-primary: #1E88E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #123556;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #163B5C;
+  --sidebar-ring: #1E88E5;
 }
 
 * {

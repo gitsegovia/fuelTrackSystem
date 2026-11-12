@@ -283,7 +283,7 @@ export default function EquipmentPage() {
                   {/* Island row */}
                   <div className={cn(
                     'flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors',
-                    isActive && 'border-l-2 border-l-amber-500 bg-amber-500/5'
+                    isActive && 'border-l-2 border-l-primary bg-primary/5'
                   )}>
                     <button
                       onClick={() => toggleIsland(island.id)}
@@ -292,7 +292,7 @@ export default function EquipmentPage() {
                       {islandOpen
                         ? <ChevronDown className="size-4 text-muted-foreground shrink-0" />
                         : <ChevronRight className="size-4 text-muted-foreground shrink-0" />}
-                      <Layers className={cn('size-4 shrink-0', isActive ? 'text-amber-500' : 'text-primary')} />
+                      <Layers className="size-4 shrink-0 text-primary" />
                       <span className="text-sm font-semibold">{island.name}</span>
                       {island.description && (
                         <span className="text-xs text-muted-foreground truncate">— {island.description}</span>
@@ -338,7 +338,7 @@ export default function EquipmentPage() {
                                   {dispOpen
                                     ? <ChevronDown className="size-3.5 text-muted-foreground shrink-0" />
                                     : <ChevronRight className="size-3.5 text-muted-foreground shrink-0" />}
-                                  <Gauge className="size-3.5 text-amber-500 shrink-0" />
+                                  <Gauge className="size-3.5 text-primary shrink-0" />
                                   <span className="text-sm font-medium">{disp.name}</span>
                                   <span className="text-xs text-muted-foreground">
                                     {disp.fuelType.name} · {disp.tank.name}
