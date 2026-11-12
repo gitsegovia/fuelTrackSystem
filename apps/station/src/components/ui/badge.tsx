@@ -21,7 +21,7 @@ const badgeVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Estado: fondo gris claro, borde negro de 1px y texto en negrita del color del estado (ver `tone`).
         status:
-          "border-[#111827] bg-[#F1F3F5] font-semibold",
+          "border-[#B6B6B6] bg-[#F1F3F5] font-semibold",
       },
       tone: {
         success: "",
