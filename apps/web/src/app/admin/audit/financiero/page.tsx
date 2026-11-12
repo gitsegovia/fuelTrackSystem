@@ -110,9 +110,9 @@ const columns: ColumnDef<ShiftFinancialRow>[] = [
     cell: ({ row }) => {
       const diff = Math.abs(parseFloat(row.original.financialDifferential))
       const pending = row.original.pendingTickets
-      if (pending > 0) return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Tickets pendientes</Badge>
-      if (diff > 1) return <Badge variant="destructive">Descuadre</Badge>
-      return <Badge variant="outline" className="text-emerald-700 border-emerald-200">Cuadrado</Badge>
+      if (pending > 0) return <Badge variant="status" tone="warning">Tickets pendientes</Badge>
+      if (diff > 1) return <Badge variant="status" tone="danger">Descuadre</Badge>
+      return <Badge variant="status" tone="success">Cuadrado</Badge>
     },
   },
 ]

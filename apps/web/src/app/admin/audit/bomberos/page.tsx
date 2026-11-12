@@ -88,9 +88,9 @@ const columns: ColumnDef<DispatcherAuditRow>[] = [
     header: 'Tendencia',
     cell: ({ row }) => {
       const shortPct = parseFloat(row.original.shortTicketPercent)
-      if (shortPct > 30) return <Badge variant="destructive">Alto riesgo</Badge>
-      if (shortPct > 15) return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Observar</Badge>
-      return <Badge variant="outline" className="text-emerald-700 border-emerald-200">Normal</Badge>
+      if (shortPct > 30) return <Badge variant="status" tone="danger">Alto riesgo</Badge>
+      if (shortPct > 15) return <Badge variant="status" tone="warning">Observar</Badge>
+      return <Badge variant="status" tone="success">Normal</Badge>
     },
   },
 ]

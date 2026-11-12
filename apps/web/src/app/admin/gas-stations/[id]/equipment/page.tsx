@@ -67,7 +67,7 @@ function NozzleList({ dispenserId, stationId, islandId, canWrite, onEdit, onDele
             <CircleDot className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="text-sm font-medium flex-1">{nozzle.name}</span>
             <span className="text-xs text-muted-foreground">Lectura: {parseFloat(nozzle.currentMeterReading).toLocaleString()}</span>
-            <Badge variant={nozzle.isOperational ? 'default' : 'secondary'} className="text-xs">
+            <Badge variant="status" tone={nozzle.isOperational ? 'success' : 'neutral'} className="text-xs">
               {nozzle.isOperational ? 'Operativa' : 'Inactiva'}
             </Badge>
             {canWrite && (
@@ -343,7 +343,7 @@ export default function EquipmentPage() {
                                   <span className="text-xs text-muted-foreground">
                                     {disp.fuelType.name} · {disp.tank.name}
                                   </span>
-                                  <Badge variant={disp.isOperational ? 'default' : 'secondary'} className="ml-auto text-xs">
+                                  <Badge variant="status" tone={disp.isOperational ? 'success' : 'neutral'} className="ml-auto text-xs">
                                     {disp.isOperational ? 'Operativo' : 'Inactivo'}
                                   </Badge>
                                 </button>

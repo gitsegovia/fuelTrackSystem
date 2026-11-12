@@ -431,23 +431,11 @@ function CloseCard({
               }
             </button>
 
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-[10px] px-1.5 py-0',
-                isMonthly ? 'text-primary border-primary/40' : 'text-muted-foreground border-border'
-              )}
-            >
+            <Badge variant="status" tone={isMonthly ? 'info' : 'neutral'} className="text-[10px] px-1.5 py-0">
               {isMonthly ? 'Mensual' : 'Manual'}
             </Badge>
 
-            <Badge
-              variant="outline"
-              className={isDraft
-                ? 'text-amber-600 border-amber-500/40 bg-amber-50 text-[10px] px-1.5 py-0'
-                : 'text-emerald-600 border-emerald-500/40 bg-emerald-50 text-[10px] px-1.5 py-0'
-              }
-            >
+            <Badge variant="status" tone={isDraft ? 'neutral' : 'success'} className="text-[10px] px-1.5 py-0">
               {isDraft ? 'Borrador' : 'Confirmado'}
             </Badge>
 

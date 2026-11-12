@@ -26,10 +26,12 @@ const FUEL_KIND_LABELS: Record<string, string> = {
   KEROSENE: 'Kerosene',
 }
 
+// Tonos de `_badges-estado.md`: Pendiente (nada hecho aún) ámbar, Parcial (en curso) azul
+// informativo, Pagada verde. Así las tres quedan visualmente distintas en la columna Estado.
 const STATUS_CONFIG = {
-  PENDING: { label: 'Pendiente', className: 'text-destructive border-destructive/40 bg-destructive/5' },
-  PARTIAL: { label: 'Parcial', className: 'text-amber-600 border-amber-500/40 bg-amber-50' },
-  PAID: { label: 'Pagada', className: 'text-emerald-600 border-emerald-500/40 bg-emerald-50' },
+  PENDING: { label: 'Pendiente', tone: 'warning' as const },
+  PARTIAL: { label: 'Parcial', tone: 'info' as const },
+  PAID: { label: 'Pagada', tone: 'success' as const },
 }
 
 type GasStation = { id: string; name: string; code: string; active: boolean }
@@ -176,7 +178,7 @@ export default function InvoicePaymentsPage() {
       cell: ({ row }) => {
         const cfg = STATUS_CONFIG[row.original.paymentStatus]
         return (
-          <Badge variant="outline" className={cfg.className}>
+          <Badge variant="status" tone={cfg.tone}>
             {cfg.label}
           </Badge>
         )

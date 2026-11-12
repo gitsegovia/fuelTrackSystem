@@ -124,20 +124,20 @@ export default function GasStationsPage() {
       header: 'Estado',
       cell: ({ row }) => {
         if (!row.original.active) {
-          return <Badge variant="secondary">Desactivada</Badge>
+          return <Badge variant="status" tone="danger">Desactivada</Badge>
         }
         if (license?.unauthorizedStationIds?.includes(row.original.id)) {
           return (
             <Badge
-              variant="outline"
-              className="text-amber-700 border-amber-300 bg-amber-50"
+              variant="status"
+              tone="warning"
               title="Contacta a Core Code Innovation para habilitarla"
             >
               No habilitada en la licencia
             </Badge>
           )
         }
-        return <Badge variant="default">Activa</Badge>
+        return <Badge variant="status" tone="info">Activa</Badge>
       },
     },
     {

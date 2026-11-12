@@ -83,9 +83,9 @@ const columns: ColumnDef<TankBalanceRow>[] = [
     header: 'Estado',
     cell: ({ row }) => {
       const pct = Math.abs(parseFloat(row.original.variancePercent))
-      if (pct > 2) return <Badge variant="destructive">Crítico (&gt;2%)</Badge>
-      if (pct > 0.5) return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Atención</Badge>
-      return <Badge variant="outline" className="text-emerald-700 border-emerald-200">Normal</Badge>
+      if (pct > 2) return <Badge variant="status" tone="danger">Crítico (&gt;2%)</Badge>
+      if (pct > 0.5) return <Badge variant="status" tone="warning">Atención</Badge>
+      return <Badge variant="status" tone="success">Normal</Badge>
     },
   },
 ]

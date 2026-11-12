@@ -88,8 +88,7 @@ export default function InvoiceDetailPage() {
           </div>
           <div className="flex justify-between">
             <span className="text-muted-foreground">Estado</span>
-            <Badge variant={invoice.status === 'CLOSED' ? 'secondary' : 'outline'}
-              className={invoice.status === 'CLOSED' ? '' : 'text-primary border-primary/40'}>
+            <Badge variant="status" tone={invoice.status === 'CLOSED' ? 'neutral' : 'warning'}>
               {invoice.status === 'CLOSED' ? 'Cerrada' : 'Pendiente'}
             </Badge>
           </div>

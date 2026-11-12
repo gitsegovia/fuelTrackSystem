@@ -108,8 +108,7 @@ export default function InvoicesPage() {
     {
       header: 'Estado',
       cell: ({ row }) => (
-        <Badge variant={row.original.status === 'CLOSED' ? 'secondary' : 'outline'}
-          className={row.original.status === 'CLOSED' ? 'text-muted-foreground' : 'text-primary border-primary/40'}>
+        <Badge variant="status" tone={row.original.status === 'CLOSED' ? 'neutral' : 'warning'}>
           {row.original.status === 'CLOSED' ? 'Cerrada' : 'Pendiente'}
         </Badge>
       ),

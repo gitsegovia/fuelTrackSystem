@@ -39,10 +39,11 @@ const PAYMENT_METHOD_LABELS: Record<string, string> = {
   CARD: 'Tarjeta',
 }
 
+// Mismo criterio que admin/invoice-payments/page.tsx — ver el comentario ahí.
 const STATUS_CONFIG = {
-  PENDING: { label: 'Pendiente', className: 'text-destructive border-destructive/40 bg-destructive/5' },
-  PARTIAL: { label: 'Pago parcial', className: 'text-amber-600 border-amber-500/40 bg-amber-50' },
-  PAID: { label: 'Pagada', className: 'text-emerald-600 border-emerald-500/40 bg-emerald-50' },
+  PENDING: { label: 'Pendiente', tone: 'warning' as const },
+  PARTIAL: { label: 'Pago parcial', tone: 'info' as const },
+  PAID: { label: 'Pagada', tone: 'success' as const },
 }
 
 const selectClass = cn(
@@ -273,7 +274,7 @@ export default function InvoicePaymentDetailPage() {
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Estado</CardTitle>
           </CardHeader>
           <CardContent className="pt-3">
-            <Badge variant="outline" className={cn('text-sm px-3 py-1', statusCfg.className)}>
+            <Badge variant="status" tone={statusCfg.tone} className="text-sm px-3 py-1">
               {balance.paymentStatus === 'PAID' && <CheckCircle2 className="size-3.5 mr-1.5" />}
               {statusCfg.label}
             </Badge>

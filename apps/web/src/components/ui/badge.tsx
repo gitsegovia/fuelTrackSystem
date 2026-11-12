@@ -19,10 +19,30 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // T-072/T-073 (EXPERIMENTAL): insignia de estado, un solo estilo para todos los
+        // estados (fondo gris + borde gris #B6B6B6) — el color lo da `tone`, no `variant`.
+        status: "border-[#B6B6B6] bg-[#F1F3F5] font-semibold",
+      },
+      tone: {
+        success: "",
+        warning: "",
+        danger: "",
+        info: "",
+        neutral: "",
       },
     },
+    compoundVariants: [
+      { variant: "status", tone: "success", class: "text-[#15803D]" },
+      { variant: "status", tone: "warning", class: "text-[#B45309]" },
+      { variant: "status", tone: "danger", class: "text-[#B91C1C]" },
+      // #1E88E5 (azul marca) da 3.3:1 sobre el gris de fondo, bajo el AA 4.5:1 que pide
+      // la spec de badges; #1565C0 sí llega (5.2:1) — la propia spec prevé este fallback.
+      { variant: "status", tone: "info", class: "text-[#1565C0]" },
+      { variant: "status", tone: "neutral", class: "text-[#374151]" },
+    ],
     defaultVariants: {
       variant: "default",
+      tone: "neutral",
     },
   }
 )
@@ -30,6 +50,7 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  tone,
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
@@ -37,7 +58,7 @@ function Badge({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
-        className: cn(badgeVariants({ variant }), className),
+        className: cn(badgeVariants({ variant, tone }), className),
       },
       props
     ),
