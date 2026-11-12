@@ -16,7 +16,7 @@ export default defineConfig({
         name: 'Estación360 · Panel de Estación',
         short_name: 'Estación360',
         description: 'Panel operacional para estaciones de servicio',
-        theme_color: '#f59e0b',
+        theme_color: '#0B2238',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait',

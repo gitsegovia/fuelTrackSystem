@@ -102,7 +102,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[image:var(--brand-gradient)] px-4 py-2 max-md:py-3 text-sm font-medium text-white shadow transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isLoading && <Loader2 className="size-4 animate-spin" />}
               {isLoading ? 'Ingresando...' : 'Ingresar'}

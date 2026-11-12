@@ -36,7 +36,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* FuelTrack theme: Zinc base + Amber primary */
+/* Estación360 (prueba T-073): azul del logo + sidebar marino. El ámbar queda solo para avisos/estado. */
 :root {
   --radius: 0.5rem;
   --background: oklch(1 0 0);
@@ -45,8 +45,8 @@
   --card-foreground: oklch(0.145 0.005 285);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0.005 285);
-  --primary: oklch(0.769 0.188 70);
-  --primary-foreground: oklch(0.145 0.005 285);
+  --primary: #1E88E5;
+  --primary-foreground: #FFFFFF;
   --secondary: oklch(0.967 0.001 286);
   --secondary-foreground: oklch(0.21 0.006 286);
   --muted: oklch(0.967 0.001 286);
@@ -56,16 +56,17 @@
   --destructive: oklch(0.577 0.245 27);
   --border: oklch(0.92 0.004 286);
   --input: oklch(0.92 0.004 286);
-  --ring: oklch(0.769 0.188 70);
-  /* Sidebar: dark zinc background, amber accents */
-  --sidebar: oklch(0.145 0.005 285);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.769 0.188 70);
-  --sidebar-primary-foreground: oklch(0.145 0.005 285);
-  --sidebar-accent: oklch(0.21 0.006 286);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.274 0.006 286);
-  --sidebar-ring: oklch(0.769 0.188 70);
+  --ring: #1E88E5;
+  /* Sidebar: azul marino profundo */
+  --sidebar: #0B2238;
+  --sidebar-foreground: #E6F1FB;
+  --sidebar-primary: #1E88E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #123556;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #163B5C;
+  --sidebar-ring: #1E88E5;
+  --brand-gradient: linear-gradient(135deg, #0EA5E9, #1E88E5 45%, #0F9D8F);
 }
 
 * {

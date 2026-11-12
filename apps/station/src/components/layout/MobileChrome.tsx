@@ -11,7 +11,8 @@ export function MobileTopBar() {
   const { handleLogout, logoutDialog } = useStationNav()
 
   return (
-    <header className="md:hidden flex shrink-0 items-center gap-2.5 bg-sidebar px-4 py-2 text-sidebar-foreground">
+    <header className="md:hidden relative flex shrink-0 items-center gap-2.5 bg-sidebar px-4 py-2 text-sidebar-foreground">
+      <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: 'var(--brand-gradient)' }} />
       <BrandLogo
         tone="dark"
         className="min-w-0 flex-1"
@@ -51,7 +52,7 @@ export function MobileBottomNav() {
             aria-label={short}
             className={cn(
               'relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors',
-              active ? 'text-primary' : 'text-sidebar-foreground/70',
+              active ? 'text-[#4DA3F0]' : 'text-sidebar-foreground/70',
             )}
           >
             <span className="relative">
