@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Building2, Fuel, Users, Gauge, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
+import { LayoutDashboard, Building2, Fuel, Users, Droplets, Database, HardHat, Coins, Tag, FileText, ShieldCheck, CreditCard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { canAccessRoute } from '@/lib/permissions'
 import { Separator } from '@/components/ui/separator'
+import { BrandMark } from '@/components/shared/BrandMark'
 
 const navGroups = [
   {
@@ -50,11 +51,8 @@ export function AdminSidebar() {
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-          <Gauge className="size-5 text-primary-foreground" />
-        </div>
-        <span className="text-base font-semibold tracking-tight">FuelTrack</span>
+      <div className="px-5 py-5">
+        <BrandMark size={32} onDark textClassName="text-base" />
       </div>
 
       <Separator className="bg-sidebar-border" />

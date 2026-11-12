@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Gauge, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { BrandMark } from '@/components/shared/BrandMark'
 
 const loginSchema = z.object({
   username: z.string().min(1, 'El usuario es requerido'),
@@ -43,14 +44,9 @@ export default function AdminLoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <Gauge className="size-7 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">FuelTrack</h1>
-            <p className="text-sm text-muted-foreground">Panel de Administración</p>
-          </div>
+        <div className="flex flex-col items-center gap-3 mb-8 text-center">
+          <BrandMark size={48} stacked textClassName="text-xl" />
+          <p className="text-sm text-muted-foreground">Panel de Administración</p>
         </div>
 
         <Card>

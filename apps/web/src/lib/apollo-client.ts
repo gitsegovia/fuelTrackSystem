@@ -72,7 +72,7 @@ function buildOfflineLink(): ApolloLink {
               (d: any) => d.kind === 'OperationDefinition' && d.operation === 'mutation'
             )
             if (isMutation && isNetworkDown(err) && typeof window !== 'undefined') {
-              console.log('[FuelTrack] Queuing offline mutation:', operation.operationName, {
+              console.log('[Estación360] Queuing offline mutation:', operation.operationName, {
                 errName: (err as any)?.name,
                 errMsg: (err as any)?.message,
                 navigatorOnline: navigator.onLine,
@@ -83,7 +83,7 @@ function buildOfflineLink(): ApolloLink {
                 variables: operation.variables as Record<string, unknown>,
               })
                 .then(() => onMutationQueued?.())
-                .catch((qErr) => console.warn('[FuelTrack] Queue write failed:', qErr))
+                .catch((qErr) => console.warn('[Estación360] Queue write failed:', qErr))
             }
             observer.error(err)
           },
@@ -111,9 +111,9 @@ export function makeApolloClient() {
       maxSize: 1048576 * 5,
       debounce: 2000,
     })
-      .then(() => console.log('[FuelTrack] Cache restored from localStorage'))
+      .then(() => console.log('[Estación360] Cache restored from localStorage'))
       .catch((e) => {
-        console.warn('[FuelTrack] Cache restore failed, starting fresh:', e)
+        console.warn('[Estación360] Cache restore failed, starting fresh:', e)
         try { window.localStorage.removeItem('apollo-cache-persist') } catch {}
       })
   }

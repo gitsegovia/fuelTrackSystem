@@ -212,7 +212,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Dashboard" description="Resumen operacional de FuelTrack" />
+      <PageHeader title="Dashboard" description="Resumen operacional de Estación360" />
 
       {/* Stats del sistema */}
       <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
