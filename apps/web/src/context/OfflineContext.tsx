@@ -93,7 +93,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
           await removeFromQueue(item.id)
           synced++
         } catch (err) {
-          console.warn('[FuelTrack] Sync failed for', item.operationName, err)
+          console.warn('[Estación360] Sync failed for', item.operationName, err)
           await incrementRetry(item.id)
           hadError = true
         }

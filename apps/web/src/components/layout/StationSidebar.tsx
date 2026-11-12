@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Clock, Receipt, LogOut, Gauge, Droplets } from 'lucide-react'
+import { LayoutDashboard, Clock, Receipt, LogOut, Droplets } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { BrandMark } from '@/components/shared/BrandMark'
 
 const navItems = [
   { href: '/station/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,16 +22,13 @@ export function StationSidebar() {
 
   return (
     <aside className="flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-          <Gauge className="size-5 text-primary-foreground" />
-        </div>
-        <div>
-          <span className="text-base font-semibold tracking-tight block">FuelTrack</span>
-          {user?.assignedGasStation && (
-            <span className="text-[11px] text-sidebar-foreground/50 leading-tight">{user.assignedGasStation.name}</span>
-          )}
-        </div>
+      <div className="px-5 py-5 space-y-0.5">
+        <BrandMark size={32} onDark textClassName="text-base" />
+        {user?.assignedGasStation && (
+          <span className="text-[11px] text-sidebar-foreground/50 leading-tight block pl-[42px]">
+            {user.assignedGasStation.name}
+          </span>
+        )}
       </div>
 
       <Separator className="bg-sidebar-border" />

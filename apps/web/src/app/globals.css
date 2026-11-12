@@ -38,7 +38,7 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* FuelTrack theme: Zinc base + Amber primary */
+/* Estación360 theme: Zinc base + Amber primary */
 :root {
   --radius: 0.5rem;
   --background: oklch(1 0 0);
