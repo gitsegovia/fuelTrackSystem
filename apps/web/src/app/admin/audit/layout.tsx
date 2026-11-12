@@ -59,8 +59,8 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold">Auditoría y Análisis</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -72,7 +72,7 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
           <select
             value={selectedId}
             onChange={(e) => onStationChange(e.target.value)}
-            className={selectClass}
+            className={cn(selectClass, 'w-full sm:w-auto')}
             disabled={stationScoped}
           >
             {stations.map((s) => (
@@ -83,7 +83,7 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
       </div>
 
       {/* Sub-nav */}
-      <div className="flex gap-1 border-b border-border pb-0">
+      <div className="flex gap-1 overflow-x-auto border-b border-border pb-0 -mx-4 px-4 md:mx-0 md:px-0">
         {tabs.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href)
           return (
@@ -91,7 +91,7 @@ export default function AuditLayout({ children }: { children: React.ReactNode })
               key={href}
               href={buildTabHref(href)}
               className={cn(
-                'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
+                'flex shrink-0 items-center gap-2 whitespace-nowrap px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
                 active
                   ? 'border-primary text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',

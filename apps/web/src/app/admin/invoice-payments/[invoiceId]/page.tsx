@@ -238,7 +238,7 @@ export default function InvoicePaymentDetailPage() {
       />
 
       {/* Balance cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total factura</CardTitle>
@@ -300,7 +300,7 @@ export default function InvoicePaymentDetailPage() {
               <CardTitle className="text-sm">Nuevo pago</CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+              <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-xs">Monto <span className="text-destructive">*</span></Label>
                   <Input {...register('amount')} type="number" step="0.01" placeholder="0.00" className="h-8" aria-invalid={!!errors.amount} />
@@ -333,7 +333,7 @@ export default function InvoicePaymentDetailPage() {
                   <Label className="text-xs">Notas</Label>
                   <Input {...register('notes')} placeholder="Opcional" className="h-8" />
                 </div>
-                <div className="col-span-2 lg:col-span-3 flex justify-end gap-2 pt-1">
+                <div className="col-span-1 sm:col-span-2 lg:col-span-3 flex justify-end gap-2 pt-1">
                   <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
                     Cancelar
                   </Button>

@@ -122,7 +122,7 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Placa del camión *</Label>
                 <Input placeholder="AB-123CD" {...register('truckPlate')} aria-invalid={!!errors.truckPlate} />
@@ -135,7 +135,7 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Nombre del chofer *</Label>
                 <Input placeholder="Juan Pérez" {...register('driverName')} aria-invalid={!!errors.driverName} />
@@ -148,7 +148,7 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Tipo de combustible *</Label>
                 <select {...register('fuelKind')} className={selectClass}>
@@ -160,7 +160,7 @@ export default function NewInvoicePage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Fecha de despacho *</Label>
                 <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export default function NewInvoicePage() {
             <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Destino y montos</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Estación receptora *</Label>
                 <select {...register('gasStationId')} className={selectClass}>

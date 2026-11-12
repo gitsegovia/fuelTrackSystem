@@ -40,16 +40,16 @@ export default function InvoiceDetailPage() {
         title={`Factura ${invoice.invoiceNumber}`}
         description={`${invoice.receivingGasStation.name} · ${FUEL_KIND_LABELS[invoice.fuelKind] ?? invoice.fuelKind}`}
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => router.back()}>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => router.back()}>
               <ArrowLeft className="size-4" /> Volver
             </Button>
             {invoice.status === 'PENDING' && (
-              <Button size="sm" onClick={() => router.push(`/admin/invoices/${id}/reception/new`)}>
+              <Button size="sm" className="w-full sm:w-auto" onClick={() => router.push(`/admin/invoices/${id}/reception/new`)}>
                 <PackagePlus className="size-4" /> Registrar descarga
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={() => router.push(`/admin/invoices/${id}/edit`)}>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => router.push(`/admin/invoices/${id}/edit`)}>
               <Pencil className="size-4" /> Editar
             </Button>
           </div>
@@ -61,55 +61,55 @@ export default function InvoiceDetailPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">Datos de la factura</CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm">
-          <div className="flex justify-between">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">N° Control</span>
             <span className="font-medium">{invoice.controlNumber}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">N° Precinto</span>
             <span className="font-medium">{invoice.sealNumber}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Placa camión</span>
             <span className="font-medium">{invoice.truckPlate}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Placa tanque</span>
             <span className="font-medium">{invoice.tankPlate}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Chofer</span>
             <span className="font-medium">{invoice.driverName}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Cédula chofer</span>
             <span className="font-medium">{invoice.driverIdNumber}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Estado</span>
             <Badge variant={invoice.status === 'CLOSED' ? 'secondary' : 'outline'}
               className={invoice.status === 'CLOSED' ? '' : 'text-primary border-primary/40'}>
               {invoice.status === 'CLOSED' ? 'Cerrada' : 'Pendiente'}
             </Badge>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Fecha despacho</span>
             <span>{format(new Date(invoice.dispatchDate), 'dd/MM/yyyy HH:mm')}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Fecha descarga</span>
             <span>{format(new Date(invoice.dischargeDate), 'dd/MM/yyyy HH:mm')}</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Litros facturados</span>
             <span className="font-medium">{invoiceLiters.toLocaleString()} L</span>
           </div>
-          <div className="flex justify-between">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
             <span className="text-muted-foreground">Costo por litro</span>
             <span>{invoice.currency.symbol} {parseFloat(invoice.costPerLiter).toFixed(4)}</span>
           </div>
-          <div className="flex justify-between col-span-2 border-t pt-3 font-medium">
+          <div className="flex flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-2 col-span-1 sm:col-span-2 border-t pt-3 font-medium">
             <span>Monto total</span>
             <span>{invoice.currency.symbol} {parseFloat(invoice.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
           </div>

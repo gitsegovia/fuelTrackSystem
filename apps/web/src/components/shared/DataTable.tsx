@@ -8,6 +8,7 @@ import {
   getPaginationRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type TableOptions,
 } from '@tanstack/react-table'
 import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
@@ -42,6 +43,51 @@ interface DataTableProps<TData, TValue> {
   /** Muestra el buscador de texto libre sobre la tabla. Default true. */
   searchable?: boolean
   searchPlaceholder?: string
+  /**
+   * Debajo de `md`, tarjetas apiladas en vez de la tabla (T-076). Se arman solas a partir
+   * de las columnas: la primera (que no sea `actions`) es el título de la tarjeta, el resto
+   * va como pares etiqueta/valor, y la columna `id: 'actions'` al pie. Poner en `false` para
+   * tablas muy densas de solo lectura (auditoría) — ahí se deja la tabla con scroll
+   * horizontal propio en vez de volverla tarjetas.
+   */
+  mobileCards?: boolean
+}
+
+function MobileRowCard<TData>({ row }: { row: Row<TData> }) {
+  const cells = row.getVisibleCells()
+  const actionsCell = cells.find((c) => c.column.id === 'actions')
+  const [titleCell, ...restCells] = cells.filter((c) => c.column.id !== 'actions')
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-2 text-sm">
+      {titleCell && (
+        <div className="font-medium">
+          {flexRender(titleCell.column.columnDef.cell, titleCell.getContext())}
+        </div>
+      )}
+      {restCells.length > 0 && (
+        <div className="space-y-1">
+          {restCells.map((cell) => {
+            const header = cell.column.columnDef.header
+            const label = typeof header === 'string' && header ? header : null
+            return (
+              <div key={cell.id} className="flex items-center justify-between gap-3">
+                {label && <span className="text-xs text-muted-foreground shrink-0">{label}</span>}
+                <span className={cn('min-w-0 text-right', !label && 'ml-auto')}>
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {actionsCell && (
+        <div className="flex items-center justify-end gap-1 border-t pt-2">
+          {flexRender(actionsCell.column.columnDef.cell, actionsCell.getContext())}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function DataTable<TData, TValue>({
@@ -52,6 +98,7 @@ export function DataTable<TData, TValue>({
   pageSize = 25,
   searchable = true,
   searchPlaceholder = 'Buscar...',
+  mobileCards = true,
 }: DataTableProps<TData, TValue>) {
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -91,7 +138,21 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
-      <div className="rounded-lg border bg-card overflow-hidden">
+      {mobileCards && (
+        <div className="space-y-2 md:hidden">
+          {loading ? (
+            Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-24 w-full rounded-lg" />)
+          ) : table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => <MobileRowCard key={row.id} row={row} />)
+          ) : (
+            <p className="rounded-lg border bg-card py-8 text-center text-sm text-muted-foreground">
+              {globalFilter ? 'Sin resultados para la búsqueda.' : 'Sin resultados.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      <div className={cn('rounded-lg border bg-card overflow-x-auto', mobileCards && 'hidden md:block')}>
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

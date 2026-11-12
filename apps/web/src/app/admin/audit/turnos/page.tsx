@@ -156,19 +156,19 @@ export default function TurnosAuditPage() {
   return (
     <div className="space-y-8">
       {/* Filtros */}
-      <div className="flex flex-wrap gap-4 items-end">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="space-y-1">
           <Label htmlFor="startDate">Desde</Label>
-          <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-40" />
+          <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full sm:w-40" />
         </div>
         <div className="space-y-1">
           <Label htmlFor="endDate">Hasta</Label>
-          <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-40" />
+          <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full sm:w-40" />
         </div>
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-lg border bg-card p-4 space-y-1">
           <p className="text-xs text-muted-foreground">Turnos analizados</p>
           <p className="text-2xl font-bold">{rows.length}</p>
@@ -192,7 +192,7 @@ export default function TurnosAuditPage() {
         <strong>Cajero − Tanque</strong>: diferencia entre los tickets del cajero y la medición física del tanque al cierre.
       </p>
 
-      <DataTable columns={columns} data={rows} loading={loading} />
+      <DataTable columns={columns} data={rows} loading={loading} mobileCards={false} />
     </div>
   )
 }

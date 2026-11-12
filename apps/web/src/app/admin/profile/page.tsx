@@ -23,7 +23,7 @@ export default function ProfilePage() {
       <PageHeader title="Mi perfil" description="Datos de tu cuenta en el panel admin." />
 
       <Card>
-        <CardContent className="grid grid-cols-2 gap-4">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Usuario" value={user.username} />
           <Field label="Rol" value={user.role} />
           <Field label="Tipo / cargo" value={user.userType} />

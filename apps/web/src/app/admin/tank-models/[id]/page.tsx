@@ -252,7 +252,7 @@ export default function TankModelDetailPage() {
             Datos del modelo
           </CardTitle>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 text-sm">
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-xs text-muted-foreground">Forma</p>
             <p className="font-medium">{model.shape}</p>
@@ -274,7 +274,7 @@ export default function TankModelDetailPage() {
             </div>
           )}
           {model.description && (
-            <div className="col-span-2">
+            <div className="col-span-1 sm:col-span-2">
               <p className="text-xs text-muted-foreground">Descripción</p>
               <p className="font-medium">{model.description}</p>
             </div>

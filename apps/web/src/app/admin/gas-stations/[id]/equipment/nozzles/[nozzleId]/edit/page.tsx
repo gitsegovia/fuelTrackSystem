@@ -91,7 +91,7 @@ export default function EditNozzlePage() {
               <Input {...register('name')} aria-invalid={!!errors.name} />
               {errors.name && <p className="text-xs text-destructive">{errors.name.message}</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Lectura inicial *</Label>
                 <Input {...register('initialMeterReading')} aria-invalid={!!errors.initialMeterReading} />
