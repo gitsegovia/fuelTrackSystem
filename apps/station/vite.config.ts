@@ -13,8 +13,8 @@ export default defineConfig({
       // Habilitado en dev para poder probar el SW sin necesidad de build
       devOptions: { enabled: false },
       manifest: {
-        name: 'FuelTrack Station',
-        short_name: 'FuelTrack',
+        name: 'Estación360 · Panel de Estación',
+        short_name: 'Estación360',
         description: 'Panel operacional para estaciones de servicio',
         theme_color: '#f59e0b',
         background_color: '#09090b',

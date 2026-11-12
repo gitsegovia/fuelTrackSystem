@@ -17,7 +17,7 @@ export function StationSidebar() {
           <Gauge className="size-5 text-primary-foreground" />
         </div>
         <div>
-          <span className="text-base font-semibold tracking-tight block">FuelTrack</span>
+          <span className="text-base font-semibold tracking-tight block">Estación360</span>
           {user?.assignedGasStation && (
             <span className="text-[11px] text-sidebar-foreground/50 leading-tight">
               {user.assignedGasStation.name}

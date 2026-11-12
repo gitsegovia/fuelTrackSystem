@@ -42,7 +42,7 @@ export default function LoginPage() {
             <Gauge className="size-7 text-primary-foreground" />
           </div>
           <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">FuelTrack</h1>
+            <h1 className="text-xl font-bold tracking-tight">Estación360</h1>
             <p className="text-sm text-muted-foreground">Panel de Estación</p>
           </div>
         </div>

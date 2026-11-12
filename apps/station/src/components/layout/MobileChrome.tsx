@@ -15,7 +15,7 @@ export function MobileTopBar() {
         <Gauge className="size-5 text-primary-foreground" />
       </div>
       <div className="min-w-0 flex-1">
-        <span className="block text-sm font-semibold leading-tight">FuelTrack</span>
+        <span className="block text-sm font-semibold leading-tight">Estación360</span>
         <span className="block truncate text-[11px] leading-tight text-sidebar-foreground/60">
           {user?.assignedGasStation?.name}
           {user ? ` · ${user.username}` : ''}
