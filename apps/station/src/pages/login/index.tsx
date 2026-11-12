@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Gauge, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { BrandLogo } from '@/components/shared/BrandLogo'
 import { toast } from 'sonner'
 import { STATION_BLOCKED_LOGIN_MESSAGES, graphQLErrorCode } from '@/lib/graphql-errors'
 import { useAuth } from '@/hooks/useAuth'
@@ -38,11 +39,10 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 px-4">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
-          <div className="flex size-12 items-center justify-center rounded-2xl bg-primary shadow-lg">
-            <Gauge className="size-7 text-primary-foreground" />
-          </div>
-          <div className="text-center">
-            <h1 className="text-xl font-bold tracking-tight">Estación360</h1>
+          <div className="text-center space-y-1">
+            <h1>
+              <BrandLogo className="flex-col gap-2" symbolClassName="size-24" textClassName="text-2xl" />
+            </h1>
             <p className="text-sm text-muted-foreground">Panel de Estación</p>
           </div>
         </div>

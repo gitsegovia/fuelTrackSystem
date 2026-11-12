@@ -2,7 +2,8 @@ import { Link, useLocation } from 'react-router-dom'
 import { LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
-import { navItems, Gauge, useStationNav } from './useStationNav'
+import { BrandLogo } from '@/components/shared/BrandLogo'
+import { navItems, useStationNav } from './useStationNav'
 
 export function StationSidebar() {
   const { pathname } = useLocation()
@@ -12,18 +13,14 @@ export function StationSidebar() {
   return (
     <aside className="hidden md:flex h-full w-64 flex-col bg-sidebar text-sidebar-foreground shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5">
-        <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
-          <Gauge className="size-5 text-primary-foreground" />
-        </div>
-        <div>
-          <span className="text-base font-semibold tracking-tight block">Estación360</span>
-          {user?.assignedGasStation && (
-            <span className="text-[11px] text-sidebar-foreground/50 leading-tight">
-              {user.assignedGasStation.name}
-            </span>
-          )}
-        </div>
+      <div className="px-5 py-5">
+        <BrandLogo
+          tone="dark"
+          symbolClassName="size-11"
+          textClassName="text-lg"
+          subtitle={user?.assignedGasStation?.name}
+          subtitleClassName="text-[11px] text-sidebar-foreground/50"
+        />
       </div>
 
       <div className="h-px bg-sidebar-border" />
